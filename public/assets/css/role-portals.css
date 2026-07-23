@@ -1,0 +1,134 @@
+.role-portal {
+  background: #f4f7fb;
+  color: #172033;
+}
+.portal-shell {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  min-height: 100vh;
+}
+.portal-sidebar {
+  background: #0b2f6b;
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  padding: 24px;
+}
+.portal-brand {
+  align-items: center;
+  color: #fff;
+  display: flex;
+  font-weight: 800;
+  gap: 10px;
+  text-decoration: none;
+}
+.portal-brand img,
+.portal-user img {
+  border-radius: 50%;
+  height: 38px;
+  object-fit: cover;
+  width: 38px;
+}
+.portal-sidebar nav {
+  display: grid;
+  gap: 8px;
+}
+.portal-sidebar a,
+.portal-sidebar button {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 8px;
+  color: rgba(255,255,255,.82);
+  display: flex;
+  gap: 10px;
+  min-height: 44px;
+  padding: 0 12px;
+  text-decoration: none;
+  width: 100%;
+}
+.portal-sidebar a.active,
+.portal-sidebar a:hover,
+.portal-sidebar button:hover {
+  background: rgba(255,255,255,.12);
+  color: #fff;
+}
+.portal-sidebar form {
+  margin-top: auto;
+}
+.portal-main {
+  padding: 24px;
+}
+.portal-topbar {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 22px;
+}
+.portal-topbar p {
+  color: #667085;
+  margin: 0 0 4px;
+}
+.portal-topbar h1 {
+  font-size: 28px;
+  font-weight: 800;
+  margin: 0;
+}
+.portal-user {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+}
+.portal-card {
+  background: #fff;
+  border: 1px solid #e7ebf1;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(16, 24, 40, .06);
+  padding: 18px;
+}
+.portal-stat-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-bottom: 18px;
+}
+.portal-stat {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+}
+.portal-stat strong {
+  display: block;
+  font-size: 24px;
+}
+.portal-stat span {
+  color: #667085;
+}
+.portal-grid {
+  display: grid;
+  gap: 18px;
+  grid-template-columns: 1.4fr .9fr;
+}
+.portal-list {
+  display: grid;
+  gap: 10px;
+}
+.portal-list-item {
+  align-items: center;
+  border: 1px solid #edf1f5;
+  border-radius: 8px;
+  display: flex;
+  justify-content: space-between;
+  padding: 12px;
+}
+.portal-list-item p {
+  color: #667085;
+  margin: 2px 0 0;
+}
+@media (max-width: 900px) {
+  .portal-shell { grid-template-columns: 1fr; }
+  .portal-sidebar { border-radius: 0 0 16px 16px; }
+  .portal-stat-grid,
+  .portal-grid { grid-template-columns: 1fr; }
+}
