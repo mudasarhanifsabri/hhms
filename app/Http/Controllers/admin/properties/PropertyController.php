@@ -36,6 +36,10 @@ class PropertyController extends Controller
     {
         $validated = $request->validate([
             'landlord_id' => 'required|exists:users,id',
+            'owner_ids' => 'nullable|array',
+            'owner_ids.*' => 'nullable|exists:users,id',
+            'owner_shares' => 'nullable|array',
+            'owner_shares.*' => 'nullable|numeric|min:0|max:100',
             'building_id' => 'required|exists:buildings,id',
             'smartlock_id' => 'nullable|exists:smartlocks,id',
 
@@ -109,18 +113,22 @@ class PropertyController extends Controller
         // Ensure UUID for property ID
         $validated['id'] = Str::uuid()->toString();
 
-        Property::create($validated);
+        $property = Property::create($validated);
+        $this->syncOwnerShares($property, $request);
 
         return redirect()->route('admin.property.index')->with('success', 'Property created successfully.');
     }
 
     public function show(Property $property)
     {
+        $property->load(['landlord', 'building', 'ownerShares.owner']);
+
         return view('admin.properties.show', compact('property'));
     }
 
     public function edit(Property $property)
     {
+        $property->load('ownerShares.owner');
         $landlords = User::where('role', 'landlord')->get();
         $buildings = Building::all();
 
@@ -131,6 +139,10 @@ class PropertyController extends Controller
     {
         $validated = $request->validate([
             'landlord_id' => 'required|exists:users,id',
+            'owner_ids' => 'nullable|array',
+            'owner_ids.*' => 'nullable|exists:users,id',
+            'owner_shares' => 'nullable|array',
+            'owner_shares.*' => 'nullable|numeric|min:0|max:100',
             'building_id' => 'required|exists:buildings,id',
             'name' => 'required|string|max:255',
             'status' => 'required|in:available,booked,under_cleaning,under_maintenance',
@@ -149,6 +161,7 @@ class PropertyController extends Controller
         ]);
 
         $property->update($validated);
+        $this->syncOwnerShares($property, $request);
 
         return redirect()->route('admin.property.index')->with('success', 'Property updated successfully.');
     }
@@ -157,5 +170,34 @@ class PropertyController extends Controller
     {
         $property->delete();
         return redirect()->back()->with('success', 'Property deleted successfully.');
+    }
+
+    private function syncOwnerShares(Property $property, Request $request): void
+    {
+        $ownerIds = $request->input('owner_ids', []);
+        $shares = $request->input('owner_shares', []);
+        $sync = [];
+
+        foreach ($ownerIds as $index => $ownerId) {
+            if (! $ownerId) {
+                continue;
+            }
+
+            $sync[$ownerId] = [
+                'share_percent' => isset($shares[$index]) && $shares[$index] !== null && $shares[$index] !== ''
+                    ? (float) $shares[$index]
+                    : 0,
+                'is_primary' => $ownerId === $property->landlord_id,
+            ];
+        }
+
+        if (! array_key_exists($property->landlord_id, $sync)) {
+            $sync[$property->landlord_id] = [
+                'share_percent' => empty($sync) ? 100 : 0,
+                'is_primary' => true,
+            ];
+        }
+
+        $property->owners()->sync($sync);
     }
 }

@@ -5,6 +5,7 @@
 @php
     $landlord = $property->landlord ?? null;
     $building = $property->building ?? null;
+    $ownerShares = $property->ownerShares ?? collect();
 
     $asArray = function ($value) {
         if (is_array($value)) {
@@ -48,49 +49,33 @@
         {{-- OWNER CARD --}}
         <div class="card">
             <div class="card-header bg-light-subtle">
-                <h4 class="card-title">Property Owner Details</h4>
+                <h4 class="card-title mb-0">Unit Owners</h4>
             </div>
             <div class="card-body">
-                <div class="text-center">
-                    {{-- Owner avatar (fallback to sample) --}}
-                    <img src="{{ $landlord && $landlord->avatar
-                                ? asset('storage/'.$landlord->avatar)
-                                : asset('assets/images/users/avatar-1.jpg') }}"
-                         alt=""
-                         class="avatar-xl rounded-circle border border-2 border-light mx-auto">
-
-                    <div class="mt-2">
-                        <a href="#!" class="fw-medium text-dark fs-16">
-                            {{ $landlord->name ?? 'N/A' }}
-                        </a>
-                        <p class="mb-0">(Owner)</p>
-                    </div>
-
-                    {{-- Social icons kept as design placeholders --}}
-                    <div class="mt-3">
-                        <ul class="list-inline justify-content-center d-flex gap-1 mb-0 align-items-center">
-                            <li class="list-inline-item">
-                                <a href="javascript: void(0);" class="btn btn-light avatar-sm d-flex align-items-center justify-content-center text-primary fs-20">
-                                    <i class='ri-facebook-fill'></i>
-                                </a>
-                            </li>
-                            <li class="list-inline-item">
-                                <a href="javascript: void(0);" class="btn btn-light avatar-sm d-flex align-items-center justify-content-center text-danger fs-20">
-                                    <i class='ri-instagram-fill'></i>
-                                </a>
-                            </li>
-                            <li class="list-inline-item">
-                                <a href="javascript: void(0);" class="btn btn-light avatar-sm d-flex align-items-center justify-content-center text-info fs-20">
-                                    <i class='ri-twitter-fill'></i>
-                                </a>
-                            </li>
-                            <li class="list-inline-item">
-                                <a href="javascript: void(0);" class="btn btn-light avatar-sm d-flex align-items-center justify-content-center text-success fs-20">
-                                    <i class='ri-whatsapp-fill'></i>
-                                </a>
-                            </li>
-                        </ul>
-                    </div>
+                <div class="vstack gap-3">
+                    @forelse($ownerShares as $share)
+                        <div class="d-flex align-items-center gap-3 border rounded p-2">
+                            <img src="{{ $share->owner?->profile_photo ? asset('storage/'.$share->owner->profile_photo) : asset('assets/images/users/avatar-1.jpg') }}"
+                                 alt=""
+                                 class="avatar-md rounded-circle border">
+                            <div class="flex-grow-1">
+                                <div class="fw-semibold text-dark">{{ $share->owner?->name ?? 'Owner' }}</div>
+                                <div class="text-muted small">{{ $share->owner?->email }}</div>
+                                <div class="text-muted small">{{ $share->owner?->phone }}</div>
+                            </div>
+                            <span class="badge bg-primary-subtle text-primary">{{ number_format((float) $share->share_percent, 2) }}%</span>
+                        </div>
+                    @empty
+                        <div class="d-flex align-items-center gap-3 border rounded p-2">
+                            <img src="{{ asset('assets/images/users/avatar-1.jpg') }}" alt="" class="avatar-md rounded-circle border">
+                            <div class="flex-grow-1">
+                                <div class="fw-semibold text-dark">{{ $landlord->name ?? 'N/A' }}</div>
+                                <div class="text-muted small">{{ $landlord->email ?? '' }}</div>
+                                <div class="text-muted small">{{ $landlord->phone ?? '' }}</div>
+                            </div>
+                            <span class="badge bg-primary-subtle text-primary">100%</span>
+                        </div>
+                    @endforelse
                 </div>
             </div>
             <div class="card-footer bg-light-subtle">
@@ -106,6 +91,11 @@
                         <a href="#!" class="btn btn-success w-100">
                             <iconify-icon icon="solar:chat-round-dots-bold-duotone" class="align-middle fs-16"></iconify-icon>
                             Message
+                        </a>
+                    </div>
+                    <div class="col-12">
+                        <a href="{{ route('admin.property.owner-documents.index', $property->id) }}" class="btn btn-dark w-100">
+                            <i class="ri-file-sign-line me-1"></i>Owner Documents
                         </a>
                     </div>
                 </div>
@@ -291,8 +281,8 @@
     @endif
 
     {{-- SECURITY UTILITIES --}}
-    @if(!empty($security_utilities))
-        @foreach($security_utilities as $sec)
+    @if(!empty($securityUtilities))
+        @foreach($securityUtilities as $sec)
             <span class="badge bg-light-subtle text-muted border fw-medium fs-13 px-2 py-1">
                 🔒 {{ $sec }}
             </span>
@@ -333,7 +323,7 @@
     {{-- FALLBACK WHEN NO DATA --}}
     @if(
         empty($amenities) &&
-        empty($security_utilities) &&
+        empty($securityUtilities) &&
         empty($additionalFeatures) &&
         empty($property->has_security) &&
         empty($property->distance_to_road) &&
@@ -374,8 +364,20 @@
                             </tr>
                             
                             <tr>
-                                <th>Management Fee</th>
-                                <td>{{ $property->management_fee ?? 'N/A' }}</td>
+                                <th>Management Fee %</th>
+                                <td>{{ $property->management_fee_percent !== null ? number_format((float) $property->management_fee_percent, 2) . '%' : 'N/A' }}</td>
+                            </tr>
+                            <tr>
+                                <th>Owners</th>
+                                <td>
+                                    @forelse($ownerShares as $share)
+                                        <span class="badge bg-light-subtle text-muted border px-2 py-1">
+                                            {{ $share->owner?->name }} - {{ number_format((float) $share->share_percent, 2) }}%
+                                        </span>
+                                    @empty
+                                        {{ $landlord->name ?? 'N/A' }} - 100%
+                                    @endforelse
+                                </td>
                             </tr>
                             <tr>
                                 <th>Bedrooms</th>

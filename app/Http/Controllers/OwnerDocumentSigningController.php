@@ -100,7 +100,7 @@ class OwnerDocumentSigningController extends Controller
 
     private function renderDocumentHtml(PropertyOwnerDocument $document, ?string $signatureData, ?string $signedByName): string
     {
-        $document->loadMissing(['property.building', 'landlord']);
+        $document->loadMissing(['property.building', 'property.ownerShares.owner', 'landlord']);
 
         return view('owner-documents.document', [
             'document' => $document,

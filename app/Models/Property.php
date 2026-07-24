@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Support\Str;
 
 class Property extends Model
@@ -119,6 +120,18 @@ class Property extends Model
     public function landlord()
     {
         return $this->belongsTo(User::class, 'landlord_id');
+    }
+
+    public function ownerShares(): HasMany
+    {
+        return $this->hasMany(PropertyOwnerShare::class);
+    }
+
+    public function owners(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'property_owner_shares', 'property_id', 'owner_id')
+            ->withPivot(['share_percent', 'is_primary'])
+            ->withTimestamps();
     }
 
     public function building()

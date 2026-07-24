@@ -7,10 +7,18 @@
     <link href="{{ asset('assets/css/vendor.min.css') }}" rel="stylesheet">
     <link href="{{ asset('assets/css/app.min.css') }}" rel="stylesheet">
     <style>
-        body { background: #f4f6f8; }
-        .sign-wrap { max-width: 1100px; margin: 24px auto; padding: 0 12px; }
-        .document-frame { background: #fff; border: 1px solid #dde3ea; min-height: 560px; padding: 18px; overflow: auto; }
-        canvas { width: 100%; height: 180px; border: 1px dashed #98a6ad; background: #fff; touch-action: none; }
+        body { background: #eef2f6; }
+        .sign-wrap { max-width: 1180px; margin: 18px auto; padding: 0 12px 28px; }
+        .sign-shell { border-radius: 14px; overflow: hidden; box-shadow: 0 18px 45px rgba(15, 23, 42, .12); }
+        .document-frame { background: #fff; border: 1px solid #dde3ea; height: calc(100vh - 165px); min-height: 580px; padding: 18px; overflow: auto; }
+        .signature-panel { position: sticky; top: 16px; }
+        canvas { width: 100%; height: 280px; border: 2px dashed #62748e; border-radius: 12px; background: #fff; touch-action: none; }
+        .signature-help { background: #eaf3ff; border: 1px solid #b8d8ff; color: #16436f; border-radius: 10px; padding: 10px 12px; }
+        @media (max-width: 991.98px) {
+            .document-frame { height: auto; min-height: 420px; max-height: 62vh; }
+            .signature-panel { position: static; }
+            canvas { height: 320px; }
+        }
     </style>
 </head>
 <body>
@@ -21,7 +29,7 @@
 
     <div class="row g-3">
         <div class="col-lg-8">
-            <div class="card">
+            <div class="card sign-shell">
                 <div class="card-header">
                     <h4 class="card-title mb-0">{{ $document->title }} - {{ $document->reference_no }}</h4>
                 </div>
@@ -33,7 +41,7 @@
             </div>
         </div>
         <div class="col-lg-4">
-            <div class="card">
+            <div class="card signature-panel">
                 <div class="card-header">
                     <h4 class="card-title mb-0">Owner Signature</h4>
                 </div>
@@ -49,6 +57,9 @@
                     @else
                         <form action="{{ route('owner-documents.sign', $document->signing_token) }}" method="POST" id="signatureForm">
                             @csrf
+                            <div class="signature-help mb-3">
+                                Review the document, write your name, then sign inside the box. The signed PDF will be generated immediately.
+                            </div>
                             <div class="mb-3">
                                 <label for="signed_by_name" class="form-label">Your Name</label>
                                 <input type="text" id="signed_by_name" name="signed_by_name" class="form-control" value="{{ old('signed_by_name', $document->landlord->name) }}" required>

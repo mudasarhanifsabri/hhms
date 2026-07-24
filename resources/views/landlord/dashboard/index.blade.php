@@ -46,4 +46,24 @@
         </div>
     </section>
 </div>
+
+<section class="portal-card mt-3" id="documents">
+    <h4>Documents & Signing</h4>
+    <div class="portal-list">
+        @forelse($documents as $document)
+            <div class="portal-list-item">
+                <div>
+                    <strong>{{ $document->title }}</strong>
+                    <p>{{ $document->property?->name }} - {{ $document->reference_no }}</p>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    <span class="badge {{ $document->status === 'signed' ? 'bg-success' : 'bg-warning' }}">{{ $document->status_label }}</span>
+                    <a href="{{ route('owner-documents.show', $document->signing_token) }}" target="_blank" class="btn btn-sm btn-primary">Open</a>
+                </div>
+            </div>
+        @empty
+            <p class="text-muted mb-0">No owner documents yet.</p>
+        @endforelse
+    </div>
+</section>
 @endsection

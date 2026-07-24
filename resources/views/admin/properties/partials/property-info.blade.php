@@ -11,7 +11,7 @@
                 <select class="form-control" id="landlord_id" name="landlord_id" data-choices data-placeholder="Select Landlord">
                     <option value="">Select Landlord</option>
                     @foreach ($landlords as $landlord)
-                        <option value="{{ $landlord->id }}" {{ old('landlord_id') == $landlord->id ? 'selected' : '' }}>
+                        <option value="{{ $landlord->id }}" {{ old('landlord_id', $property->landlord_id ?? '') == $landlord->id ? 'selected' : '' }}>
                             {{ $landlord->name }} ({{ $landlord->email }})
                         </option>
                     @endforeach
@@ -24,17 +24,79 @@
                 <select class="form-control" id="building_id" name="building_id" data-choices data-placeholder="Select Building">
                     <option value="">Select Building</option>
                     @foreach($buildings as $building)
-                        <option value="{{ $building->id }}" {{ old('building_id') == $building->id ? 'selected' : '' }}>
+                        <option value="{{ $building->id }}" {{ old('building_id', $property->building_id ?? '') == $building->id ? 'selected' : '' }}>
                             {{ $building->building_name }}
                         </option>
                     @endforeach
                 </select>
             </div>
 
+            @php
+                $oldOwnerIds = old('owner_ids');
+                $oldOwnerShares = old('owner_shares');
+                $ownerRows = collect();
+
+                if (is_array($oldOwnerIds)) {
+                    foreach ($oldOwnerIds as $index => $ownerId) {
+                        $ownerRows->push(['owner_id' => $ownerId, 'share_percent' => $oldOwnerShares[$index] ?? '']);
+                    }
+                } elseif (isset($property) && $property->relationLoaded('ownerShares')) {
+                    $ownerRows = $property->ownerShares->map(fn ($share) => [
+                        'owner_id' => $share->owner_id,
+                        'share_percent' => $share->share_percent,
+                    ]);
+                }
+
+                if ($ownerRows->isEmpty()) {
+                    $ownerRows->push(['owner_id' => old('landlord_id', $property->landlord_id ?? ''), 'share_percent' => 100]);
+                }
+            @endphp
+
+            <div class="col-12">
+                <div class="border rounded p-3 bg-light-subtle">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <div>
+                            <label class="form-label mb-0">Unit Owners & Share %</label>
+                            <div class="text-muted small">Use this when a unit has more than one owner. Total share should be 100%.</div>
+                        </div>
+                        <button type="button" class="btn btn-sm btn-soft-primary" id="addOwnerShare">
+                            <i class="ri-add-line me-1"></i>Add Owner
+                        </button>
+                    </div>
+                    <div id="ownerShareRows" class="vstack gap-2">
+                        @foreach($ownerRows as $row)
+                            <div class="row g-2 owner-share-row align-items-center">
+                                <div class="col-md-8">
+                                    <select class="form-control" name="owner_ids[]">
+                                        <option value="">Select owner</option>
+                                        @foreach($landlords as $landlord)
+                                            <option value="{{ $landlord->id }}" @selected($row['owner_id'] == $landlord->id)>
+                                                {{ $landlord->name }} ({{ $landlord->email }})
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="input-group">
+                                        <input type="number" step="0.01" min="0" max="100" name="owner_shares[]" class="form-control" value="{{ $row['share_percent'] }}" placeholder="Share">
+                                        <span class="input-group-text">%</span>
+                                    </div>
+                                </div>
+                                <div class="col-md-1 d-grid">
+                                    <button type="button" class="btn btn-light remove-owner-share" title="Remove">
+                                        <i class="ri-delete-bin-line"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
+            </div>
+
             <!-- Unit No -->
             <div class="col-lg-6">
                 <label for="unit_no" class="form-label">Unit Name</label>
-                <input type="text" id="unit_no" name="name" class="form-control" placeholder="Enter Unit Number or Name" value="{{ old('name') }}">
+                <input type="text" id="unit_no" name="name" class="form-control" placeholder="Enter Unit Number or Name" value="{{ old('name', $property->name ?? '') }}">
             </div>
 
             <!-- Property Category -->

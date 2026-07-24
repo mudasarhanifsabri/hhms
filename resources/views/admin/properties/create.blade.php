@@ -105,5 +105,22 @@ document.getElementById('saveDraftBtn').addEventListener('click', function () {
         btn.textContent = 'Save Draft';
     });
 });
+
+const ownerRows = document.getElementById('ownerShareRows');
+const addOwnerShare = document.getElementById('addOwnerShare');
+if (ownerRows && addOwnerShare) {
+    addOwnerShare.addEventListener('click', function () {
+        const row = ownerRows.querySelector('.owner-share-row').cloneNode(true);
+        row.querySelectorAll('select, input').forEach((input) => input.value = '');
+        ownerRows.appendChild(row);
+    });
+
+    ownerRows.addEventListener('click', function (event) {
+        const removeButton = event.target.closest('.remove-owner-share');
+        if (!removeButton) return;
+        if (ownerRows.querySelectorAll('.owner-share-row').length === 1) return;
+        removeButton.closest('.owner-share-row').remove();
+    });
+}
 </script>
 @endpush
