@@ -73,9 +73,9 @@
                                     <td>{{ $document->expires_at?->format('d M Y') }}</td>
                                     <td>
                                         @if($document->signed_document_path)
-                                            <a href="{{ asset('storage/' . $document->signed_document_path) }}" target="_blank" class="btn btn-sm btn-dark">Open PDF</a>
+                                            <a href="{{ route('owner-documents.pdf', $document->signing_token) }}" target="_blank" class="btn btn-sm btn-dark">Open PDF</a>
                                         @else
-                                            <span class="text-muted">Pending</span>
+                                            <a href="{{ route('owner-documents.pdf', $document->signing_token) }}" target="_blank" class="btn btn-sm btn-light">Preview</a>
                                         @endif
                                     </td>
                                     <td>

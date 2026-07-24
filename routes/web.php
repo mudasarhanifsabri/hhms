@@ -36,6 +36,7 @@ Route::middleware(['auth'])->get('/dashboard', function () {
 
 Route::get('/owner-documents/{token}', [OwnerDocumentSigningController::class, 'show'])->name('owner-documents.show');
 Route::post('/owner-documents/{token}/sign', [OwnerDocumentSigningController::class, 'sign'])->name('owner-documents.sign');
+Route::get('/owner-documents/{token}/pdf', [OwnerDocumentSigningController::class, 'pdf'])->name('owner-documents.pdf');
 Route::get('/guest/bookings/{reference}', [GuestPortalController::class, 'show'])->name('guest.booking.show');
 Route::get('/guest/bookings/{reference}/invoice', [GuestPortalController::class, 'invoice'])->name('guest.booking.invoice');
 Route::get('/guest/bookings/{reference}/confirmation', [GuestPortalController::class, 'confirmation'])->name('guest.booking.confirmation');

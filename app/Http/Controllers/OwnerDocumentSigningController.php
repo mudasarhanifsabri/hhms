@@ -23,7 +23,36 @@ class OwnerDocumentSigningController extends Controller
             $document->update(['status' => 'viewed', 'viewed_at' => now()]);
         }
 
+        $currentHtml = $this->renderDocumentHtml(
+            $document,
+            $document->signed_at ? $document->signature_data : null,
+            $document->signed_at ? $document->landlord?->name : null
+        );
+
+        if ($document->signed_at) {
+            $document->signed_html = $currentHtml;
+        } else {
+            $document->unsigned_html = $currentHtml;
+        }
+
         return view('owner-documents.sign', compact('document'));
+    }
+
+    public function pdf(string $token)
+    {
+        $document = PropertyOwnerDocument::with(['property.building', 'landlord'])
+            ->where('signing_token', $token)
+            ->firstOrFail();
+
+        $html = $this->renderDocumentHtml(
+            $document,
+            $document->signed_at ? $document->signature_data : null,
+            $document->signed_at ? $document->landlord?->name : null
+        );
+
+        return Pdf::loadHTML($html)
+            ->setPaper('a4')
+            ->stream($document->reference_no . '.pdf');
     }
 
     public function sign(Request $request, string $token)
@@ -55,14 +84,7 @@ class OwnerDocumentSigningController extends Controller
             'signed_at' => now(),
         ]);
 
-        $signedHtml = view('owner-documents.document', [
-            'document' => $document,
-            'property' => $document->property,
-            'landlord' => $document->landlord,
-            'building' => $document->property->building,
-            'signatureData' => $validated['signature_data'],
-            'signedByName' => $validated['signed_by_name'],
-        ])->render();
+        $signedHtml = $this->renderDocumentHtml($document, $validated['signature_data'], $validated['signed_by_name']);
 
         $path = 'owner-documents/' . $document->reference_no . '.pdf';
         Storage::disk('public')->put($path, Pdf::loadHTML($signedHtml)->setPaper('a4')->output());
@@ -74,5 +96,19 @@ class OwnerDocumentSigningController extends Controller
 
         return redirect()->route('owner-documents.show', $document->signing_token)
             ->with('success', 'Document signed successfully.');
+    }
+
+    private function renderDocumentHtml(PropertyOwnerDocument $document, ?string $signatureData, ?string $signedByName): string
+    {
+        $document->loadMissing(['property.building', 'landlord']);
+
+        return view('owner-documents.document', [
+            'document' => $document,
+            'property' => $document->property,
+            'landlord' => $document->landlord,
+            'building' => $document->property->building,
+            'signatureData' => $signatureData,
+            'signedByName' => $signedByName,
+        ])->render();
     }
 }

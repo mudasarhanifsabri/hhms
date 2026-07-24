@@ -44,7 +44,7 @@
                     @if($document->signed_at)
                         <div class="alert alert-success">Signed on {{ $document->signed_at->format('d M Y H:i') }}</div>
                         @if($document->signed_document_path)
-                            <a href="{{ asset('storage/' . $document->signed_document_path) }}" class="btn btn-dark w-100" target="_blank">Open Signed PDF</a>
+                            <a href="{{ route('owner-documents.pdf', $document->signing_token) }}" class="btn btn-dark w-100" target="_blank">Open Signed PDF</a>
                         @endif
                     @else
                         <form action="{{ route('owner-documents.sign', $document->signing_token) }}" method="POST" id="signatureForm">
