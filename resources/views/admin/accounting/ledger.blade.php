@@ -19,12 +19,13 @@
     </div>
     <div class="table-responsive">
         <table class="table table-hover align-middle mb-0">
-            <thead class="bg-light-subtle"><tr><th>Date</th><th>Entry No</th><th>Type</th><th>Unit</th><th>Description</th><th>VAT</th><th>Debit</th><th>Credit</th></tr></thead>
+            <thead class="bg-light-subtle"><tr><th>Date</th><th>Entry No</th><th>Account</th><th>Type</th><th>Unit</th><th>Description</th><th>VAT</th><th>Debit</th><th>Credit</th></tr></thead>
             <tbody>
             @forelse($entries as $entry)
                 <tr>
                     <td>{{ $entry->entry_date?->format('d M Y') }}</td>
                     <td class="fw-semibold">{{ $entry->entry_no }}</td>
+                    <td>{{ $entry->accountingAccount?->code }} {{ $entry->accountingAccount?->name }}</td>
                     <td>{{ $entryTypes[$entry->type] ?? ucfirst($entry->type) }}</td>
                     <td>{{ $entry->property?->name ?? '-' }}</td>
                     <td>{{ Str::limit($entry->description, 55) }}</td>
@@ -33,7 +34,7 @@
                     <td>AED {{ number_format((float) $entry->credit, 2) }}</td>
                 </tr>
             @empty
-                <tr><td colspan="8" class="text-center text-muted py-4">No entries found.</td></tr>
+                <tr><td colspan="9" class="text-center text-muted py-4">No entries found.</td></tr>
             @endforelse
             </tbody>
         </table>
@@ -48,6 +49,8 @@
             <div class="col-md-4"><label class="form-label">Date</label><input type="date" name="entry_date" value="{{ now()->toDateString() }}" class="form-control" required></div>
             <div class="col-md-4"><label class="form-label">Type</label><select name="type" class="form-select" required>@foreach($entryTypes as $key => $label)<option value="{{ $key }}">{{ $label }}</option>@endforeach</select></div>
             <div class="col-md-4"><label class="form-label">Category</label><input name="category" class="form-control"></div>
+            <div class="col-md-6"><label class="form-label">Chart Account</label><select name="accounting_account_id" class="form-select"><option value="">Select account</option>@foreach($accounts as $account)<option value="{{ $account->id }}">{{ $account->code }} - {{ $account->name }}</option>@endforeach</select></div>
+            <div class="col-md-6"><label class="form-label">Paid From / Bank</label><select name="paid_from_account_id" class="form-select"><option value="">None</option>@foreach($bankAccounts as $bankAccount)<option value="{{ $bankAccount->id }}">{{ $bankAccount->name }} ({{ ucfirst($bankAccount->type) }})</option>@endforeach</select></div>
             <div class="col-md-6"><label class="form-label">Unit</label><select name="property_id" class="form-select"><option value="">None</option>@foreach($properties as $property)<option value="{{ $property->id }}">{{ $property->name }}</option>@endforeach</select></div>
             <div class="col-md-6"><label class="form-label">Owner</label><select name="landlord_id" class="form-select"><option value="">None</option>@foreach($owners as $owner)<option value="{{ $owner->id }}">{{ $owner->name }}</option>@endforeach</select></div>
             <div class="col-md-4"><label class="form-label">Debit</label><input type="number" step="0.01" name="debit" class="form-control" value="0"></div>

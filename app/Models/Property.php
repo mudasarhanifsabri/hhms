@@ -180,6 +180,11 @@ public function accountingEntries(): HasMany
     return $this->hasMany(AccountingEntry::class);
 }
 
+public function getUnitLabelAttribute(): string
+{
+    return trim(($this->building?->name ? $this->building->name . ' - ' : '') . ($this->name ?? 'Unit'));
+}
+
 public function getStatusLabelAttribute(): string
 {
     return self::STATUSES[$this->status] ?? ucfirst((string) $this->status);

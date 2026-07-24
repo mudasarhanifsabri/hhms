@@ -3,7 +3,7 @@
 @section('title', 'Edit Unit')
 
 @section('content')
-<form action="{{ route('admin.property.update', $property->id) }}" method="POST">
+<form action="{{ route('admin.property.update', $property->id) }}" method="POST" enctype="multipart/form-data">
     @csrf
     @method('PUT')
 
@@ -173,6 +173,8 @@
             </div>
         </div>
     </div>
+
+    @include('admin.properties.partials.utility-account-setup')
 
     <div class="d-flex justify-content-end gap-2 mt-3">
         <a href="{{ route('admin.property.index') }}" class="btn btn-danger">Cancel</a>

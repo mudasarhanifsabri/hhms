@@ -3,7 +3,9 @@
 namespace App\Http\Controllers\admin\accounting;
 
 use App\Http\Controllers\Controller;
+use App\Models\AccountingAccount;
 use App\Models\AccountingEntry;
+use App\Models\BankAccount;
 use App\Models\Booking;
 use App\Models\BookingInvoice;
 use App\Models\Expense;
@@ -12,6 +14,7 @@ use App\Models\Property;
 use App\Models\User;
 use App\Models\UtilityAccount;
 use App\Models\UtilityBill;
+use App\Models\Vendor;
 use App\Support\PdfRenderer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -27,10 +30,20 @@ class AccountingController extends Controller
 
         $income = AccountingEntry::whereBetween('entry_date', [$from, $to])->sum('credit');
         $expenses = AccountingEntry::whereBetween('entry_date', [$from, $to])->sum('debit');
+        $todayIncome = AccountingEntry::whereDate('entry_date', today())->sum('credit');
+        $todayExpenses = AccountingEntry::whereDate('entry_date', today())->sum('debit');
+        $cashBalance = BankAccount::where('type', 'cash')->sum('current_balance');
+        $bankBalance = BankAccount::where('type', 'bank')->sum('current_balance');
+        $accountsReceivable = BookingInvoice::where('status', 'unpaid')->sum('total_amount');
+        $accountsPayable = Expense::whereIn('approval_status', ['pending', 'approved'])->sum('gross_amount');
+        $ownerPayables = LandlordAccountEntry::selectRaw("sum(case when direction = 'credit' then amount else -amount end) as balance")->value('balance') ?? 0;
         $vatOutput = AccountingEntry::where('type', 'income')->whereBetween('entry_date', [$from, $to])->sum('vat_amount');
         $vatInput = AccountingEntry::whereIn('type', ['expense', 'utility'])->whereBetween('entry_date', [$from, $to])->sum('vat_amount');
+        $monthlyProfit = $income - $expenses;
+        $occupancyRevenue = Booking::whereBetween('check_in', [$from, $to])->sum('rent_amount');
+        $utilityExpenses = UtilityBill::whereBetween('bill_month', [$from, $to])->sum('total_amount');
         $outstandingUtilities = UtilityBill::whereIn('status', ['outstanding', 'overdue'])->sum('total_amount');
-        $recentEntries = AccountingEntry::with(['property', 'landlord', 'booking'])->latest('entry_date')->limit(8)->get();
+        $recentEntries = AccountingEntry::with(['property', 'landlord', 'booking', 'accountingAccount'])->latest('entry_date')->limit(8)->get();
         $upcomingUtilityBills = UtilityBill::with(['account', 'property'])
             ->whereIn('status', ['outstanding', 'overdue'])
             ->orderBy('due_date')
@@ -41,8 +54,18 @@ class AccountingController extends Controller
             'month',
             'income',
             'expenses',
+            'todayIncome',
+            'todayExpenses',
+            'cashBalance',
+            'bankBalance',
+            'accountsReceivable',
+            'accountsPayable',
+            'ownerPayables',
             'vatOutput',
             'vatInput',
+            'monthlyProfit',
+            'occupancyRevenue',
+            'utilityExpenses',
             'outstandingUtilities',
             'recentEntries',
             'upcomingUtilityBills'
@@ -69,10 +92,13 @@ class AccountingController extends Controller
             'entry_date' => 'required|date',
             'type' => 'required|string|max:50',
             'category' => 'nullable|string|max:100',
+            'accounting_account_id' => 'nullable|exists:accounting_accounts,id',
             'description' => 'nullable|string|max:1000',
             'property_id' => 'nullable|exists:properties,id',
             'landlord_id' => 'nullable|exists:users,id',
             'booking_id' => 'nullable|exists:bookings,id',
+            'paid_from_account_id' => 'nullable|exists:bank_accounts,id',
+            'vendor_id' => 'nullable|exists:vendors,id',
             'debit' => 'nullable|numeric|min:0',
             'credit' => 'nullable|numeric|min:0',
             'vat_rate' => 'nullable|numeric|min:0|max:100',
@@ -106,7 +132,7 @@ class AccountingController extends Controller
 
     public function expenses(Request $request)
     {
-        $expenses = Expense::with(['property', 'landlord', 'booking'])
+        $expenses = Expense::with(['property', 'landlord', 'booking', 'vendor', 'paidFromAccount'])
             ->when($request->filled('category'), fn ($query) => $query->where('category', $request->input('category')))
             ->when($request->filled('property_id'), fn ($query) => $query->where('property_id', $request->input('property_id')))
             ->latest('expense_date')
@@ -121,16 +147,20 @@ class AccountingController extends Controller
         $data = $request->validate([
             'expense_date' => 'required|date',
             'category' => 'required|string|max:100',
+            'vendor_id' => 'nullable|exists:vendors,id',
             'supplier' => 'nullable|string|max:255',
             'property_id' => 'nullable|exists:properties,id',
             'booking_id' => 'nullable|exists:bookings,id',
             'responsibility' => 'required|in:company,owner,tenant_guest',
+            'paid_from_account_id' => 'nullable|exists:bank_accounts,id',
             'owner_billable' => 'nullable|boolean',
             'net_amount' => 'required|numeric|min:0',
             'vat_rate' => 'nullable|numeric|min:0|max:100',
             'payment_method' => 'nullable|string|max:100',
             'transaction_reference' => 'nullable|string|max:255',
             'receipt' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:10240',
+            'invoice' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:10240',
+            'approval_status' => 'nullable|in:pending,approved,paid,rejected',
             'description' => 'nullable|string|max:1000',
         ]);
 
@@ -140,6 +170,7 @@ class AccountingController extends Controller
         $vat = round($net * ($vatRate / 100), 2);
         $gross = $net + $vat;
         $receipt = $this->upload($request, 'receipt', 'expense_receipts');
+        $invoice = $this->upload($request, 'invoice', 'expense_invoices');
 
         $expense = Expense::create([
             ...$data,
@@ -150,6 +181,8 @@ class AccountingController extends Controller
             'vat_amount' => $vat,
             'gross_amount' => $gross,
             'receipt_path' => $receipt,
+            'invoice_path' => $invoice,
+            'approval_status' => $data['approval_status'] ?? 'approved',
             'created_by' => auth()->id(),
         ]);
 
@@ -282,6 +315,7 @@ class AccountingController extends Controller
                 'payment_method' => $data['payment_method'] ?? null,
                 'transaction_reference' => $data['transaction_reference'] ?? null,
                 'receipt_path' => $receipt,
+                'approval_status' => 'paid',
                 'description' => $bill->account?->type_label . ' bill for ' . $bill->bill_month?->format('M Y'),
                 'created_by' => auth()->id(),
             ]);
@@ -314,6 +348,101 @@ class AccountingController extends Controller
             ->get();
 
         return view('admin.accounting.reports', compact('month', 'utilityByType', 'expensesByCategory', 'outstandingBills'));
+    }
+
+    public function chartOfAccounts(Request $request)
+    {
+        $accounts = AccountingAccount::query()
+            ->when($request->filled('type'), fn ($query) => $query->where('type', $request->input('type')))
+            ->orderBy('code')
+            ->get()
+            ->groupBy('type');
+
+        return view('admin.accounting.chart-of-accounts', compact('accounts') + $this->sharedData());
+    }
+
+    public function storeAccount(Request $request)
+    {
+        $data = $request->validate([
+            'code' => 'required|string|max:30|unique:accounting_accounts,code',
+            'name' => 'required|string|max:255',
+            'type' => 'required|in:asset,liability,equity,income,expense',
+            'parent_code' => 'nullable|string|max:30',
+            'is_bank_cash' => 'nullable|boolean',
+            'description' => 'nullable|string|max:1000',
+        ]);
+
+        AccountingAccount::create([
+            ...$data,
+            'is_bank_cash' => $request->boolean('is_bank_cash'),
+            'is_active' => true,
+        ]);
+
+        return back()->with('success', 'Chart of account added.');
+    }
+
+    public function bankAccounts()
+    {
+        $bankAccounts = BankAccount::with('accountingAccount')->orderBy('type')->orderBy('name')->get();
+
+        return view('admin.accounting.bank-accounts', compact('bankAccounts') + $this->sharedData());
+    }
+
+    public function storeBankAccount(Request $request)
+    {
+        $data = $request->validate([
+            'accounting_account_id' => 'nullable|exists:accounting_accounts,id',
+            'name' => 'required|string|max:255',
+            'type' => 'required|in:bank,cash,credit_card,wallet',
+            'bank_name' => 'nullable|string|max:255',
+            'iban' => 'nullable|string|max:255',
+            'account_number' => 'nullable|string|max:255',
+            'currency' => 'nullable|string|max:10',
+            'opening_balance' => 'nullable|numeric',
+            'notes' => 'nullable|string|max:1000',
+        ]);
+
+        $opening = (float) ($data['opening_balance'] ?? 0);
+        BankAccount::create([
+            ...$data,
+            'currency' => $data['currency'] ?? 'AED',
+            'opening_balance' => $opening,
+            'current_balance' => $opening,
+            'is_active' => true,
+        ]);
+
+        return back()->with('success', 'Bank or cash account added.');
+    }
+
+    public function vendors()
+    {
+        $vendors = Vendor::withCount('expenses')->orderBy('name')->get();
+
+        return view('admin.accounting.vendors', compact('vendors') + $this->sharedData());
+    }
+
+    public function storeVendor(Request $request)
+    {
+        $data = $request->validate([
+            'name' => 'required|string|max:255',
+            'category' => 'nullable|string|max:100',
+            'contact_person' => 'nullable|string|max:255',
+            'email' => 'nullable|email|max:255',
+            'phone' => 'nullable|string|max:50',
+            'trn' => 'nullable|string|max:100',
+            'address' => 'nullable|string|max:1000',
+            'opening_balance' => 'nullable|numeric',
+            'notes' => 'nullable|string|max:1000',
+        ]);
+
+        Vendor::create([
+            ...$data,
+            'vendor_no' => $this->nextNumber('VEN', Vendor::class, 'vendor_no'),
+            'opening_balance' => (float) ($data['opening_balance'] ?? 0),
+            'is_active' => true,
+        ]);
+
+        return back()->with('success', 'Vendor saved.');
     }
 
     public function vatReport(Request $request)
@@ -387,10 +516,13 @@ class AccountingController extends Controller
             'entry_date' => $expense->expense_date,
             'type' => $type,
             'category' => $expense->category,
+            'accounting_account_id' => $this->expenseAccountId($expense->category),
             'description' => $expense->description,
             'property_id' => $expense->property_id,
             'landlord_id' => $expense->landlord_id,
             'booking_id' => $expense->booking_id,
+            'paid_from_account_id' => $expense->paid_from_account_id,
+            'vendor_id' => $expense->vendor_id,
             'expense_id' => $expense->id,
             'utility_bill_id' => $utilityBillId,
             'debit' => $expense->gross_amount,
@@ -402,6 +534,7 @@ class AccountingController extends Controller
             'payment_method' => $expense->payment_method,
             'transaction_reference' => $expense->transaction_reference,
             'attachment' => $expense->receipt_path,
+            'approval_status' => $expense->approval_status === 'paid' ? 'posted' : $expense->approval_status,
             'created_by' => auth()->id(),
         ]);
     }
@@ -462,10 +595,29 @@ class AccountingController extends Controller
             'properties' => Property::with('building')->orderBy('name')->get(),
             'owners' => User::where('role', 'landlord')->orderBy('name')->get(),
             'bookings' => Booking::with('property')->latest()->limit(100)->get(),
+            'accounts' => AccountingAccount::where('is_active', true)->orderBy('code')->get(),
+            'accountTypes' => AccountingAccount::TYPES,
+            'bankAccounts' => BankAccount::where('is_active', true)->orderBy('name')->get(),
+            'vendors' => Vendor::where('is_active', true)->orderBy('name')->get(),
             'entryTypes' => AccountingEntry::TYPES,
             'expenseCategories' => Expense::CATEGORIES,
             'utilityTypes' => UtilityAccount::TYPES,
             'responsibilities' => UtilityAccount::RESPONSIBILITIES,
         ];
+    }
+
+    private function expenseAccountId(?string $category): ?string
+    {
+        $code = match ($category) {
+            'dewa' => '5010',
+            'gas' => '5020',
+            'internet' => '5030',
+            'chiller' => '5040',
+            'cleaning' => '5050',
+            'maintenance' => '5070',
+            default => '5990',
+        };
+
+        return AccountingAccount::where('code', $code)->value('id');
     }
 }

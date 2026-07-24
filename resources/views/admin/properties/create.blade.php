@@ -66,6 +66,7 @@
 
     <!-- Documents & Utilities -->
     @include('admin.properties.partials.documents-utilities')
+    @include('admin.properties.partials.utility-account-setup')
 
     <!-- Sticky Save Bar -->
     <div class="sticky-save-bar d-flex justify-content-between align-items-center mt-4">

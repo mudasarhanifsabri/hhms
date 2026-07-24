@@ -20,10 +20,13 @@ class AccountingEntry extends BaseModel
         'entry_date',
         'type',
         'category',
+        'accounting_account_id',
         'description',
         'property_id',
         'landlord_id',
         'booking_id',
+        'paid_from_account_id',
+        'vendor_id',
         'expense_id',
         'utility_bill_id',
         'debit',
@@ -36,6 +39,7 @@ class AccountingEntry extends BaseModel
         'transaction_reference',
         'attachment',
         'status',
+        'approval_status',
         'created_by',
     ];
 
@@ -62,6 +66,21 @@ class AccountingEntry extends BaseModel
     public function booking(): BelongsTo
     {
         return $this->belongsTo(Booking::class);
+    }
+
+    public function accountingAccount(): BelongsTo
+    {
+        return $this->belongsTo(AccountingAccount::class);
+    }
+
+    public function paidFromAccount(): BelongsTo
+    {
+        return $this->belongsTo(BankAccount::class, 'paid_from_account_id');
+    }
+
+    public function vendor(): BelongsTo
+    {
+        return $this->belongsTo(Vendor::class);
     }
 
     public function creator(): BelongsTo

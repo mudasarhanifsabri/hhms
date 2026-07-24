@@ -97,6 +97,9 @@
                 <div class="collapse" id="sidebarAccounting">
                     <ul class="nav sub-navbar-nav">
                         <li class="sub-nav-item"><a class="sub-nav-link" href="{{ route('admin.accounting.dashboard') }}">Dashboard</a></li>
+                        <li class="sub-nav-item"><a class="sub-nav-link" href="{{ route('admin.accounting.chart-of-accounts') }}">Chart of Accounts</a></li>
+                        <li class="sub-nav-item"><a class="sub-nav-link" href="{{ route('admin.accounting.bank-accounts') }}">Bank & Cash</a></li>
+                        <li class="sub-nav-item"><a class="sub-nav-link" href="{{ route('admin.accounting.vendors') }}">Vendors</a></li>
                         <li class="sub-nav-item"><a class="sub-nav-link" href="{{ route('admin.accounting.ledger') }}">Ledger</a></li>
                         <li class="sub-nav-item"><a class="sub-nav-link" href="{{ route('admin.accounting.expenses') }}">Expense Management</a></li>
                         <li class="sub-nav-item"><a class="sub-nav-link" href="{{ route('admin.accounting.utilities') }}">Utilities</a></li>

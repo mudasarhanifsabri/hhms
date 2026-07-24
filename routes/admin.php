@@ -23,6 +23,12 @@ Route::get('/dashboard', [AdminController::class, 'dashboard'])->name('dashboard
 
 // AdminAccounting Routes
 Route::get('/accounting', [AccountingController::class, 'dashboard'])->name('accounting.dashboard');
+Route::get('/accounting/chart-of-accounts', [AccountingController::class, 'chartOfAccounts'])->name('accounting.chart-of-accounts');
+Route::post('/accounting/chart-of-accounts', [AccountingController::class, 'storeAccount'])->name('accounting.chart-of-accounts.store');
+Route::get('/accounting/bank-accounts', [AccountingController::class, 'bankAccounts'])->name('accounting.bank-accounts');
+Route::post('/accounting/bank-accounts', [AccountingController::class, 'storeBankAccount'])->name('accounting.bank-accounts.store');
+Route::get('/accounting/vendors', [AccountingController::class, 'vendors'])->name('accounting.vendors');
+Route::post('/accounting/vendors', [AccountingController::class, 'storeVendor'])->name('accounting.vendors.store');
 Route::get('/accounting/ledger', [AccountingController::class, 'ledger'])->name('accounting.ledger');
 Route::post('/accounting/ledger', [AccountingController::class, 'storeEntry'])->name('accounting.ledger.store');
 Route::get('/accounting/expenses', [AccountingController::class, 'expenses'])->name('accounting.expenses');

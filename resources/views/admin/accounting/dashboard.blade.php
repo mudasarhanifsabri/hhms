@@ -13,13 +13,20 @@
 
 <div class="row">
     @foreach([
-        ['Income', $income, 'ri-arrow-up-circle-line', 'success'],
-        ['Expenses', $expenses, 'ri-arrow-down-circle-line', 'danger'],
-        ['Net Profit', $income - $expenses, 'ri-line-chart-line', 'primary'],
+        ['Today Income', $todayIncome, 'ri-arrow-up-circle-line', 'success'],
+        ['Today Expenses', $todayExpenses, 'ri-arrow-down-circle-line', 'danger'],
+        ['Cash Balance', $cashBalance, 'ri-money-dollar-circle-line', 'success'],
+        ['Bank Balance', $bankBalance, 'ri-bank-line', 'primary'],
+        ['Accounts Receivable', $accountsReceivable, 'ri-file-list-3-line', 'info'],
+        ['Accounts Payable', $accountsPayable, 'ri-bill-line', 'warning'],
+        ['Owner Payables', $ownerPayables, 'ri-user-star-line', 'secondary'],
         ['VAT Payable', $vatOutput - $vatInput, 'ri-percent-line', 'warning'],
-        ['Outstanding Utilities', $outstandingUtilities, 'ri-flashlight-line', 'info'],
+        ['Monthly Profit', $monthlyProfit, 'ri-line-chart-line', 'primary'],
+        ['Occupancy Revenue', $occupancyRevenue, 'ri-hotel-bed-line', 'success'],
+        ['Utility Expenses', $utilityExpenses, 'ri-flashlight-line', 'danger'],
+        ['Outstanding Bills', $outstandingUtilities, 'ri-alarm-warning-line', 'info'],
     ] as [$label, $amount, $icon, $color])
-        <div class="col-xl col-md-4">
+        <div class="col-xl-3 col-md-4">
             <div class="card finance-card">
                 <div class="card-body d-flex justify-content-between align-items-center">
                     <div>

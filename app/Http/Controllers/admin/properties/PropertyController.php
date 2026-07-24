@@ -4,6 +4,7 @@ namespace App\Http\Controllers\admin\properties;
 
 use App\Http\Controllers\Controller;
 use App\Models\Property;
+use App\Models\UtilityAccount;
 use App\Models\User;
 use App\Models\Building;
 use App\Models\Smartlock;
@@ -82,7 +83,22 @@ class PropertyController extends Controller
             'utilities_cap' => 'nullable|numeric|min:0',
             'electricity_provider' => 'nullable|string|max:255',
             'electricity_account_no' => 'nullable|string|max:255',
+            'utility_accounts' => 'nullable|array',
+            'utility_accounts.*.enabled' => 'nullable|boolean',
+            'utility_accounts.*.responsibility' => 'nullable|in:owner,company,tenant_guest',
+            'utility_accounts.*.supplier' => 'nullable|string|max:255',
+            'utility_accounts.*.account_number' => 'nullable|string|max:255',
+            'utility_accounts.*.username' => 'nullable|string|max:255',
+            'utility_accounts.*.portal_password' => 'nullable|string|max:255',
+            'utility_accounts.*.contract_number' => 'nullable|string|max:255',
+            'utility_accounts.*.connection_status' => 'nullable|string|max:50',
+            'utility_accounts.*.connection_start_date' => 'nullable|date',
+            'utility_accounts.*.contract_expiry_date' => 'nullable|date',
+            'utility_accounts.*.billing_day' => 'nullable|integer|min:1|max:31',
+            'utility_accounts.*.notes' => 'nullable|string|max:1000',
         ]);
+
+        unset($validated['utility_accounts']);
 
         // Handle file uploads (store in /storage/app/public)
         if ($request->hasFile('dtcm_unit_permit')) {
@@ -115,6 +131,7 @@ class PropertyController extends Controller
 
         $property = Property::create($validated);
         $this->syncOwnerShares($property, $request);
+        $this->syncUtilityAccounts($property, $request);
 
         return redirect()->route('admin.property.index')->with('success', 'Unit created successfully.');
     }
@@ -128,7 +145,7 @@ class PropertyController extends Controller
 
     public function edit(Property $property)
     {
-        $property->load('ownerShares.owner');
+        $property->load(['ownerShares.owner', 'utilityAccounts']);
         $landlords = User::where('role', 'landlord')->get();
         $buildings = Building::all();
 
@@ -158,10 +175,26 @@ class PropertyController extends Controller
             'wifi_password' => 'nullable|string|max:255',
             'dtcm_permit_expiry' => 'nullable|date',
             'description' => 'nullable|string',
+            'utility_accounts' => 'nullable|array',
+            'utility_accounts.*.enabled' => 'nullable|boolean',
+            'utility_accounts.*.responsibility' => 'nullable|in:owner,company,tenant_guest',
+            'utility_accounts.*.supplier' => 'nullable|string|max:255',
+            'utility_accounts.*.account_number' => 'nullable|string|max:255',
+            'utility_accounts.*.username' => 'nullable|string|max:255',
+            'utility_accounts.*.portal_password' => 'nullable|string|max:255',
+            'utility_accounts.*.contract_number' => 'nullable|string|max:255',
+            'utility_accounts.*.connection_status' => 'nullable|string|max:50',
+            'utility_accounts.*.connection_start_date' => 'nullable|date',
+            'utility_accounts.*.contract_expiry_date' => 'nullable|date',
+            'utility_accounts.*.billing_day' => 'nullable|integer|min:1|max:31',
+            'utility_accounts.*.notes' => 'nullable|string|max:1000',
         ]);
+
+        unset($validated['utility_accounts']);
 
         $property->update($validated);
         $this->syncOwnerShares($property, $request);
+        $this->syncUtilityAccounts($property, $request);
 
         return redirect()->route('admin.property.index')->with('success', 'Unit updated successfully.');
     }
@@ -199,5 +232,45 @@ class PropertyController extends Controller
         }
 
         $property->owners()->sync($sync);
+    }
+
+    private function syncUtilityAccounts(Property $property, Request $request): void
+    {
+        foreach ($request->input('utility_accounts', []) as $type => $payload) {
+            if (! array_key_exists($type, UtilityAccount::TYPES)) {
+                continue;
+            }
+
+            $enabled = (bool) ($payload['enabled'] ?? false);
+            $hasDetails = collect($payload)
+                ->except(['enabled', 'portal_password'])
+                ->filter(fn ($value) => filled($value))
+                ->isNotEmpty();
+
+            if (! $enabled && ! $hasDetails) {
+                continue;
+            }
+
+            $account = UtilityAccount::updateOrCreate(
+                ['property_id' => $property->id, 'utility_type' => $type],
+                [
+                    'responsibility' => $payload['responsibility'] ?? 'company',
+                    'supplier' => $payload['supplier'] ?? null,
+                    'account_number' => $payload['account_number'] ?? null,
+                    'username' => $payload['username'] ?? null,
+                    'contract_number' => $payload['contract_number'] ?? null,
+                    'connection_status' => $payload['connection_status'] ?? 'active',
+                    'connection_start_date' => $payload['connection_start_date'] ?? null,
+                    'contract_expiry_date' => $payload['contract_expiry_date'] ?? null,
+                    'billing_day' => $payload['billing_day'] ?? null,
+                    'notes' => $payload['notes'] ?? null,
+                ]
+            );
+
+            if (filled($payload['portal_password'] ?? null)) {
+                $account->portal_password = $payload['portal_password'];
+                $account->save();
+            }
+        }
     }
 }

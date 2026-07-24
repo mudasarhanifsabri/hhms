@@ -23,11 +23,13 @@ class Expense extends BaseModel
         'expense_no',
         'expense_date',
         'category',
+        'vendor_id',
         'supplier',
         'property_id',
         'landlord_id',
         'booking_id',
         'responsibility',
+        'paid_from_account_id',
         'owner_billable',
         'net_amount',
         'vat_rate',
@@ -36,6 +38,8 @@ class Expense extends BaseModel
         'payment_method',
         'transaction_reference',
         'receipt_path',
+        'invoice_path',
+        'approval_status',
         'description',
         'accounting_entry_id',
         'created_by',
@@ -63,6 +67,16 @@ class Expense extends BaseModel
     public function booking(): BelongsTo
     {
         return $this->belongsTo(Booking::class);
+    }
+
+    public function vendor(): BelongsTo
+    {
+        return $this->belongsTo(Vendor::class);
+    }
+
+    public function paidFromAccount(): BelongsTo
+    {
+        return $this->belongsTo(BankAccount::class, 'paid_from_account_id');
     }
 
     public function accountingEntry(): BelongsTo
