@@ -3,7 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\PropertyOwnerDocument;
-use Barryvdh\DomPDF\Facade\Pdf;
+use App\Support\OwnerDocumentPdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 
@@ -50,9 +50,7 @@ class OwnerDocumentSigningController extends Controller
             $document->signed_at ? $document->landlord?->name : null
         );
 
-        return Pdf::loadHTML($html)
-            ->setPaper('a4')
-            ->stream($document->reference_no . '.pdf');
+        return OwnerDocumentPdf::stream($html, $document->reference_no . '.pdf');
     }
 
     public function sign(Request $request, string $token)
@@ -87,7 +85,7 @@ class OwnerDocumentSigningController extends Controller
         $signedHtml = $this->renderDocumentHtml($document, $validated['signature_data'], $validated['signed_by_name']);
 
         $path = 'owner-documents/' . $document->reference_no . '.pdf';
-        Storage::disk('public')->put($path, Pdf::loadHTML($signedHtml)->setPaper('a4')->output());
+        Storage::disk('public')->put($path, OwnerDocumentPdf::output($signedHtml));
 
         $document->forceFill([
             'signed_html' => $signedHtml,

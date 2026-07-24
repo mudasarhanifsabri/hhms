@@ -5,15 +5,29 @@
     $propertyType = $property->bedrooms ? $property->bedrooms . ' Bedroom' : ($property->category ?? 'Unit');
     $startDate = $document->sent_at ? $document->sent_at->format('d/m/Y') : now()->format('d/m/Y');
     $endDate = $document->expires_at ? $document->expires_at->format('d/m/Y') : now()->addYear()->format('d/m/Y');
-    $logoPath = public_path('assets/images/pattern-contract-logo.png');
-    $logoSrc = file_exists($logoPath) ? 'data:image/png;base64,' . base64_encode(file_get_contents($logoPath)) : null;
     $money = fn ($value) => number_format((float) $value, 2) . ' AED';
+
+    $assetData = function (string $path, string $mime = 'image/png') {
+        return file_exists($path) ? 'data:' . $mime . ';base64,' . base64_encode(file_get_contents($path)) : null;
+    };
+
+    $logoSrc = $assetData(public_path('assets/images/pattern-contract-logo.png'));
+    $companySignatureSrc = $assetData(public_path('assets/images/mr-sultan-signature.png'));
+    $stampSrc = $assetData(public_path('assets/images/vacation-homes-rental-stamp.png'));
+
     $ownerShares = $property->relationLoaded('ownerShares') ? $property->ownerShares : $property->ownerShares()->with('owner')->get();
     if ($ownerShares->isEmpty() && $landlord) {
         $ownerShares = collect([(object) ['owner' => $landlord, 'share_percent' => 100, 'is_primary' => true]]);
     }
 
-    $managementTerms = [
+    $titles = [
+        'noc' => ['en' => 'NO OBJECTION CERTIFICATE', 'ar' => 'شهادة عدم ممانعة'],
+        'management_letter' => ['en' => 'Property Management Letter', 'ar' => 'خطاب توكيل لإدارة العقار'],
+        'management_contract' => ['en' => 'Property Management Contract', 'ar' => 'عقد إدارة عقار'],
+    ];
+    $title = $titles[$document->type] ?? ['en' => $document->title, 'ar' => 'مستند'];
+
+    $terms = [
         [
             'en' => 'Definition of Terms and Conditions',
             'ar' => 'تعريف الشروط والأحكام',
@@ -21,7 +35,6 @@
                 ['Company means Pattern Vacation Homes Rental LLC, holder of Trade License No. 1123804, operating in Dubai, United Arab Emirates.', 'تعني الشركة باترن لتأجير بيوت العطلات ذ.م.م، حاملة الرخصة التجارية رقم 1123804 والعاملة في دبي، الإمارات العربية المتحدة.'],
                 ['Owner means each person or entity holding legal ownership or ownership share in the Property.', 'يعني المالك كل شخص أو كيان يملك العقار أو حصة ملكية فيه.'],
                 ['Property means the unit described in this agreement and approved for holiday home operation where applicable.', 'يعني العقار الوحدة الموضحة في هذه الاتفاقية والمعتمدة للتشغيل كبيت عطلات حيثما ينطبق.'],
-                ['Effective Date means the signing date or document sending date unless another date is agreed in writing.', 'يعني تاريخ السريان تاريخ التوقيع أو تاريخ إرسال المستند ما لم يتم الاتفاق كتابة على تاريخ آخر.'],
             ],
         ],
         [
@@ -32,7 +45,6 @@
                 ['The Owner shall hand over the Property vacant, accessible, furnished where agreed, and ready for operation under authority requirements.', 'يلتزم المالك بتسليم العقار شاغرا وقابلا للدخول ومؤثثا حسب الاتفاق وجاهزا للتشغيل وفق متطلبات الجهات المختصة.'],
                 ['The Owner shall provide all identity, title deed, permit, utility, community, access, and bank documents required for operation.', 'يلتزم المالك بتقديم جميع مستندات الهوية وسند الملكية والتصاريح والمرافق والمجتمع والدخول والبيانات البنكية المطلوبة للتشغيل.'],
                 ['The Owner shall notify the Company of any legal, authority, building, or community restriction affecting the Property.', 'يلتزم المالك بإخطار الشركة بأي قيد قانوني أو حكومي أو متعلق بالمبنى أو المجتمع يؤثر على العقار.'],
-                ['The Owner shall bear owner-side dues, bank charges, exchange differences, service charges, utility dues, and authority penalties unless agreed otherwise.', 'يتحمل المالك المستحقات الخاصة به والرسوم البنكية وفروقات الصرف ورسوم الخدمات وفواتير المرافق والغرامات الحكومية ما لم يتم الاتفاق على خلاف ذلك.'],
             ],
         ],
         [
@@ -42,7 +54,6 @@
                 ['The Company shall manage guest communication, listing support, booking coordination, housekeeping coordination, maintenance follow-up, and revenue reporting.', 'تلتزم الشركة بإدارة تواصل النزلاء ودعم الإدراج وتنسيق الحجوزات والتنظيف ومتابعة الصيانة وإعداد تقارير الإيرادات.'],
                 ['The Company shall coordinate check-in and check-out processes through authorized staff and systems.', 'تلتزم الشركة بتنسيق إجراءات الدخول والمغادرة من خلال الموظفين والأنظمة المعتمدة.'],
                 ['The Company shall issue owner statements showing income, expenses, deductions, management fees, and payout balances.', 'تلتزم الشركة بإصدار كشوف حساب للمالك توضح الدخل والمصروفات والخصومات ورسوم الإدارة وأرصدة التحويل.'],
-                ['The Company may coordinate urgent maintenance without prior approval where delay may affect guest safety, property condition, or active bookings.', 'يجوز للشركة تنسيق الصيانة العاجلة دون موافقة مسبقة إذا كان التأخير قد يؤثر على سلامة النزلاء أو حالة العقار أو الحجوزات القائمة.'],
                 ['Maintenance charges may be processed without prior approval when the estimated cost does not exceed AED 500 unless another approval limit is agreed.', 'يجوز تنفيذ مصاريف الصيانة دون موافقة مسبقة عندما لا تتجاوز التكلفة التقديرية 500 درهم ما لم يتم الاتفاق على حد آخر.'],
             ],
         ],
@@ -54,15 +65,6 @@
                 ['Furniture, startup, DTCM, licensing, compliance, photography, onboarding, and setup fees shall be charged as stated in this agreement or approved separately.', 'تحتسب رسوم الأثاث وبدء التشغيل ورسوم دائرة السياحة والترخيص والامتثال والتصوير والإعداد كما هو مبين في هذه الاتفاقية أو حسب الموافقات المنفصلة.'],
                 ['VAT shall be applied where required by UAE law and shown separately in invoices or financial schedules.', 'تطبق ضريبة القيمة المضافة حيثما يقتضي قانون دولة الإمارات ويتم بيانها بشكل منفصل في الفواتير أو الجداول المالية.'],
                 ['Net owner payout shall be calculated after deducting approved expenses, management fee, refunds, penalties, payment charges, and agreed dues.', 'يتم احتساب صافي مستحقات المالك بعد خصم المصروفات المعتمدة ورسوم الإدارة والمبالغ المستردة والغرامات ورسوم الدفع والمستحقات المتفق عليها.'],
-            ],
-        ],
-        [
-            'en' => 'Owner Use, Bookings, and Operations',
-            'ar' => 'استخدام المالك والحجوزات والتشغيل',
-            'items' => [
-                ['Owner personal use must be requested in advance and is subject to confirmed bookings and operational availability.', 'يجب طلب استخدام المالك الشخصي مسبقا ويخضع للحجوزات المؤكدة والتوفر التشغيلي.'],
-                ['Existing confirmed bookings must be honored unless cancellation is approved and related penalties are settled.', 'يجب الالتزام بالحجوزات المؤكدة القائمة ما لم تتم الموافقة على الإلغاء وتسوية الغرامات المتعلقة به.'],
-                ['The Company may block dates required for maintenance, cleaning, inspection, compliance, or operational readiness.', 'يجوز للشركة حجب تواريخ مطلوبة للصيانة أو التنظيف أو الفحص أو الامتثال أو الجاهزية التشغيلية.'],
             ],
         ],
         [
@@ -84,140 +86,193 @@
         ],
     ];
 @endphp
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
+    <meta charset="utf-8">
     <title>{{ $document->title }} - {{ $document->reference_no }}</title>
     <style>
-        @page { size: A4; margin: 18mm 15mm 16mm; }
+        @page { size: A4; margin: 0; }
         * { box-sizing: border-box; }
-        body { font-family: DejaVu Sans, Arial, sans-serif; color: #111827; font-size: 10.8px; line-height: 1.45; }
-        .page { width: 100%; background: #fff; }
-        .page-break { page-break-before: always; }
-        .topbar { display: table; width: 100%; border-bottom: 2px solid #96764a; padding-bottom: 8px; margin-bottom: 12px; }
-        .brand-wrap { display: table-cell; width: 56%; vertical-align: middle; }
-        .brand-logo { width: 255px; max-height: 62px; object-fit: contain; }
-        .ref { display: table-cell; width: 44%; vertical-align: middle; text-align: right; color: #4b5563; font-size: 10px; }
-        h1 { text-align: center; font-size: 17px; margin: 10px 0 2px; }
-        .title-ar { text-align: center; direction: rtl; font-size: 15px; font-weight: 700; margin-bottom: 12px; }
-        .intro { display: table; width: 100%; margin: 8px 0 10px; }
-        .intro div { display: table-cell; width: 50%; vertical-align: top; }
-        .ar { direction: rtl; text-align: right; }
-        .section { display: table; width: 100%; background: #efefef; border: 1px solid #7f7f7f; margin-top: 8px; font-weight: 700; }
-        .section div { display: table-cell; width: 50%; padding: 5px 7px; }
-        table { width: 100%; border-collapse: collapse; table-layout: fixed; margin: 0 0 8px; }
-        th, td { border: 1px solid #c9d2d9; padding: 5px 6px; vertical-align: top; }
-        th { background: #f5f5f5; text-align: left; font-weight: 700; }
-        .amount { text-align: right; font-weight: 700; }
-        .clause-title { display: table; width: 100%; background: #efefef; border: 1px solid #7f7f7f; margin-top: 8px; page-break-after: avoid; }
-        .clause-title div { display: table-cell; width: 50%; padding: 6px 8px; font-weight: 700; }
+        body { margin: 0; background: #fff; color: #1c2b3a; font-family: dejavusans, Arial, sans-serif; font-size: 12px; line-height: 1.55; }
+        .page { width: 210mm; min-height: 297mm; padding: 30px 42px 22px; position: relative; page-break-after: always; }
+        .page:last-child { page-break-after: auto; }
+        .ar { direction: rtl; text-align: right; font-family: xbriyaz, lateef, dejavusans, sans-serif; font-size: 14px; line-height: 1.65; }
+        .top-bar { display: table; width: 100%; border-bottom: 2px solid #b98a5e; padding-bottom: 10px; margin-bottom: 16px; }
+        .checker-pattern { display: table-cell; width: 88px; vertical-align: top; }
+        .checker-pattern span { display: inline-block; width: 14px; height: 14px; margin: 1px; }
+        .c1 { background: #d8c3a5; } .c2 { background: #b98a5e; } .c3 { background: #8a5a35; }
+        .logo-block { display: table-cell; text-align: center; vertical-align: top; }
+        .brand-logo { width: 255px; max-height: 64px; }
+        .ref-block { display: table-cell; width: 170px; text-align: right; font-size: 11px; line-height: 1.7; vertical-align: top; padding-top: 4px; }
+        .title-row { display: table; width: 100%; margin: 12px 0 18px; font-weight: 700; font-size: 16px; }
+        .title-row div { display: table-cell; width: 50%; vertical-align: middle; }
+        .title-center { text-align: center; font-size: 18px; font-weight: 700; letter-spacing: .5px; margin: 22px 0 26px; }
+        .bi-row { display: table; width: 100%; margin-bottom: 8px; }
+        .en-col { display: table-cell; width: 58%; padding-right: 18px; vertical-align: top; }
+        .ar-col { display: table-cell; width: 42%; vertical-align: top; }
+        .body-text { font-size: 13px; line-height: 1.85; }
+        .body-text p { margin: 0 0 12px; }
+        .sechead { display: table; width: 100%; background: #e5e6e2; border: 1px solid #c9d2d9; margin-top: 12px; font-weight: 700; }
+        .sechead div { display: table-cell; width: 50%; padding: 6px 10px; }
+        .subhead { display: table; width: 100%; background: #f1f2f0; border: 1px solid #c9d2d9; border-top: 0; color: #5b6b7a; font-style: italic; }
+        .subhead div { display: table-cell; width: 50%; padding: 5px 10px; }
+        table.datatable { width: 100%; border-collapse: collapse; border: 1px solid #c9d2d9; border-top: 0; table-layout: fixed; }
+        table.datatable td, table.datatable th { border-bottom: 1px solid #c9d2d9; padding: 7px 10px; vertical-align: middle; }
+        table.datatable th { background: #f1f2f0; }
+        .label-en { width: 26%; }
+        .value { width: 48%; text-align: center; font-weight: 600; }
+        .label-ar { width: 26%; }
+        .clause-title { display: table; width: 100%; background: #e5e6e2; border: 1px solid #c9d2d9; margin-top: 12px; font-weight: 700; page-break-after: avoid; }
+        .clause-title div { display: table-cell; width: 50%; padding: 6px 10px; }
         .clause-row { display: table; width: 100%; border-left: 1px solid #c9d2d9; border-right: 1px solid #c9d2d9; border-bottom: 1px solid #c9d2d9; page-break-inside: avoid; }
-        .clause-row div { display: table-cell; width: 50%; padding: 6px 8px; vertical-align: top; }
-        .signature { display: table; width: 100%; margin-top: 16px; page-break-inside: avoid; }
-        .sigbox { display: table-cell; width: 50%; border: 1px solid #c9d2d9; min-height: 92px; padding: 9px; vertical-align: top; }
-        .sigbox + .sigbox { border-left: 0; }
-        .sigline { height: 40px; border-bottom: 1px solid #111; margin: 8px 0 5px; }
-        .sigbox img { max-width: 210px; max-height: 70px; }
-        .footer { border-top: 1px solid #96764a; margin-top: 12px; padding-top: 6px; color: #4b5563; text-align: center; font-size: 9px; }
-        .compact p { margin: 7px 0; }
+        .clause-row div { display: table-cell; width: 50%; padding: 7px 10px; vertical-align: top; }
+        .financial-table td { font-size: 12px; }
+        .amount { text-align: center; font-weight: 700; }
+        .sig-section { margin-top: 18px; page-break-inside: avoid; }
+        .sig-grid { display: table; width: 100%; border: 1px solid #c9d2d9; }
+        .sig-cell { display: table-cell; width: 50%; padding: 12px 16px; vertical-align: top; border-right: 1px solid #c9d2d9; min-height: 135px; }
+        .sig-cell:last-child { border-right: 0; }
+        .sig-heading { display: table; width: 100%; font-weight: 700; border-bottom: 1px solid #c9d2d9; padding-bottom: 6px; margin-bottom: 8px; }
+        .sig-heading span { display: table-cell; width: 50%; }
+        .sigline { height: 76px; border-top: 1px dashed #c9d2d9; margin-top: 8px; padding-top: 4px; text-align: center; }
+        .sig-img { max-width: 190px; max-height: 68px; }
+        .stamp-img { width: 95px; max-height: 95px; opacity: .92; }
+        .stamp-fallback { display: inline-block; border: 3px solid #1450a3; color: #1450a3; border-radius: 50%; width: 95px; height: 95px; text-align: center; font-size: 8px; line-height: 1.25; padding-top: 28px; transform: rotate(-8deg); }
+        .stamp-wrap { text-align: right; margin-top: -10px; height: 96px; }
+        .footer { border-top: 3px solid #b98a5e; margin-top: 24px; padding-top: 10px; text-align: center; font-size: 10.5px; color: #333; line-height: 1.6; }
+        .page-break { page-break-before: always; }
     </style>
 </head>
 <body>
-<div class="page {{ $document->type === 'management_contract' ? '' : 'compact' }}">
-    <div class="topbar">
-        <div class="brand-wrap">
-            @if($logoSrc)
-                <img src="{{ $logoSrc }}" class="brand-logo" alt="Pattern Vacation Homes Rental">
-            @else
-                <strong>PATTERN Vacation Homes Rental</strong>
-            @endif
+<div class="page">
+    <div class="top-bar">
+        <div class="checker-pattern">
+            @foreach(['c1','c2','c1','c3','c2','c2','c1','c3','c1','c2','c3','c2','c1','c2','c1','c1','c3','c2','c1','c3','c2','c1','c3','c2','c1'] as $class)
+                <span class="{{ $class }}"></span>
+            @endforeach
         </div>
-        <div class="ref">
-            <div>Ref No. {{ $document->reference_no }}</div>
+        <div class="logo-block">@if($logoSrc)<img src="{{ $logoSrc }}" class="brand-logo" alt="Pattern">@endif</div>
+        <div class="ref-block">
+            <div>Ref. No.: {{ $document->reference_no }}</div>
             <div>Date: {{ $startDate }}</div>
             <div>Valid Until: {{ $endDate }}</div>
         </div>
     </div>
 
-    <h1>{{ $document->title }}</h1>
-    <div class="title-ar">
-        @if($document->type === 'noc')
-            شهادة عدم ممانعة
-        @elseif($document->type === 'management_letter')
-            خطاب إدارة العقار
-        @else
-            عقد إدارة عقار
-        @endif
-    </div>
-
     @if($document->type === 'noc')
-        <div class="intro">
-            <div>I/We, the owner(s) listed below, confirm that there is no objection to Pattern Vacation Homes Rental LLC, Trade License No. 1123804, managing and operating the property described below as a holiday home and completing related authority, building, guest, cleaning, maintenance, and registration requirements.</div>
-            <div class="ar">نحن المالكين المذكورين أدناه نقر بعدم الممانعة من قيام شركة باترن لتأجير بيوت العطلات ذ.م.م، رخصة تجارية رقم 1123804، بإدارة وتشغيل العقار الموضح أدناه كبيت عطلات واستكمال متطلبات الجهات المختصة والمبنى والنزلاء والتنظيف والصيانة والتسجيل.</div>
-        </div>
-    @elseif($document->type === 'management_letter')
-        <div class="intro">
-            <div>The owner(s) authorize Pattern Vacation Homes Rental LLC to manage the property below for holiday home operation from {{ $startDate }} until {{ $endDate }}, including coordination with Dubai Tourism and Commerce Marketing, building management, guests, cleaning, maintenance, and operational service providers.</div>
-            <div class="ar">يفوض المالك/الملاك شركة باترن لتأجير بيوت العطلات ذ.م.م بإدارة العقار أدناه لتشغيله كبيت عطلات من {{ $startDate }} حتى {{ $endDate }}، بما يشمل التنسيق مع دائرة السياحة والتسويق التجاري بدبي وإدارة المبنى والنزلاء والتنظيف والصيانة ومزودي الخدمات التشغيلية.</div>
+        <div class="title-center">{{ $title['en'] }}</div>
+        <div class="body-text">
+            <p>I/We, the owner(s) listed below, being the rightful owner(s) of the apartment listed below:</p>
+            <p><b>Property Details:</b> {{ $propertyType }}<br><b>Unit:</b> {{ $unitNo }}<br><b>Community:</b> {{ $community ?: 'N/A' }}</p>
+            <p>Hereby confirm that I/we have no objection to Pattern Vacation Homes Rental LLC, holder of Trade License No. 1123804, to manage and operate my/our above-mentioned property on my/our behalf.</p>
+            <p>This includes activities related to short-term rental management, guest handling, cleaning, maintenance coordination, and all necessary operations related to property leasing and hospitality services.</p>
+            <p>This No Objection Certificate is issued upon my/our request to support management and registration requirements.</p>
         </div>
     @else
-        <div class="intro">
-            <div>This contract constitutes an agreement to operate the property as a holiday home between Pattern Vacation Homes Rental LLC and the owner(s) listed below.</div>
-            <div class="ar">يشكل هذا العقد اتفاقية لتشغيل العقار كبيت عطلات بين شركة باترن لتأجير بيوت العطلات ذ.م.م والمالك/الملاك المذكورين أدناه.</div>
+        <div class="title-row">
+            <div>{{ $title['en'] }}</div>
+            <div class="ar">{{ $title['ar'] }}</div>
+        </div>
+        <div class="bi-row">
+            <div class="en-col">
+                @if($document->type === 'management_letter')
+                    The owner(s) authorize Pattern Vacation Homes Rental LLC to manage the property below for holiday home operation and related authority, building, guest, cleaning, maintenance, and service-provider coordination.
+                @else
+                    This contract constitutes an agreement to operate the property as a holiday home between Pattern Vacation Homes Rental LLC and the owner(s) listed below.
+                @endif
+            </div>
+            <div class="ar-col ar">
+                @if($document->type === 'management_letter')
+                    يفوض المالك أو الملاك شركة باترن لتأجير بيوت العطلات ذ.م.م بإدارة العقار أدناه لتشغيله كبيت عطلات والتنسيق مع الجهات المختصة وإدارة المبنى والنزلاء والتنظيف والصيانة ومزودي الخدمات.
+                @else
+                    يشكل هذا العقد اتفاقية لتشغيل العقار كبيت عطلات بين شركة باترن لتأجير بيوت العطلات ذ.م.م والمالك أو الملاك المذكورين أدناه.
+                @endif
+            </div>
         </div>
     @endif
 
-    <div class="section"><div>1) Owner Details</div><div class="ar">1) بيانات المالك</div></div>
-    <table>
-        <thead>
+    <div class="sechead"><div>1) Owner Details</div><div class="ar">1) بيانات المالك</div></div>
+    <table class="datatable">
+        <tr><th>Owner Name</th><th>Email / Phone</th><th>EID / Passport</th><th>Share</th></tr>
+        @foreach($ownerShares as $share)
             <tr>
-                <th>Owner Name</th>
-                <th>Email / Phone</th>
-                <th>EID / Passport</th>
-                <th>Share</th>
+                <td>{{ $share->owner?->name ?? $landlord?->name }}</td>
+                <td>{{ $share->owner?->email ?? $landlord?->email }}<br>{{ $share->owner?->phone ?? $landlord?->phone }}</td>
+                <td>{{ $share->owner?->eid_passport_no ?? $landlord?->eid_passport_no ?? 'N/A' }}</td>
+                <td class="amount">{{ number_format((float) $share->share_percent, 2) }}%</td>
             </tr>
-        </thead>
-        <tbody>
-            @foreach($ownerShares as $share)
-                <tr>
-                    <td>{{ $share->owner?->name ?? $landlord?->name }}</td>
-                    <td>{{ $share->owner?->email ?? $landlord?->email }}<br>{{ $share->owner?->phone ?? $landlord?->phone }}</td>
-                    <td>{{ $share->owner?->eid_passport_no ?? $landlord?->eid_passport_no ?? 'N/A' }}</td>
-                    <td>{{ number_format((float) $share->share_percent, 2) }}%</td>
-                </tr>
-            @endforeach
-        </tbody>
+        @endforeach
     </table>
 
-    <div class="section"><div>2) Property Details</div><div class="ar">2) بيانات العقار</div></div>
-    <table>
-        <tr><th>Property / Building</th><td>{{ $buildingName ?: 'N/A' }}</td><th class="ar">العقار / المبنى</th></tr>
-        <tr><th>Unit No.</th><td>{{ $unitNo }}</td><th class="ar">رقم الوحدة</th></tr>
-        <tr><th>Community</th><td>{{ $community ?: 'N/A' }}</td><th class="ar">المنطقة</th></tr>
-        <tr><th>Property Type</th><td>{{ $propertyType }}</td><th class="ar">نوع الوحدة</th></tr>
-        <tr><th>Floor No.</th><td>{{ $property->floor ?? 'N/A' }}</td><th class="ar">رقم الطابق</th></tr>
-        <tr><th>DEWA Account No.</th><td>{{ $property->electricity_account_no ?? 'N/A' }}</td><th class="ar">رقم حساب ديوا</th></tr>
-        <tr><th>DTCM Permit No.</th><td>{{ $property->dtcm_permit_no ?? 'N/A' }}</td><th class="ar">رقم تصريح دائرة السياحة</th></tr>
+    <div class="sechead"><div>2) Property Detail</div><div class="ar">2) تفاصيل العقار</div></div>
+    <table class="datatable">
+        <tr><td class="label-en">Property Name</td><td class="value">{{ $buildingName ?: 'N/A' }}</td><td class="label-ar ar">اسم العقار</td></tr>
+        <tr><td class="label-en">Floor No.</td><td class="value">{{ $property->floor ?? 'N/A' }}</td><td class="label-ar ar">رقم الطابق</td></tr>
+        <tr><td class="label-en">Community</td><td class="value">{{ $community ?: 'N/A' }}</td><td class="label-ar ar">المنطقة</td></tr>
+        <tr><td class="label-en">Property No.</td><td class="value">{{ $unitNo }}</td><td class="label-ar ar">رقم الوحدة</td></tr>
+        <tr><td class="label-en">Property Type</td><td class="value">{{ $propertyType }}</td><td class="label-ar ar">نوع الوحدة</td></tr>
+        <tr><td class="label-en">DEWA Account No.</td><td class="value">{{ $property->electricity_account_no ?? 'N/A' }}</td><td class="label-ar ar">رقم حساب ديوا</td></tr>
+        <tr><td class="label-en">DTCM Permit No.</td><td class="value">{{ $property->dtcm_permit_no ?? 'N/A' }}</td><td class="label-ar ar">رقم تصريح دائرة السياحة</td></tr>
     </table>
 
     @if($document->type === 'management_contract')
-        <div class="section"><div>3) Financial Schedule</div><div class="ar">3) الجدول المالي</div></div>
-        <table>
+        <div class="sechead"><div>3) Financial Liabilities</div><div class="ar">3) الالتزامات المالية</div></div>
+        <table class="datatable financial-table">
             <tr><td>Furniture Supply & Installation</td><td class="amount">{{ $money($document->furniture_amount) }}</td><td class="ar">توريد وتركيب الأثاث</td></tr>
             <tr><td>Startup / DTCM Fee</td><td class="amount">{{ $money($document->startup_dtcm_fee) }}</td><td class="ar">رسوم بدء التشغيل / دائرة السياحة</td></tr>
             <tr><td>VAT 5% on Furniture Only</td><td class="amount">{{ $money($document->vat_amount) }}</td><td class="ar">ضريبة القيمة المضافة 5% على الأثاث فقط</td></tr>
             <tr><th>Grand Total</th><th class="amount">{{ $money($document->total_amount) }}</th><th class="ar">الإجمالي</th></tr>
             <tr><td>Management Fee</td><td class="amount">{{ $property->management_fee_percent ? number_format((float) $property->management_fee_percent, 2) . '%' : 'As agreed' }}</td><td class="ar">رسوم الإدارة</td></tr>
         </table>
+    @endif
 
-        <div class="page-break"></div>
-        <div class="topbar">
-            <div class="brand-wrap">@if($logoSrc)<img src="{{ $logoSrc }}" class="brand-logo" alt="Pattern">@endif</div>
-            <div class="ref"><div>Ref No. {{ $document->reference_no }}</div></div>
+    <div class="sig-section">
+        <div class="sig-grid">
+            <div class="sig-cell">
+                <div class="sig-heading"><span>The COMPANY</span><span class="ar">الشركة</span></div>
+                Pattern Vacation Homes Rental LLC<br>
+                Sultan Alhemeiri<br>
+                Chief Executive Officer
+                <div class="sigline">
+                    @if($companySignatureSrc)<img src="{{ $companySignatureSrc }}" class="sig-img" alt="Signature">@else Signature on file @endif
+                </div>
+                Date: {{ $document->signed_at?->format('d/m/Y') ?? $startDate }}
+            </div>
+            <div class="sig-cell">
+                <div class="sig-heading"><span>The OWNER</span><span class="ar">المالك</span></div>
+                Name: {{ $signedByName ?: $landlord?->name }}<br>
+                Signature
+                <div class="sigline">@if($signatureData)<img src="{{ $signatureData }}" class="sig-img" alt="Owner Signature">@endif</div>
+                Date: {{ $document->signed_at?->format('d/m/Y H:i') ?? 'Pending signature' }}
+            </div>
         </div>
-        <div class="section"><div>4) Terms and Conditions</div><div class="ar">4) الشروط والأحكام</div></div>
-        @foreach($managementTerms as $termIndex => $term)
+    </div>
+
+    <div class="stamp-wrap">
+        @if($stampSrc)<img src="{{ $stampSrc }}" class="stamp-img" alt="Stamp">@else <span class="stamp-fallback">PATTERN<br>VACATION HOMES<br>RENTAL</span>@endif
+    </div>
+
+    <div class="footer">
+        Phone : +971 50 334 4887 - Email : customerservice@pattern.ae - www.pattern.ae<br>
+        Office 413, P.O. Box 1327, Al Attar Business Centre, Al-Barsha, Dubai, UAE
+    </div>
+</div>
+
+@if($document->type === 'management_contract')
+    <div class="page">
+        <div class="top-bar">
+            <div class="checker-pattern">
+                @foreach(['c1','c2','c1','c3','c2','c2','c1','c3','c1','c2','c3','c2','c1','c2','c1','c1','c3','c2','c1','c3','c2','c1','c3','c2','c1'] as $class)
+                    <span class="{{ $class }}"></span>
+                @endforeach
+            </div>
+            <div class="logo-block">@if($logoSrc)<img src="{{ $logoSrc }}" class="brand-logo" alt="Pattern">@endif</div>
+            <div class="ref-block">Ref. No.: {{ $document->reference_no }}</div>
+        </div>
+
+        <div class="sechead"><div>4) Terms and Conditions</div><div class="ar">4) الشروط والأحكام</div></div>
+        @foreach($terms as $termIndex => $term)
             <div class="clause-title"><div>{{ $termIndex + 4 }}. {{ $term['en'] }}</div><div class="ar">{{ $termIndex + 4 }}. {{ $term['ar'] }}</div></div>
             @foreach($term['items'] as $itemIndex => $item)
                 <div class="clause-row">
@@ -226,26 +281,12 @@
                 </div>
             @endforeach
         @endforeach
-    @endif
 
-    <div class="signature">
-        <div class="sigbox">
-            <strong>Pattern Vacation Homes Rental LLC</strong><br>
-            Authorized Signature
-            <div class="sigline">Signature on file</div>
-            Date: {{ $document->signed_at?->format('d/m/Y') ?? $startDate }}
-        </div>
-        <div class="sigbox ar">
-            <strong>المالك / الملاك</strong><br>
-            Name: {{ $signedByName ?: $landlord?->name }}
-            <div class="sigline">@if($signatureData)<img src="{{ $signatureData }}" alt="Owner Signature">@endif</div>
-            Date: {{ $document->signed_at?->format('d/m/Y H:i') ?? 'Pending signature' }}
+        <div class="footer">
+            Phone : +971 50 334 4887 - Email : customerservice@pattern.ae - www.pattern.ae<br>
+            Office 413, P.O. Box 1327, Al Attar Business Centre, Al-Barsha, Dubai, UAE
         </div>
     </div>
-
-    <div class="footer">
-        Office 413, P.O. Box 1327, Al Attar Business Centre, Al-Barsha, Dubai, UAE | customerservice@pattern.ae | www.pattern.ae
-    </div>
-</div>
+@endif
 </body>
 </html>
