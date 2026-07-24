@@ -3,7 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Booking;
-use Barryvdh\DomPDF\Facade\Pdf;
+use App\Support\PdfRenderer;
 
 class GuestPortalController extends Controller
 {
@@ -20,17 +20,15 @@ class GuestPortalController extends Controller
     public function invoice(string $reference)
     {
         $booking = $this->findBooking($reference);
-        $pdf = Pdf::loadView('admin.bookings.pdf.invoice', compact('booking'));
 
-        return $pdf->download($booking->invoice_number . '.pdf');
+        return PdfRenderer::downloadView('admin.bookings.pdf.invoice', compact('booking'), $booking->invoice_number . '.pdf');
     }
 
     public function confirmation(string $reference)
     {
         $booking = $this->findBooking($reference);
-        $pdf = Pdf::loadView('admin.bookings.pdf.confirmation', compact('booking'));
 
-        return $pdf->download($booking->booking_reference . '-confirmation.pdf');
+        return PdfRenderer::downloadView('admin.bookings.pdf.confirmation', compact('booking'), $booking->booking_reference . '-confirmation.pdf');
     }
 
     private function findBooking(string $reference): Booking

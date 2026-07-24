@@ -34,13 +34,13 @@
         </div>
     </div>
 
-    {{-- 🔢 Total Properties (dynamic) --}}
+    {{-- Total Units (dynamic) --}}
     <div class="col-md-6 col-xl-3">
         <div class="card">
             <div class="card-body">
                 <div class="d-flex align-items-center justify-content-between">
                     <div>
-                        <h4 class="card-title mb-2 ">Total Properties</h4>
+                        <h4 class="card-title mb-2 ">Total Units</h4>
                         <p class="text-muted fw-medium fs-22 mb-0">
                             {{ $totalProperties ?? 0 }} Unit
                         </p>
@@ -129,18 +129,18 @@
     </div>
 </div>
 
-{{-- Properties Table --}}
+{{-- Units Table --}}
 <div class="row">
     <div class="col-xl-12">
         <div class="card">
 
             <div class="card-header d-flex justify-content-between align-items-center border-bottom">
                 <div>
-                    <h4 class="card-title mb-0">All Properties List</h4>
+                    <h4 class="card-title mb-0">All Units List</h4>
                 </div>
                 <div class="d-flex gap-2">
                     <a href="{{ route('admin.property.create') }}" class="btn btn-sm btn-primary">
-                        + Add New Property
+                        + Add New Unit
                     </a>
                     <div class="dropdown">
                         <a href="#" class="dropdown-toggle btn btn-sm btn-outline-light rounded" data-bs-toggle="dropdown" aria-expanded="false">
@@ -172,9 +172,9 @@
                                     <label class="form-check-label" for="checkAll"></label>
                                 </div>
                             </th>
-                            <th>Properties Photo &amp; Name</th>
+                            <th>Unit Photo &amp; Name</th>
                             <th>Size</th>
-                            <th>Property Type</th>
+                            <th>Unit Type</th>
                             <th>Rent/Sale</th>
                             <th>Bedrooms</th>
                             <th>Location</th>
@@ -221,7 +221,7 @@
                                     {{ $property->square_foot ? $property->square_foot . ' ft' : '-' }}
                                 </td>
 
-                                {{-- Property Type --}}
+                                {{-- Unit Type --}}
                                 <td>
                                     {{ $property->category ?? '—' }}
                                 </td>
@@ -273,7 +273,7 @@
                                         <a href="{{ route('admin.property.owner-documents.index', $property->id) }}" class="btn btn-soft-success btn-sm" title="Owner Documents">
                                             <iconify-icon icon="solar:document-add-broken" class="align-middle fs-18"></iconify-icon>
                                         </a>
-                                        <form action="{{ route('admin.property.destroy', $property->id) }}" method="POST" onsubmit="return confirm('Delete this property?');">
+                                        <form action="{{ route('admin.property.destroy', $property->id) }}" method="POST" onsubmit="return confirm('Delete this unit?');">
                                             @csrf
                                             @method('DELETE')
                                             <button type="submit" class="btn btn-soft-danger btn-sm">
@@ -286,7 +286,7 @@
                         @empty
                             <tr>
                                 <td colspan="10" class="text-center py-4">
-                                    <h5 class="text-muted mb-0">No properties found.</h5>
+                                    <h5 class="text-muted mb-0">No units found.</h5>
                                 </td>
                             </tr>
                         @endforelse

@@ -45,13 +45,13 @@
             <li class="nav-item">
                 <a class="nav-link menu-arrow" href="#sidebarProperty" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="sidebarProperty">
                     <span class="nav-icon"><i class="ri-community-line"></i></span>
-                    <span class="nav-text"> Property </span>
+                    <span class="nav-text"> Units </span>
                 </a>
                 <div class="collapse" id="sidebarProperty">
                     <ul class="nav sub-navbar-nav">
-                        <li class="sub-nav-item"><a class="sub-nav-link" href="{{ route('admin.property.index') }}">Property List</a></li>
-                        <li class="sub-nav-item"><a class="sub-nav-link" href="{{ route('admin.property.grid') }}">Property Grid</a></li>
-                        <li class="sub-nav-item"><a class="sub-nav-link" href="{{ route('admin.property.create') }}">Add Property</a></li>
+                        <li class="sub-nav-item"><a class="sub-nav-link" href="{{ route('admin.property.index') }}">Unit List</a></li>
+                        <li class="sub-nav-item"><a class="sub-nav-link" href="{{ route('admin.property.grid') }}">Unit Grid</a></li>
+                        <li class="sub-nav-item"><a class="sub-nav-link" href="{{ route('admin.property.create') }}">Add Unit</a></li>
                         <li class="sub-nav-item"><a class="sub-nav-link" href="{{ route('admin.building.index') }}">Buildings</a></li>
                     </ul>
                 </div>

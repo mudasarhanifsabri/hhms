@@ -4,7 +4,7 @@ namespace App\Http\Controllers\admin\inspections;
 
 use App\Http\Controllers\Controller;
 use App\Models\BookingInspection;
-use Barryvdh\DomPDF\Facade\Pdf;
+use App\Support\PdfRenderer;
 use Illuminate\Http\Request;
 
 class InspectionController extends Controller
@@ -40,9 +40,8 @@ class InspectionController extends Controller
     {
         $inspection->load(['booking.property.building', 'submittedBy', 'items']);
         $comparison = $this->comparisonFor($inspection);
-        $pdf = Pdf::loadView('admin.inspections.pdf.report', compact('inspection', 'comparison'));
 
-        return $pdf->download($inspection->inspection_number . '.pdf');
+        return PdfRenderer::downloadView('admin.inspections.pdf.report', compact('inspection', 'comparison'), $inspection->inspection_number . '.pdf');
     }
 
     private function comparisonFor(BookingInspection $inspection): array

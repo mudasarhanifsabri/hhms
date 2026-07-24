@@ -1,7 +1,7 @@
-<!-- Upload Property Photos -->
+<!-- Upload Unit Photos -->
 <fieldset class="border rounded-3 p-3 bg-light-subtle mb-4">
     <legend class="float-none w-auto px-2 text-primary fw-semibold">
-        <i class="bi bi-images me-2"></i>Property Photos
+        <i class="bi bi-images me-2"></i>Unit Photos
     </legend>
 
     @if(isset($property) && $property->photos)
@@ -13,7 +13,7 @@
         <div class="mb-3 d-flex flex-wrap gap-2">
             @foreach ($existingPhotos as $photo)
                 <div class="border rounded p-2">
-                    <img src="{{ asset('storage/' . $photo) }}" alt="Property Photo" width="120" class="img-thumbnail">
+                    <img src="{{ asset('storage/' . $photo) }}" alt="Unit Photo" width="120" class="img-thumbnail">
                     <div class="small text-muted">{{ basename($photo) }}</div>
                 </div>
             @endforeach

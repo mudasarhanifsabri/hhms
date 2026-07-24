@@ -9,8 +9,8 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use App\Models\User;
 use App\Models\Property;
+use App\Support\PdfRenderer;
 use Illuminate\Http\Response;
-use Barryvdh\DomPDF\Facade\Pdf;
 // use Illuminate\Support\Facades\Notification;
 // use App\Notifications\TenantCreated;
 // use App\Notifications\TenantUpdated;
@@ -44,7 +44,7 @@ class TenantController extends Controller
         $editRoute = route('admin.tenant.edit', $tenant->id);
         $backRoute = route('admin.tenant.index');
         $bankRoute = route('admin.tenant.updateBank', $tenant->id);
-        $propertiesTitle = 'Recent Properties';
+        $propertiesTitle = 'Recent Units';
         $summaryCards = [
             ['label' => 'Profile Status', 'value' => $tenant->is_active ? 'Active' : 'Inactive'],
             ['label' => 'Emergency Contact', 'value' => $tenant->emergency_contact_name ? 'Provided' : 'Missing'],
@@ -225,9 +225,7 @@ class TenantController extends Controller
         $tenants = User::where('role', 'tenant')->get();
         $totalTenants = $tenants->count();
 
-        $pdf = Pdf::loadView('admin.pdf.tenants.list', compact('tenants', 'totalTenants'));
-
-        return $pdf->download('tenants_list.pdf');
+        return PdfRenderer::downloadView('admin.pdf.tenants.list', compact('tenants', 'totalTenants'), 'tenants_list.pdf');
     }
 
 

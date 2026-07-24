@@ -9,8 +9,8 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use App\Models\User;
 use App\Models\Property;
+use App\Support\PdfRenderer;
 use Illuminate\Http\Response;
-use Barryvdh\DomPDF\Facade\Pdf;
 
 class AgentController extends Controller
 {
@@ -41,7 +41,7 @@ class AgentController extends Controller
         $editRoute = route('admin.agent.edit', $agent->id);
         $backRoute = route('admin.agent.index');
         $bankRoute = route('admin.agent.updateBank', $agent->id);
-        $propertiesTitle = 'Recent Properties';
+        $propertiesTitle = 'Recent Units';
         $summaryCards = [
             ['label' => 'Commission', 'value' => number_format((float) $agent->agent_commission, 2) . '%'],
             ['label' => 'Profile Status', 'value' => $agent->is_active ? 'Active' : 'Inactive'],
@@ -222,9 +222,7 @@ class AgentController extends Controller
         $agents = User::where('role', 'agent')->get();
         $totalAgents = $agents->count();
 
-        $pdf = Pdf::loadView('admin.pdf.agents.list', compact('agents', 'totalAgents'));
-
-        return $pdf->download('agents_list.pdf');
+        return PdfRenderer::downloadView('admin.pdf.agents.list', compact('agents', 'totalAgents'), 'agents_list.pdf');
     }
 
     public function destroy($id)

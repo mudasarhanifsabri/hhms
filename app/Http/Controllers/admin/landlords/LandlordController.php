@@ -13,8 +13,8 @@ use Illuminate\Support\Facades\Log;
 use App\Models\User;
 use App\Models\Property;
 use App\Models\LandlordAccountEntry;
+use App\Support\PdfRenderer;
 use Illuminate\Http\Response;
-use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\Notification;
 use App\Notifications\LandlordCreated;
 use App\Notifications\LandlordUpdated;
@@ -54,9 +54,9 @@ class LandlordController extends Controller
         $bankRoute = route('admin.landlord.updateBank', $landlord->id);
         $accountStatementRoute = route('admin.landlord.account-statement', $landlord->id);
         $ownedPropertiesRoute = route('admin.landlord.owned-properties', $landlord->id);
-        $propertiesTitle = 'Owned Properties';
+        $propertiesTitle = 'Owned Units';
         $summaryCards = [
-            ['label' => 'Owned Properties', 'value' => $ownedPropertiesCount],
+            ['label' => 'Owned Units', 'value' => $ownedPropertiesCount],
             ['label' => 'Rented Units', 'value' => $rentedPropertiesCount],
             ['label' => 'Balance', 'value' => number_format($this->accountTotalsFor($landlord->id)['balance'], 2) . ' AED'],
         ];
@@ -127,14 +127,12 @@ class LandlordController extends Controller
         $accountTotals = $this->accountTotalsFor($landlord->id, $filters);
         $period = $this->statementPeriod($accountEntries, $filters);
 
-        $pdf = Pdf::loadView('admin.landlords.pdf.account-statement', compact(
+        return PdfRenderer::downloadView('admin.landlords.pdf.account-statement', compact(
             'landlord',
             'accountEntries',
             'accountTotals',
             'period'
-        ))->setPaper('a4');
-
-        return $pdf->download('owner-statement-' . Str::slug($landlord->name) . '.pdf');
+        ), 'owner-statement-' . Str::slug($landlord->name) . '.pdf');
     }
 
     public function ownedProperties($id)
@@ -143,7 +141,7 @@ class LandlordController extends Controller
         $relatedProperties = Property::where('landlord_id', $landlord->id)
             ->latest()
             ->paginate(12);
-        $propertiesTitle = 'Owned Properties';
+        $propertiesTitle = 'Owned Units';
         $detailsRoute = route('admin.landlord.show', $landlord->id);
         $accountStatementRoute = route('admin.landlord.account-statement', $landlord->id);
         $backRoute = route('admin.landlord.index');
@@ -338,11 +336,7 @@ public function update(Request $request, $id)
             $landlords = User::where('role', 'landlord')->get();
             $totalLandlords = $landlords->count();
 
-            // Load the PDF view with data
-            $pdf = Pdf::loadView('admin.pdf.landlords.list', compact('landlords', 'totalLandlords'));
-
-            // Download the generated PDF
-            return $pdf->download('landlords_list.pdf');
+            return PdfRenderer::downloadView('admin.pdf.landlords.list', compact('landlords', 'totalLandlords'), 'landlords_list.pdf');
         }
 
 
@@ -436,7 +430,7 @@ public function storeAccountEntry(Request $request, $id)
 
     LandlordAccountEntry::recalculateBalancesFor($landlord->id);
 
-    return back()
+    return redirect()->route('admin.landlord.show', $landlord->id)
         ->with('success', 'Owner account statement entry added successfully.');
 }
 

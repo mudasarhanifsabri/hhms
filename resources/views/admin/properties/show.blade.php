@@ -33,7 +33,7 @@
 
     $badgeText = $categoryLabel
         ? ucfirst($categoryLabel)
-        : ($statusLabel ? ucfirst($statusLabel) : 'Property');
+        : ($statusLabel ? ucfirst($statusLabel) : 'Unit');
 
     // Price
     $price = $property->rent;
@@ -42,6 +42,42 @@
     $amenities = $asArray($property->amenities);
     $additionalFeatures = $asArray($property->additional_features);
     $securityUtilities = $asArray($property->security_utilities);
+    $formatValue = fn ($value) => filled($value) ? $value : 'N/A';
+    $formatMoney = fn ($value) => filled($value) ? number_format((float) $value, 2) . ' AED' : 'N/A';
+    $formatDate = fn ($value) => $value ? \Illuminate\Support\Carbon::parse($value)->format('d M Y') : 'N/A';
+
+    $unitDetailGroups = [
+        'Unit Overview' => [
+            ['Status', ucfirst($property->status ?? 'N/A'), 'solar:check-circle-broken', 'success'],
+            ['Unit Type', $formatValue($property->category), 'solar:home-angle-broken', 'primary'],
+            ['Monthly Rent', $formatMoney($property->rent), 'solar:wallet-money-broken', 'warning'],
+            ['Management Fee', $property->management_fee_percent !== null ? number_format((float) $property->management_fee_percent, 2) . '%' : 'N/A', 'solar:percent-circle-broken', 'info'],
+        ],
+        'Layout & Size' => [
+            ['Bedrooms', $formatValue($property->bedrooms), 'solar:bed-broken', 'primary'],
+            ['Bathrooms', $formatValue($property->bathrooms), 'solar:bath-broken', 'primary'],
+            ['Living Rooms', $formatValue($property->living_rooms), 'solar:sofa-2-broken', 'primary'],
+            ['Kitchens', $formatValue($property->kitchens), 'solar:chef-hat-broken', 'primary'],
+            ['Square Foot', filled($property->square_foot) ? $property->square_foot . ' sqft' : 'N/A', 'solar:scale-broken', 'secondary'],
+            ['Floor', $formatValue($property->floor), 'solar:double-alt-arrow-up-broken', 'secondary'],
+        ],
+        'Location & Access' => [
+            ['Building', $formatValue($building?->building_name), 'solar:buildings-3-broken', 'primary'],
+            ['Community', $formatValue($property->community), 'solar:map-point-broken', 'info'],
+            ['Floor Label', $formatValue($property->unit_floor_label), 'solar:tag-broken', 'secondary'],
+            ['Parking', $formatValue($property->parking_number), 'solar:parking-broken', 'success'],
+            ['Distance to Road', $formatValue($property->distance_to_road), 'solar:map-arrow-square-broken', 'warning'],
+        ],
+        'Utilities & Compliance' => [
+            ['DTCM Permit No.', $formatValue($property->dtcm_permit_no), 'solar:document-text-broken', 'dark'],
+            ['DTCM Permit Expiry', $formatDate($property->dtcm_permit_expiry), 'solar:calendar-date-broken', 'danger'],
+            ['WiFi Provider', $formatValue($property->wifi_provider), 'solar:wi-fi-router-broken', 'info'],
+            ['WiFi Account No.', $formatValue($property->wifi_account_no), 'solar:hashtag-square-broken', 'secondary'],
+            ['Electricity Provider', $formatValue($property->electricity_provider), 'solar:bolt-broken', 'warning'],
+            ['Electricity Account No.', $formatValue($property->electricity_account_no), 'solar:hashtag-square-broken', 'secondary'],
+            ['Utilities Cap', $formatMoney($property->utilities_cap), 'solar:bill-list-broken', 'success'],
+        ],
+    ];
 @endphp
 
 <div class="row">
@@ -152,7 +188,7 @@
                 <div class="d-flex flex-wrap justify-content-between my-3 gap-2">
                     <div>
                         <a href="#!" class="fs-18 text-dark fw-medium">
-                            {{ optional($property->building)->building_name ?? 'No Building' }} - {{ $property->name ?? 'Property Title' }}
+                            {{ optional($property->building)->building_name ?? 'No Building' }} - {{ $property->name ?? 'Unit Title' }}
                         </a>
                         <p class="d-flex align-items-center gap-1 mt-1 mb-0">
                             <iconify-icon icon="solar:map-point-wave-bold-duotone" class="fs-18 text-primary"></iconify-icon>
@@ -301,7 +337,7 @@
     {{-- HAS SECURITY --}}
     @if(!empty($property->has_security))
         <span class="badge bg-light-subtle text-muted border fw-medium fs-13 px-2 py-1">
-            Security: {{ ucfirst($property->has_security) }}
+            Security: {{ $property->has_security ? 'Yes' : 'No' }}
         </span>
     @endif
 
@@ -336,9 +372,9 @@
 
 
                 {{-- DESCRIPTION --}}
-                <h5 class="text-dark fw-medium mt-3">Property Details :</h5>
+                <h5 class="text-dark fw-medium mt-3">Unit Details</h5>
                 <p class="mt-2">
-                    {!! nl2br(e($property->description ?? 'No description provided for this property.')) !!}
+                    {!! nl2br(e($property->description ?? 'No description provided for this unit.')) !!}
                 </p>
 
                 <div class="d-flex align-items-center justify-content-between mb-3">
@@ -351,201 +387,104 @@
                     </div>
                 </div>
 
-                {{-- FULL DETAILS TABLE --}}
-                <h5 class="text-dark fw-medium mt-3">Full Property Details :</h5>
-                <div class="table-responsive mt-2">
-                    <table class="table table-bordered table-striped mb-0">
-                        <tbody>
-                            
-                          
-                            <tr>
-                                <th>Status</th>
-                                <td>{{ ucfirst($property->status ?? 'N/A') }}</td>
-                            </tr>
-                            
-                            <tr>
-                                <th>Management Fee %</th>
-                                <td>{{ $property->management_fee_percent !== null ? number_format((float) $property->management_fee_percent, 2) . '%' : 'N/A' }}</td>
-                            </tr>
-                            <tr>
-                                <th>Owners</th>
-                                <td>
-                                    @forelse($ownerShares as $share)
-                                        <span class="badge bg-light-subtle text-muted border px-2 py-1">
-                                            {{ $share->owner?->name }} - {{ number_format((float) $share->share_percent, 2) }}%
-                                        </span>
-                                    @empty
-                                        {{ $landlord->name ?? 'N/A' }} - 100%
-                                    @endforelse
-                                </td>
-                            </tr>
-                            <tr>
-                                <th>Bedrooms</th>
-                                <td>{{ $property->bedrooms ?? 'N/A' }}</td>
-                            </tr>
-                            <tr>
-                                <th>Bathrooms</th>
-                                <td>{{ $property->bathrooms ?? 'N/A' }}</td>
-                            </tr>
-                            <tr>
-                                <th>Living Rooms</th>
-                                <td>{{ $property->living_rooms ?? 'N/A' }}</td>
-                            </tr>
-                            <tr>
-                                <th>Kitchens</th>
-                                <td>{{ $property->kitchens ?? 'N/A' }}</td>
-                            </tr>
-                            <tr>
-                                <th>Square Foot</th>
-                                <td>{{ $property->square_foot ?? 'N/A' }}</td>
-                            </tr>
-                            <tr>
-                                <th>Floor</th>
-                                <td>{{ $property->floor ?? 'N/A' }}</td>
-                            </tr>
-                            <tr>
-                                <th>Amenities</th>
-                                <td>
-                                    @foreach($amenities as $a)
-                                        <span class="badge bg-light-subtle text-muted border px-2 py-1">{{ $a }}</span>
-                                    @endforeach
-                                    @if(empty($amenities))
-                                        N/A
-                                    @endif
-                                </td>
-                            </tr>
-                            <tr>
-                                <th>Has Security</th>
-                                <td>{{ $property->has_security ?? 'N/A' }}</td>
-                            </tr>
-                            <tr>
-                                <th>Security Utilities</th>
-                                <td>
-                                    @foreach($securityUtilities as $su)
-                                        <span class="badge bg-light-subtle text-muted border px-2 py-1">{{ $su }}</span>
-                                    @endforeach
-                                    @if(empty($securityUtilities))
-                                        N/A
-                                    @endif
-                                </td>
-                            </tr>
-                            <tr>
-                                <th>Additional Features</th>
-                                <td>
-                                    @foreach($additionalFeatures as $f)
-                                        <span class="badge bg-light-subtle text-muted border px-2 py-1">{{ $f }}</span>
-                                    @endforeach
-                                    @if(empty($additionalFeatures))
-                                        N/A
-                                    @endif
-                                </td>
-                            </tr>
-                            <tr>
-                                <th>Distance to Road</th>
-                                <td>{{ $property->distance_to_road ?? 'N/A' }}</td>
-                            </tr>
-                            <tr>
-                                <th>Additional Notes</th>
-                                <td>{{ $property->additional_notes ?? 'N/A' }}</td>
-                            </tr>
-                            <tr>
-                                <th>Photos</th>
-                                <td>
-                                    @forelse($photos as $img)
-                                        <a href="{{ asset('storage/'.$img) }}" target="_blank">
-                                            <img src="{{ asset('storage/'.$img) }}" width="70" class="rounded border me-1 mb-1">
-                                        </a>
-                                    @empty
-                                        N/A
-                                    @endforelse
-                                </td>
-                            </tr>
-                            <tr>
-                                <th>Video</th>
-                                <td>
-                                    @if($property->video)
-                                        <a href="{{ asset('storage/'.$property->video) }}" target="_blank" class="btn btn-sm btn-primary">
-                                            View Video
-                                        </a>
-                                    @else
-                                        N/A
-                                    @endif
-                                </td>
-                            </tr>
-                            <tr>
-                                <th>Floor Plan</th>
-                                <td>
-                                    @if($property->floor_plan)
-                                        <a href="{{ asset('storage/'.$property->floor_plan) }}" target="_blank" class="btn btn-sm btn-info">
-                                            View Floor Plan
-                                        </a>
-                                    @else
-                                        N/A
-                                    @endif
-                                </td>
-                            </tr>
-                            <tr>
-                                <th>DTCM Unit Permit</th>
-                                <td>
-                                    @if($property->dtcm_unit_permit)
-                                        <a href="{{ asset('storage/'.$property->dtcm_unit_permit) }}" target="_blank" class="btn btn-sm btn-dark">
-                                            View DTCM Unit Permit
-                                        </a>
-                                    @else
-                                        N/A
-                                    @endif
-                                </td>
-                            </tr>
-                            <tr>
-                                <th>Title Deed</th>
-                                <td>
-                                    @if($property->title_deed)
-                                        <a href="{{ asset('storage/'.$property->title_deed) }}" target="_blank" class="btn btn-sm btn-secondary">
-                                            View Title Deed
-                                        </a>
-                                    @else
-                                        N/A
-                                    @endif
-                                </td>
-                            </tr>
-                            <tr>
-                                <th>DTCM Permit No.</th>
-                                <td>{{ $property->dtcm_permit_no ?? 'N/A' }}</td>
-                            </tr>
-                            <tr>
-                                <th>DTCM Permit Expiry</th>
-                                <td>{{ $property->dtcm_permit_expiry ?? 'N/A' }}</td>
-                            </tr>
-                            <tr>
-                                <th>WiFi Provider</th>
-                                <td>{{ $property->wifi_provider ?? 'N/A' }}</td>
-                            </tr>
-                            <tr>
-                                <th>WiFi Account No.</th>
-                                <td>{{ $property->wifi_account_no ?? 'N/A' }}</td>
-                            </tr>
-                            <tr>
-                                <th>Electricity Provider</th>
-                                <td>{{ $property->electricity_provider ?? 'N/A' }}</td>
-                            </tr>
-                            <tr>
-                                <th>Electricity Account No.</th>
-                                <td>{{ $property->electricity_account_no ?? 'N/A' }}</td>
-                            </tr>
-                            <tr>
-                                <th>Created At</th>
-                                <td>{{ $property->created_at }}</td>
-                            </tr>
-                            <tr>
-                                <th>Updated At</th>
-                                <td>{{ $property->updated_at }}</td>
-                            </tr>
-                            <tr>
-                                <th>Deleted At</th>
-                                <td>{{ $property->deleted_at ?? 'N/A' }}</td>
-                            </tr>
-                        </tbody>
-                    </table>
+                {{-- FULL DETAILS --}}
+                <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mt-4">
+                    <div>
+                        <h5 class="text-dark fw-semibold mb-1">Full Unit Details</h5>
+                        <p class="text-muted mb-0">Complete operational profile for this unit.</p>
+                    </div>
+                    <span class="badge bg-primary-subtle text-primary px-3 py-2">
+                        {{ $property->name ?? 'Unit' }}
+                    </span>
+                </div>
+
+                <div class="row g-3 mt-1">
+                    @foreach($unitDetailGroups as $groupTitle => $items)
+                        <div class="col-xl-6">
+                            <div class="card border shadow-none h-100 mb-0">
+                                <div class="card-header bg-light-subtle py-2">
+                                    <h6 class="card-title mb-0">{{ $groupTitle }}</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="vstack gap-2">
+                                        @foreach($items as [$label, $value, $icon, $color])
+                                            <div class="d-flex align-items-start gap-3 border-bottom pb-2">
+                                                <div class="avatar-sm bg-{{ $color }}-subtle rounded d-flex align-items-center justify-content-center flex-shrink-0">
+                                                    <iconify-icon icon="{{ $icon }}" class="fs-20 text-{{ $color }}"></iconify-icon>
+                                                </div>
+                                                <div class="flex-grow-1">
+                                                    <div class="text-muted small">{{ $label }}</div>
+                                                    <div class="fw-semibold text-dark">{{ $value }}</div>
+                                                </div>
+                                            </div>
+                                        @endforeach
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
+
+                <div class="card border shadow-none mt-3 mb-0">
+                    <div class="card-header bg-light-subtle py-2">
+                        <h6 class="card-title mb-0">Owners, Media & Documents</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-lg-6">
+                                <div class="border rounded p-3 h-100">
+                                    <div class="text-muted small mb-2">Owners</div>
+                                    <div class="d-flex flex-wrap gap-2">
+                                        @forelse($ownerShares as $share)
+                                            <span class="badge bg-light-subtle text-muted border px-2 py-1">
+                                                {{ $share->owner?->name ?? 'Owner' }} - {{ number_format((float) $share->share_percent, 2) }}%
+                                            </span>
+                                        @empty
+                                            <span class="badge bg-light-subtle text-muted border px-2 py-1">
+                                                {{ $landlord->name ?? 'N/A' }} - 100%
+                                            </span>
+                                        @endforelse
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-lg-6">
+                                <div class="border rounded p-3 h-100">
+                                    <div class="text-muted small mb-2">Documents</div>
+                                    <div class="d-flex flex-wrap gap-2">
+                                        @if($property->video)
+                                            <a href="{{ asset('storage/'.$property->video) }}" target="_blank" class="btn btn-sm btn-soft-primary">View Video</a>
+                                        @endif
+                                        @if($property->floor_plan)
+                                            <a href="{{ asset('storage/'.$property->floor_plan) }}" target="_blank" class="btn btn-sm btn-soft-info">Floor Plan</a>
+                                        @endif
+                                        @if($property->dtcm_unit_permit)
+                                            <a href="{{ asset('storage/'.$property->dtcm_unit_permit) }}" target="_blank" class="btn btn-sm btn-soft-dark">DTCM Permit</a>
+                                        @endif
+                                        @if($property->title_deed)
+                                            <a href="{{ asset('storage/'.$property->title_deed) }}" target="_blank" class="btn btn-sm btn-soft-secondary">Title Deed</a>
+                                        @endif
+                                        @if(!$property->video && !$property->floor_plan && !$property->dtcm_unit_permit && !$property->title_deed)
+                                            <span class="text-muted">No documents uploaded.</span>
+                                        @endif
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-12">
+                                <div class="border rounded p-3">
+                                    <div class="text-muted small mb-2">Photos</div>
+                                    <div class="d-flex flex-wrap gap-2">
+                                        @forelse($photos as $img)
+                                            <a href="{{ asset('storage/'.$img) }}" target="_blank">
+                                                <img src="{{ asset('storage/'.$img) }}" width="78" height="58" class="rounded border object-fit-cover" alt="Unit photo">
+                                            </a>
+                                        @empty
+                                            <span class="text-muted">No photos uploaded.</span>
+                                        @endforelse
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
             </div>

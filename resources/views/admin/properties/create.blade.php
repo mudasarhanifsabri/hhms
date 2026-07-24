@@ -17,7 +17,7 @@
 <form id="propertyForm" action="{{ route('admin.property.store') }}" method="POST" enctype="multipart/form-data">
     @csrf
 
-    <!-- Property Info -->
+    <!-- Unit Info -->
     @include('admin.properties.partials.property-info')
 
     <!-- Amenities & Features -->
@@ -26,12 +26,12 @@
     <!-- Photos Section -->
     <div class="card mt-4">
         <div class="card-header">
-            <h4 class="card-title">Upload Property Photos</h4>
+            <h4 class="card-title">Upload Unit Photos</h4>
         </div>
         <div class="card-body">
             <div class="dropzone bg-light-subtle py-5" id="propertyPhotoDropzone">
                 <div class="fallback">
-                    <input name="property_images[]" type="file" multiple />
+                    <input name="photos[]" type="file" multiple />
                 </div>
                 <div class="dz-message needsclick">
                     <i class="ri-upload-cloud-2-line fs-48 text-primary"></i>
@@ -45,10 +45,10 @@
     <!-- Video Upload -->
     <div class="card mt-4">
         <div class="card-header">
-            <h4 class="card-title">Upload Property Video <small class="text-muted">(Optional)</small></h4>
+            <h4 class="card-title">Upload Unit Video <small class="text-muted">(Optional)</small></h4>
         </div>
         <div class="card-body">
-            <input type="file" name="property_video" accept="video/*" class="form-control" />
+            <input type="file" name="video" accept="video/*" class="form-control" />
             <small class="form-text text-muted">Supported formats: MP4, WebM, AVI. Max size: 100MB</small>
         </div>
     </div>
@@ -71,7 +71,7 @@
     <div class="sticky-save-bar d-flex justify-content-between align-items-center mt-4">
         <div>
             <button type="button" class="btn btn-outline-secondary me-2" id="saveDraftBtn">Save Draft</button>
-            <button type="submit" class="btn btn-primary">Create Property</button>
+            <button type="submit" class="btn btn-primary">Create Unit</button>
         </div>
     </div>
 </form>

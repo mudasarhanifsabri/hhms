@@ -32,7 +32,7 @@
             <nav>
                 <a href="{{ $homeRoute }}" class="active"><i class="ri-dashboard-2-line"></i> Dashboard</a>
                 @if($role === 'landlord')
-                    <a href="{{ route('landlord.dashboard') }}#properties"><i class="ri-community-line"></i> Properties</a>
+                    <a href="{{ route('landlord.dashboard') }}#properties"><i class="ri-community-line"></i> Units</a>
                     <a href="{{ route('landlord.dashboard') }}#statement"><i class="ri-file-list-3-line"></i> Statement</a>
                 @elseif($role === 'agent')
                     <a href="{{ route('agent.dashboard') }}#bookings"><i class="ri-calendar-check-line"></i> Bookings</a>

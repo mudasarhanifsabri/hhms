@@ -9,7 +9,7 @@ use App\Models\BookingTask;
 use App\Models\LandlordAccountEntry;
 use App\Models\Property;
 use App\Models\User;
-use Barryvdh\DomPDF\Facade\Pdf;
+use App\Support\PdfRenderer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -311,17 +311,15 @@ class BookingController extends Controller
     public function invoice(Booking $booking)
     {
         $booking->load(['property.building', 'agent']);
-        $pdf = Pdf::loadView('admin.bookings.pdf.invoice', compact('booking'));
 
-        return $pdf->download($booking->invoice_number . '.pdf');
+        return PdfRenderer::downloadView('admin.bookings.pdf.invoice', compact('booking'), $booking->invoice_number . '.pdf');
     }
 
     public function confirmation(Booking $booking)
     {
         $booking->load(['property.building', 'agent']);
-        $pdf = Pdf::loadView('admin.bookings.pdf.confirmation', compact('booking'));
 
-        return $pdf->download($booking->booking_reference . '-confirmation.pdf');
+        return PdfRenderer::downloadView('admin.bookings.pdf.confirmation', compact('booking'), $booking->booking_reference . '-confirmation.pdf');
     }
 
     private function uploadFile(Request $request, string $field, string $folder): ?string

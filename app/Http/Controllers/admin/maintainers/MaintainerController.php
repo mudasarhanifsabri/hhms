@@ -9,8 +9,8 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use App\Models\User;
 use App\Models\Property;
+use App\Support\PdfRenderer;
 use Illuminate\Http\Response;
-use Barryvdh\DomPDF\Facade\Pdf;
 
 class MaintainerController extends Controller
 {
@@ -41,7 +41,7 @@ class MaintainerController extends Controller
         $editRoute = route('admin.maintainer.edit', $maintainer->id);
         $backRoute = route('admin.maintainer.index');
         $bankRoute = route('admin.maintainer.updateBank', $maintainer->id);
-        $propertiesTitle = 'Properties Needing Attention';
+        $propertiesTitle = 'Units Needing Attention';
         $summaryCards = [
             ['label' => 'Profile Status', 'value' => $maintainer->is_active ? 'Active' : 'Inactive'],
             ['label' => 'Emergency Contact', 'value' => $maintainer->emergency_contact_name ? 'Provided' : 'Missing'],
@@ -186,9 +186,7 @@ class MaintainerController extends Controller
         $maintainers = User::where('role', 'maintainer')->get();
         $totalMaintainers = $maintainers->count();
 
-        $pdf = Pdf::loadView('admin.pdf.maintainers.list', compact('maintainers', 'totalMaintainers'));
-
-        return $pdf->download('maintainers_list.pdf');
+        return PdfRenderer::downloadView('admin.pdf.maintainers.list', compact('maintainers', 'totalMaintainers'), 'maintainers_list.pdf');
     }
 
     public function destroy($id)

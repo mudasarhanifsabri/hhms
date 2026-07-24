@@ -1,6 +1,6 @@
 <div class="card shadow-sm border-0">
     <div class="card-header">
-        <h4 class="card-title mb-0">Property Information</h4>
+        <h4 class="card-title mb-0">Unit Information</h4>
     </div>
     <div class="card-body">
         <div class="row g-3">
@@ -99,9 +99,9 @@
                 <input type="text" id="unit_no" name="name" class="form-control" placeholder="Enter Unit Number or Name" value="{{ old('name', $property->name ?? '') }}">
             </div>
 
-            <!-- Property Category -->
+            <!-- Unit Category -->
             <div class="col-lg-6">
-                <label for="category" class="form-label">Property Category</label>
+                <label for="category" class="form-label">Unit Category</label>
                 <select class="form-control" id="category" name="category" data-choices data-placeholder="Select Category">
                     <option value="">Select Category</option>
                     <option value="Villas" {{ old('category') == 'Villas' ? 'selected' : '' }}>Villas</option>
@@ -222,7 +222,7 @@
             <!-- Description -->
             <div class="col-12">
                 <label for="description" class="form-label">Description</label>
-                <textarea name="description" id="description" class="form-control" rows="4" placeholder="Enter property description">{{ old('description') }}</textarea>
+                <textarea name="description" id="description" class="form-control" rows="4" placeholder="Enter unit description">{{ old('description') }}</textarea>
             </div>
 
         </div>

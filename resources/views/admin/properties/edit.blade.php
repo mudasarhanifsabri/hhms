@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Edit Property')
+@section('title', 'Edit Unit')
 
 @section('content')
 <form action="{{ route('admin.property.update', $property->id) }}" method="POST">
@@ -9,7 +9,7 @@
 
     <div class="card">
         <div class="card-header">
-            <h4 class="card-title mb-0">Edit Property</h4>
+            <h4 class="card-title mb-0">Edit Unit</h4>
         </div>
         <div class="card-body">
             <div class="row g-3">
@@ -176,7 +176,7 @@
 
     <div class="d-flex justify-content-end gap-2 mt-3">
         <a href="{{ route('admin.property.index') }}" class="btn btn-danger">Cancel</a>
-        <button type="submit" class="btn btn-primary">Update Property</button>
+        <button type="submit" class="btn btn-primary">Update Unit</button>
     </div>
 </form>
 @endsection

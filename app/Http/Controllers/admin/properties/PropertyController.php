@@ -98,7 +98,7 @@ class PropertyController extends Controller
         }
 
         if ($request->hasFile('floor_plan')) {
-            $validated['floor_plan'] = $request->file('floor_plans', 'public');
+            $validated['floor_plan'] = $request->file('floor_plan')->store('floor_plans', 'public');
         }
 
         // Handle multiple photo uploads
@@ -110,13 +110,13 @@ class PropertyController extends Controller
             $validated['photos'] = $photos;
         }
 
-        // Ensure UUID for property ID
+        // Ensure UUID for unit ID
         $validated['id'] = Str::uuid()->toString();
 
         $property = Property::create($validated);
         $this->syncOwnerShares($property, $request);
 
-        return redirect()->route('admin.property.index')->with('success', 'Property created successfully.');
+        return redirect()->route('admin.property.index')->with('success', 'Unit created successfully.');
     }
 
     public function show(Property $property)
@@ -163,13 +163,13 @@ class PropertyController extends Controller
         $property->update($validated);
         $this->syncOwnerShares($property, $request);
 
-        return redirect()->route('admin.property.index')->with('success', 'Property updated successfully.');
+        return redirect()->route('admin.property.index')->with('success', 'Unit updated successfully.');
     }
 
     public function destroy(Property $property)
     {
         $property->delete();
-        return redirect()->back()->with('success', 'Property deleted successfully.');
+        return redirect()->back()->with('success', 'Unit deleted successfully.');
     }
 
     private function syncOwnerShares(Property $property, Request $request): void
