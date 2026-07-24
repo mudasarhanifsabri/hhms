@@ -90,6 +90,25 @@
             </li>
 
             <li class="nav-item">
+                <a class="nav-link menu-arrow" href="#sidebarAccounting" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="sidebarAccounting">
+                    <span class="nav-icon"><i class="ri-calculator-line"></i></span>
+                    <span class="nav-text"> Accounting </span>
+                </a>
+                <div class="collapse" id="sidebarAccounting">
+                    <ul class="nav sub-navbar-nav">
+                        <li class="sub-nav-item"><a class="sub-nav-link" href="{{ route('admin.accounting.dashboard') }}">Dashboard</a></li>
+                        <li class="sub-nav-item"><a class="sub-nav-link" href="{{ route('admin.accounting.ledger') }}">Ledger</a></li>
+                        <li class="sub-nav-item"><a class="sub-nav-link" href="{{ route('admin.accounting.expenses') }}">Expense Management</a></li>
+                        <li class="sub-nav-item"><a class="sub-nav-link" href="{{ route('admin.accounting.utilities') }}">Utilities</a></li>
+                        <li class="sub-nav-item"><a class="sub-nav-link" href="{{ route('admin.accounting.vat') }}">VAT Report</a></li>
+                        <li class="sub-nav-item"><a class="sub-nav-link" href="{{ route('admin.accounting.owner-statements') }}">Owner Statements</a></li>
+                        <li class="sub-nav-item"><a class="sub-nav-link" href="{{ route('admin.accounting.booking-invoices') }}">Booking Invoices</a></li>
+                        <li class="sub-nav-item"><a class="sub-nav-link" href="{{ route('admin.accounting.reports') }}">Reports</a></li>
+                    </ul>
+                </div>
+            </li>
+
+            <li class="nav-item">
                 <a class="nav-link menu-arrow" href="#sidebarInspections" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="sidebarInspections">
                     <span class="nav-icon"><i class="ri-survey-line"></i></span>
                     <span class="nav-text"> Inspection Management </span>

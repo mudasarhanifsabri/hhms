@@ -13,12 +13,30 @@ use App\Http\Controllers\admin\properties\BuildingController;
 use App\Http\Controllers\admin\bookings\BookingController;
 use App\Http\Controllers\admin\tasks\TaskController;
 use App\Http\Controllers\admin\inspections\InspectionController;
+use App\Http\Controllers\admin\accounting\AccountingController;
 
 
 
 // Admin Routes
 Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->group(function () {
 Route::get('/dashboard', [AdminController::class, 'dashboard'])->name('dashboard');
+
+// AdminAccounting Routes
+Route::get('/accounting', [AccountingController::class, 'dashboard'])->name('accounting.dashboard');
+Route::get('/accounting/ledger', [AccountingController::class, 'ledger'])->name('accounting.ledger');
+Route::post('/accounting/ledger', [AccountingController::class, 'storeEntry'])->name('accounting.ledger.store');
+Route::get('/accounting/expenses', [AccountingController::class, 'expenses'])->name('accounting.expenses');
+Route::post('/accounting/expenses', [AccountingController::class, 'storeExpense'])->name('accounting.expenses.store');
+Route::get('/accounting/utilities', [AccountingController::class, 'utilities'])->name('accounting.utilities');
+Route::post('/accounting/utilities/accounts', [AccountingController::class, 'storeUtilityAccount'])->name('accounting.utilities.accounts.store');
+Route::post('/accounting/utilities/bills', [AccountingController::class, 'storeUtilityBill'])->name('accounting.utilities.bills.store');
+Route::post('/accounting/utilities/bills/{bill}/pay', [AccountingController::class, 'payUtilityBill'])->name('accounting.utilities.bills.pay');
+Route::get('/accounting/reports', [AccountingController::class, 'reports'])->name('accounting.reports');
+Route::get('/accounting/vat', [AccountingController::class, 'vatReport'])->name('accounting.vat');
+Route::get('/accounting/owner-statements', [AccountingController::class, 'ownerStatements'])->name('accounting.owner-statements');
+Route::get('/accounting/owner-statements/pdf', [AccountingController::class, 'ownerStatementPdf'])->name('accounting.owner-statements.pdf');
+Route::get('/accounting/booking-invoices', [AccountingController::class, 'bookingInvoices'])->name('accounting.booking-invoices');
+Route::get('/accounting/booking-invoices/{invoice}/pdf', [AccountingController::class, 'bookingInvoicePdf'])->name('accounting.booking-invoices.pdf');
 
 // AdminLandlord Routes
 

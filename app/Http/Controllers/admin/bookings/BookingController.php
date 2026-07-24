@@ -5,6 +5,7 @@ namespace App\Http\Controllers\admin\bookings;
 use App\Http\Controllers\Controller;
 use App\Models\Booking;
 use App\Models\BookingHistory;
+use App\Models\BookingInvoice;
 use App\Models\BookingTask;
 use App\Models\LandlordAccountEntry;
 use App\Models\Property;
@@ -62,6 +63,7 @@ class BookingController extends Controller
         ]);
 
         $this->recordOwnerIncome($booking);
+        $this->createBookingInvoice($booking);
         $this->markPropertyStatus($booking, 'booked');
 
         return redirect()->route('admin.booking.show', $booking->id)
@@ -137,6 +139,7 @@ class BookingController extends Controller
         ]);
 
         $additionalRent = (float) ($validatedData['extension_rent_amount'] ?? 0);
+        $oldCheckOut = $booking->check_out?->copy();
         $this->ensurePropertyCanBeBooked($booking->property_id, $booking->check_in?->toDateString(), $validatedData['check_out'], $booking->id);
         $booking->check_out = $validatedData['check_out'];
         $booking->check_out_time = $validatedData['check_out_time'] ?? $booking->check_out_time;
@@ -164,6 +167,16 @@ class BookingController extends Controller
         ]);
 
         $this->syncOwnerIncome($booking);
+
+        if ($additionalRent > 0) {
+            $this->createBookingInvoice($booking, 'extension', [
+                'period_from' => $oldCheckOut?->copy()->addDay() ?? $booking->check_in,
+                'period_to' => $booking->check_out,
+                'rent_amount' => $additionalRent,
+                'fees' => [],
+                'notes' => 'Extension invoice for booking ' . $booking->booking_reference,
+            ]);
+        }
 
         return back()->with('success', 'Booking extended successfully.');
     }
@@ -225,6 +238,9 @@ class BookingController extends Controller
         ]);
 
         $this->recordOwnerIncome($newBooking);
+        $this->createBookingInvoice($newBooking, 'renewal', [
+            'notes' => 'Renewal invoice from booking ' . $booking->booking_reference,
+        ]);
         $this->markPropertyStatus($newBooking, 'booked');
 
         return redirect()->route('admin.booking.show', $newBooking->id)
@@ -412,6 +428,54 @@ class BookingController extends Controller
         } while (Booking::where($prefix === 'INV' ? 'invoice_number' : 'booking_reference', $reference)->exists());
 
         return $reference;
+    }
+
+    private function nextInvoiceNumber(string $prefix = 'INV'): string
+    {
+        do {
+            $reference = $prefix . '-' . now()->format('Ymd') . '-' . Str::upper(Str::random(5));
+        } while (BookingInvoice::where('invoice_number', $reference)->exists() || Booking::where('invoice_number', $reference)->exists());
+
+        return $reference;
+    }
+
+    private function createBookingInvoice(Booking $booking, string $type = 'original', array $override = []): BookingInvoice
+    {
+        $rentAmount = (float) ($override['rent_amount'] ?? $booking->rent_amount);
+        $vatRate = 5.0;
+        $vatAmount = $booking->vat_included && $type !== 'original'
+            ? round($rentAmount - ($rentAmount / 1.05), 2)
+            : round($rentAmount * ($vatRate / 100), 2);
+        $rentAmount = $booking->vat_included && $type !== 'original'
+            ? round($rentAmount - $vatAmount, 2)
+            : $rentAmount;
+        $fees = $override['fees'] ?? [
+            'DTCM Fee' => (float) $booking->dtcm_fee,
+            'Cleaning Fee' => (float) $booking->cleaning_fee,
+            'Agency Fee' => (float) $booking->agency_fee,
+            'Security Deposit' => (float) $booking->security_deposit,
+        ];
+        $feeTotal = collect($fees)->sum(fn ($amount) => (float) $amount);
+
+        if ($type === 'original') {
+            $vatAmount = (float) $booking->vat_amount;
+        }
+
+        return BookingInvoice::create([
+            'booking_id' => $booking->id,
+            'invoice_number' => $type === 'original' ? $booking->invoice_number : $this->nextInvoiceNumber($type === 'extension' ? 'INV-EXT' : 'INV-REN'),
+            'invoice_type' => $type,
+            'issue_date' => now()->toDateString(),
+            'period_from' => $override['period_from'] ?? $booking->check_in,
+            'period_to' => $override['period_to'] ?? $booking->check_out,
+            'rent_amount' => $rentAmount,
+            'vat_rate' => $vatRate,
+            'vat_amount' => $vatAmount,
+            'fees' => $fees,
+            'total_amount' => $rentAmount + $vatAmount + $feeTotal,
+            'status' => 'unpaid',
+            'notes' => $override['notes'] ?? null,
+        ]);
     }
 
     private function validateBooking(Request $request): array

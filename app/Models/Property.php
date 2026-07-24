@@ -160,6 +160,26 @@ public function tasks(): HasMany
     return $this->hasMany(BookingTask::class);
 }
 
+public function utilityAccounts(): HasMany
+{
+    return $this->hasMany(UtilityAccount::class);
+}
+
+public function utilityBills(): HasMany
+{
+    return $this->hasMany(UtilityBill::class);
+}
+
+public function expenses(): HasMany
+{
+    return $this->hasMany(Expense::class);
+}
+
+public function accountingEntries(): HasMany
+{
+    return $this->hasMany(AccountingEntry::class);
+}
+
 public function getStatusLabelAttribute(): string
 {
     return self::STATUSES[$this->status] ?? ucfirst((string) $this->status);

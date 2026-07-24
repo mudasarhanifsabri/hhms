@@ -86,6 +86,11 @@ class Booking extends BaseModel
         return $this->hasMany(BookingInspection::class)->latest();
     }
 
+    public function invoices(): HasMany
+    {
+        return $this->hasMany(BookingInvoice::class)->latest();
+    }
+
     public function getWorkflowStatusLabelAttribute(): string
     {
         if ($this->invoice_status !== 'paid') {
