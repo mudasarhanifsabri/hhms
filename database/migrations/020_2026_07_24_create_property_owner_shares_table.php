@@ -7,6 +7,10 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration {
     public function up(): void
     {
+        if (Schema::hasTable('property_owner_shares')) {
+            return;
+        }
+
         Schema::create('property_owner_shares', function (Blueprint $table) {
             $table->id();
             $table->uuid('property_id');
@@ -16,8 +20,6 @@ return new class extends Migration {
             $table->timestamps();
 
             $table->unique(['property_id', 'owner_id']);
-            $table->foreign('property_id')->references('id')->on('properties')->onDelete('cascade');
-            $table->foreign('owner_id')->references('id')->on('users')->onDelete('cascade');
         });
     }
 
