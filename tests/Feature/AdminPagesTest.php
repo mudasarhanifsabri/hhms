@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\ApplicationSetting;
 use App\Models\Building;
 use App\Models\LandlordAccountEntry;
 use App\Models\Property;
@@ -86,6 +87,75 @@ class AdminPagesTest extends TestCase
                 ->get($url)
                 ->assertOk();
         }
+    }
+
+    public function test_admin_can_update_application_settings(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+
+        $this->actingAs($admin)
+            ->put(route('admin.settings.update'), [
+                'company_name' => 'HHMS Demo',
+                'company_email' => 'info@example.com',
+                'company_phone' => '+971501234567',
+                'media_disk' => 'public',
+                'mail_mailer' => 'smtp',
+                'mail_host' => 'smtp.example.com',
+                'mail_port' => 587,
+                'mail_username' => 'smtp-user',
+                'mail_password' => 'secret-password',
+                'mail_encryption' => 'tls',
+                'mail_from_address' => 'info@example.com',
+                'mail_from_name' => 'HHMS Demo',
+                'whatsapp_provider' => 'Meta Cloud API',
+                'whatsapp_phone_number_id' => '123456',
+                'whatsapp_token' => 'whatsapp-token',
+                'sms_provider' => 'Twilio',
+                'sms_sender_id' => 'HHMS',
+                'sms_api_key' => 'sms-key',
+                'sms_api_secret' => 'sms-secret',
+            ])
+            ->assertRedirect(route('admin.settings.edit'));
+
+        $this->assertDatabaseHas('application_settings', [
+            'key' => 'company_name',
+            'value' => 'HHMS Demo',
+        ]);
+
+        $this->assertTrue(ApplicationSetting::where('key', 'mail_password')->value('is_encrypted'));
+        $this->assertNotSame('secret-password', ApplicationSetting::where('key', 'mail_password')->value('value'));
+    }
+
+    public function test_whatsapp_webhook_verification_and_receive(): void
+    {
+        \App\Support\AppSettings::setMany([
+            'whatsapp_verify_token' => 'test_verify_token',
+        ]);
+
+        $this->get('/webhooks/whatsapp?hub.mode=subscribe&hub.verify_token=test_verify_token&hub.challenge=abc123')
+            ->assertOk()
+            ->assertSee('abc123');
+
+        $this->postJson('/webhooks/whatsapp', [
+            'entry' => [[
+                'changes' => [[
+                    'value' => [
+                        'metadata' => ['display_phone_number' => '15551877914'],
+                        'statuses' => [[
+                            'id' => 'wamid.test',
+                            'recipient_id' => '971543597870',
+                            'status' => 'delivered',
+                            'timestamp' => '1785620000',
+                        ]],
+                    ],
+                ]],
+            ]],
+        ])->assertOk();
+
+        $this->assertDatabaseHas('whatsapp_webhook_events', [
+            'message_id' => 'wamid.test',
+            'status' => 'delivered',
+        ]);
     }
 
     public function test_admin_can_record_landlord_account_entries(): void
@@ -220,6 +290,8 @@ class AdminPagesTest extends TestCase
             'property grid' => ['admin.property.grid'],
             'property create' => ['admin.property.create'],
             'building index' => ['admin.building.index'],
+            'booking create' => ['admin.booking.create'],
+            'settings' => ['admin.settings.edit'],
         ];
     }
 }

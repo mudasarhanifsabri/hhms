@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Log;
 use App\Models\User;
 use App\Models\Property;
 use App\Models\LandlordAccountEntry;
+use App\Support\MediaStorage;
 use App\Support\PdfRenderer;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Notification;
@@ -46,7 +47,7 @@ class LandlordController extends Controller
         $landlord = User::where('role', 'landlord')->findOrFail($id);
         $relatedProperties = Property::where('landlord_id', $landlord->id)->latest()->limit(8)->get();
         $ownedPropertiesCount = Property::where('landlord_id', $landlord->id)->count();
-        $rentedPropertiesCount = Property::where('landlord_id', $landlord->id)->where('status', 'rented')->count();
+        $rentedPropertiesCount = Property::where('landlord_id', $landlord->id)->whereIn('status', ['booked', 'rented'])->count();
         $profileUser = $landlord;
         $roleLabel = 'Owner / Landlord';
         $editRoute = route('admin.landlord.edit', $landlord->id);
@@ -241,17 +242,7 @@ private function uploadFile(Request $request, $field, $folder)
             $file = $file[0];
         }
 
-        $filename = uniqid() . '.' . $file->getClientOriginalExtension();
-        $destination = public_path($folder);
-
-        // Ensure directory exists
-        if (!file_exists($destination)) {
-            mkdir($destination, 0755, true);
-        }
-
-        $file->move($destination, $filename);
-
-        return $folder . '/' . $filename;
+        return MediaStorage::store($file, $folder);
     }
 
     return null;

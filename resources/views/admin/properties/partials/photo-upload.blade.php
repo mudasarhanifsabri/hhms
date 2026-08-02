@@ -13,7 +13,7 @@
         <div class="mb-3 d-flex flex-wrap gap-2">
             @foreach ($existingPhotos as $photo)
                 <div class="border rounded p-2">
-                    <img src="{{ asset('storage/' . $photo) }}" alt="Unit Photo" width="120" class="img-thumbnail">
+                    <img src="{{ \App\Support\MediaStorage::url($photo) }}" alt="Unit Photo" width="120" class="img-thumbnail">
                     <div class="small text-muted">{{ basename($photo) }}</div>
                 </div>
             @endforeach
@@ -33,7 +33,7 @@
     @if(isset($property) && $property->video)
         <div class="mb-2">
             <video width="320" height="240" controls>
-                <source src="{{ asset('storage/' . $property->video) }}" type="video/mp4">
+                <source src="{{ \App\Support\MediaStorage::url($property->video) }}" type="video/mp4">
                 Your browser does not support the video tag.
             </video>
             <br>
@@ -54,7 +54,7 @@
 
     @if(isset($property) && $property->floor_plan)
         <div class="mb-2">
-            <a href="{{ asset('storage/' . $property->floor_plan) }}" target="_blank">
+            <a href="{{ \App\Support\MediaStorage::url($property->floor_plan) }}" target="_blank">
                 View current floor plan
             </a>
             <br>

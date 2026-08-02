@@ -42,7 +42,7 @@
          <div class="card">
               <div class="card-body">
                    <div class="d-flex flex-wrap align-items-center gap-2 border-bottom pb-3">
-                        <img src="{{ asset('/' . $tenant->profile_photo) }}" alt="" class="avatar-lg rounded-3 border border-light border-3">
+                        <img src="{{ \App\Support\MediaStorage::url($tenant->profile_photo) }}" alt="" class="avatar-lg rounded-3 border border-light border-3">
                         <div class="d-block">
                              <a href="{{ route('admin.tenant.show', $tenant->id) }}" class="text-dark fw-medium fs-16">{{ $tenant->name }}</a>
                              <p class="mb-0">{{ $tenant->email }}</p>

@@ -5,6 +5,8 @@
 <base href="{{ url('/') }}">
 @php
     $isMaintainerApp = auth()->check() && auth()->user()->role === 'maintainer';
+    $appLogoUrl = \App\Support\MediaStorage::url(config('hhms.logo_path'));
+    $appFaviconUrl = \App\Support\MediaStorage::url(config('hhms.favicon_path'));
 @endphp
 
     <!-- Title Meta -->
@@ -21,9 +23,9 @@
     <meta name="apple-mobile-web-app-title" content="HHMS Maintainer">
 
     <!-- App favicon -->
-    <link rel="shortcut icon" href="assets/images/favicon.ico">
+    <link rel="shortcut icon" href="{{ $appFaviconUrl ?: asset('assets/images/favicon.ico') }}">
     <link rel="manifest" href="{{ asset('manifest.webmanifest') }}">
-    <link rel="apple-touch-icon" href="{{ asset('assets/images/logo-sm.png') }}">
+    <link rel="apple-touch-icon" href="{{ $appLogoUrl ?: asset('assets/images/logo-sm.png') }}">
 
     <!-- Vendor css (Require in all Page) -->
     <link href="assets/css/vendor.min.css" rel="stylesheet" type="text/css" />

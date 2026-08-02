@@ -44,7 +44,7 @@
          <div class="card">
               <div class="card-body">
                    <div class="d-flex flex-wrap align-items-center gap-2 border-bottom pb-3">
-                        <img src="{{ asset('/' . $landlord->profile_photo) }}" alt="" class="avatar-lg rounded-3 border border-light border-3">
+                        <img src="{{ \App\Support\MediaStorage::url($landlord->profile_photo) }}" alt="" class="avatar-lg rounded-3 border border-light border-3">
                         <div class="d-block">
                              <a href="{{ route('admin.landlord.show', $landlord->id) }}" class="text-dark fw-medium fs-16">{{ $landlord->name }}</a>
                              <p class="mb-0">{{ $landlord->email }}</p>

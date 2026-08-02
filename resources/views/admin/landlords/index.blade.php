@@ -104,7 +104,7 @@
                                        <td>
                                             <div class="d-flex align-items-center gap-2">
                                                  <div>
-                                                      <img src="{{ asset('/' . $landlord->profile_photo) }}" alt="" class="avatar-sm rounded-circle">
+                                                      <img src="{{ \App\Support\MediaStorage::url($landlord->profile_photo) }}" alt="" class="avatar-sm rounded-circle">
                                                  </div>
                                                  <div>
                                                       <a href="{{ route('admin.landlord.show', $landlord->id) }}" class="text-dark fw-medium fs-15">{{ $landlord->name }}</a>
@@ -213,6 +213,5 @@
 
 
 @endsection
-
 
 

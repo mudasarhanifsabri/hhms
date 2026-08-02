@@ -42,7 +42,7 @@
          <div class="card">
               <div class="card-body">
                    <div class="d-flex flex-wrap align-items-center gap-2 border-bottom pb-3">
-                        <img src="{{ asset('/' . $agent->profile_photo) }}" alt="" class="avatar-lg rounded-3 border border-light border-3">
+                        <img src="{{ \App\Support\MediaStorage::url($agent->profile_photo) }}" alt="" class="avatar-lg rounded-3 border border-light border-3">
                         <div class="d-block">
                              <a href="{{ route('admin.agent.show', $agent->id) }}" class="text-dark fw-medium fs-16">{{ $agent->name }}</a>
                              <p class="mb-0">{{ $agent->email }}</p>

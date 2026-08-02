@@ -44,7 +44,7 @@
                                    </div>
 
                                    <div class="text-center mb-2">
-                                        <img class="rounded-circle avatar-lg img-thumbnail" src="{{ asset('storage/' . Auth::user()->profile_photo) }}" alt="avatar">  </div>
+                                        <img class="rounded-circle avatar-lg img-thumbnail" src="{{ \App\Support\MediaStorage::url(Auth::user()->profile_photo) }}" alt="avatar">  </div>
                                 <h2 class="fw-bold text-uppercase text-center fs-18">{{ Auth::user()->name }}</h2>  <p class="text-muted text-center mt-1 mb-4">Enter your password to continue.</p>
 
                                    <div class="px-4">

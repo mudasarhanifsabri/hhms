@@ -14,12 +14,15 @@ use App\Http\Controllers\admin\bookings\BookingController;
 use App\Http\Controllers\admin\tasks\TaskController;
 use App\Http\Controllers\admin\inspections\InspectionController;
 use App\Http\Controllers\admin\accounting\AccountingController;
+use App\Http\Controllers\admin\SettingsController;
 
 
 
 // Admin Routes
 Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->group(function () {
 Route::get('/dashboard', [AdminController::class, 'dashboard'])->name('dashboard');
+Route::get('/settings', [SettingsController::class, 'edit'])->name('settings.edit');
+Route::put('/settings', [SettingsController::class, 'update'])->name('settings.update');
 
 // AdminAccounting Routes
 Route::get('/accounting', [AccountingController::class, 'dashboard'])->name('accounting.dashboard');

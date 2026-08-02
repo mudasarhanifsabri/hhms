@@ -1,7 +1,7 @@
 <div class="pwa-menu-backdrop" data-pwa-menu-close></div>
 <aside class="pwa-side-menu" id="pwaSideMenu" aria-hidden="true">
     <div class="pwa-menu-profile">
-        <img src="{{ auth()->user()?->profile_photo ? asset('/' . auth()->user()->profile_photo) : asset('assets/images/logo-sm.png') }}" alt="">
+        <img src="{{ auth()->user()?->profile_photo ? \App\Support\MediaStorage::url(auth()->user()->profile_photo) : asset('assets/images/logo-sm.png') }}" alt="">
         <div>
             <strong>{{ auth()->user()->name ?? 'Maintainer' }}</strong>
             <span>{{ auth()->user()->email ?? '' }}</span>

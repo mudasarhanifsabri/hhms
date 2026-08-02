@@ -81,12 +81,12 @@ class DemoDataSeeder extends Seeder
             ->each(fn ($name) => Amenity::updateOrCreate(['name' => $name]));
 
         $properties = [
-            ['name' => 'Marina Studio 1204', 'category' => 'Apartment', 'rent' => 4500, 'status' => 'rented', 'bedrooms' => 1, 'bathrooms' => 1, 'building' => 0, 'landlord' => 0, 'expiry' => 12],
-            ['name' => 'Downtown One Bedroom', 'category' => 'Apartment', 'rent' => 6800, 'status' => 'vacant', 'bedrooms' => 1, 'bathrooms' => 2, 'building' => 1, 'landlord' => 1, 'expiry' => 45],
-            ['name' => 'Palm Sea View Suite', 'category' => 'Residence', 'rent' => 12000, 'status' => 'rented', 'bedrooms' => 2, 'bathrooms' => 3, 'building' => 2, 'landlord' => 2, 'expiry' => 25],
-            ['name' => 'Marina Family Apartment', 'category' => 'Apartment', 'rent' => 9300, 'status' => 'vacant', 'bedrooms' => 2, 'bathrooms' => 2, 'building' => 0, 'landlord' => 0, 'expiry' => 75],
-            ['name' => 'Downtown Premium Penthouse', 'category' => 'Penthouse', 'rent' => 22000, 'status' => 'rented', 'bedrooms' => 3, 'bathrooms' => 4, 'building' => 1, 'landlord' => 1, 'expiry' => 7],
-            ['name' => 'Palm Garden Villa', 'category' => 'Villas', 'rent' => 18000, 'status' => 'vacant', 'bedrooms' => 4, 'bathrooms' => 5, 'building' => 2, 'landlord' => 2, 'expiry' => 120],
+            ['name' => 'Marina Studio 1204', 'category' => 'Apartment', 'rent' => 4500, 'status' => 'booked', 'bedrooms' => 1, 'bathrooms' => 1, 'building' => 0, 'landlord' => 0, 'expiry' => 12],
+            ['name' => 'Downtown One Bedroom', 'category' => 'Apartment', 'rent' => 6800, 'status' => 'available', 'bedrooms' => 1, 'bathrooms' => 2, 'building' => 1, 'landlord' => 1, 'expiry' => 45],
+            ['name' => 'Palm Sea View Suite', 'category' => 'Residence', 'rent' => 12000, 'status' => 'booked', 'bedrooms' => 2, 'bathrooms' => 3, 'building' => 2, 'landlord' => 2, 'expiry' => 25],
+            ['name' => 'Marina Family Apartment', 'category' => 'Apartment', 'rent' => 9300, 'status' => 'available', 'bedrooms' => 2, 'bathrooms' => 2, 'building' => 0, 'landlord' => 0, 'expiry' => 75],
+            ['name' => 'Downtown Premium Penthouse', 'category' => 'Penthouse', 'rent' => 22000, 'status' => 'booked', 'bedrooms' => 3, 'bathrooms' => 4, 'building' => 1, 'landlord' => 1, 'expiry' => 7],
+            ['name' => 'Palm Garden Villa', 'category' => 'Villas', 'rent' => 18000, 'status' => 'available', 'bedrooms' => 4, 'bathrooms' => 5, 'building' => 2, 'landlord' => 2, 'expiry' => 120],
         ];
 
         $createdProperties = collect();
@@ -120,7 +120,7 @@ class DemoDataSeeder extends Seeder
             ));
         }
 
-        $createdProperties->where('status', 'rented')->each(function (Property $property) {
+        $createdProperties->where('status', 'booked')->each(function (Property $property) {
             $rent = (float) $property->rent;
             $entries = [
                 ['type' => 'rent_income', 'amount' => $rent, 'entry_date' => Carbon::today()->startOfMonth(), 'reference' => 'RENT-' . now()->format('Ym'), 'description' => 'Monthly rent collected'],

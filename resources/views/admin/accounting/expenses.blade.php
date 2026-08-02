@@ -31,8 +31,8 @@
                     <td>AED {{ number_format((float) $expense->vat_amount, 2) }}</td>
                     <td>AED {{ number_format((float) $expense->gross_amount, 2) }}</td>
                     <td>
-                        @if($expense->receipt_path)<a href="{{ asset('storage/'.$expense->receipt_path) }}" target="_blank" class="btn btn-sm btn-soft-primary" title="Receipt"><i class="ri-receipt-line"></i></a>@endif
-                        @if($expense->invoice_path)<a href="{{ asset('storage/'.$expense->invoice_path) }}" target="_blank" class="btn btn-sm btn-soft-info" title="Invoice"><i class="ri-file-list-3-line"></i></a>@endif
+                        @if($expense->receipt_path)<a href="{{ \App\Support\MediaStorage::url($expense->receipt_path) }}" target="_blank" class="btn btn-sm btn-soft-primary" title="Receipt"><i class="ri-receipt-line"></i></a>@endif
+                        @if($expense->invoice_path)<a href="{{ \App\Support\MediaStorage::url($expense->invoice_path) }}" target="_blank" class="btn btn-sm btn-soft-info" title="Invoice"><i class="ri-file-list-3-line"></i></a>@endif
                     </td>
                 </tr>
             @empty

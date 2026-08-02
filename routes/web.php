@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\GuestPortalController;
 use App\Http\Controllers\OwnerDocumentSigningController;
+use App\Http\Controllers\WhatsappWebhookController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\RegisteredUserController;
 use Illuminate\Support\Facades\Auth;
@@ -40,6 +41,8 @@ Route::get('/owner-documents/{token}/pdf', [OwnerDocumentSigningController::clas
 Route::get('/guest/bookings/{reference}', [GuestPortalController::class, 'show'])->name('guest.booking.show');
 Route::get('/guest/bookings/{reference}/invoice', [GuestPortalController::class, 'invoice'])->name('guest.booking.invoice');
 Route::get('/guest/bookings/{reference}/confirmation', [GuestPortalController::class, 'confirmation'])->name('guest.booking.confirmation');
+Route::get('/webhooks/whatsapp', [WhatsappWebhookController::class, 'verify'])->name('webhooks.whatsapp.verify');
+Route::post('/webhooks/whatsapp', [WhatsappWebhookController::class, 'receive'])->name('webhooks.whatsapp.receive');
 
 // Include separate route files
 require __DIR__.'/admin.php';

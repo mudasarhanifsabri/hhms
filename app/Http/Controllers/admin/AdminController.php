@@ -24,8 +24,8 @@ class AdminController extends Controller
         $propertyStats = Property::query()
             ->selectRaw("
                 COUNT(*) as total_properties,
-                SUM(CASE WHEN status = 'rented' THEN 1 ELSE 0 END) as rented_properties,
-                SUM(CASE WHEN status = 'vacant' THEN 1 ELSE 0 END) as vacant_properties,
+                SUM(CASE WHEN status IN ('booked', 'rented') THEN 1 ELSE 0 END) as rented_properties,
+                SUM(CASE WHEN status IN ('available', 'vacant') THEN 1 ELSE 0 END) as vacant_properties,
                 SUM(CASE WHEN dtcm_permit_expiry BETWEEN ? AND ? THEN 1 ELSE 0 END) as expiring_dtcm
             ", [$today->toDateString(), $in30->toDateString()])
             ->first();

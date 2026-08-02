@@ -5,7 +5,7 @@
     @include('maintainer.partials.pwa-header', ['title' => 'Profile', 'back' => route('maintainer.task.index')])
     <div class="pwa-content">
         <div class="pwa-profile-card">
-            <img src="{{ $user->profile_photo ? asset('/' . $user->profile_photo) : asset('assets/images/logo-sm.png') }}" alt="">
+            <img src="{{ $user->profile_photo ? \App\Support\MediaStorage::url($user->profile_photo) : asset('assets/images/logo-sm.png') }}" alt="">
             <h2>{{ $user->name }}</h2>
             <p>{{ $user->email }}</p>
             <span>{{ ucfirst($user->role) }}</span>

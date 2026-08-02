@@ -42,7 +42,7 @@
          <div class="card">
               <div class="card-body">
                    <div class="d-flex flex-wrap align-items-center gap-2 border-bottom pb-3">
-                        <img src="{{ asset('/' . $maintainer->profile_photo) }}" alt="" class="avatar-lg rounded-3 border border-light border-3">
+                        <img src="{{ \App\Support\MediaStorage::url($maintainer->profile_photo) }}" alt="" class="avatar-lg rounded-3 border border-light border-3">
                         <div class="d-block">
                              <a href="{{ route('admin.maintainer.show', $maintainer->id) }}" class="text-dark fw-medium fs-16">{{ $maintainer->name }}</a>
                              <p class="mb-0">{{ $maintainer->email }}</p>

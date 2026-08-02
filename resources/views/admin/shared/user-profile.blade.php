@@ -1,9 +1,9 @@
 @php
     $user = $profileUser;
-    $photo = $user->profile_photo ? asset('/' . $user->profile_photo) : asset('default-avatar.png');
+    $photo = $user->profile_photo ? \App\Support\MediaStorage::url($user->profile_photo) : asset('default-avatar.png');
     $statusClass = $user->is_active ? 'bg-success' : 'bg-danger';
     $statusText = $user->is_active ? 'Active' : 'Inactive';
-    $documentUrl = $user->id_document ? asset('/' . $user->id_document) : null;
+    $documentUrl = $user->id_document ? \App\Support\MediaStorage::url($user->id_document) : null;
     $documentName = $user->id_document ? basename($user->id_document) : null;
     $bankDetails = [
         'bank_name' => ['label' => 'Bank Name', 'value' => $user->bank_name],

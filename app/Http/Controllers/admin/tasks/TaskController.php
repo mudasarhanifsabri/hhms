@@ -7,6 +7,7 @@ use App\Models\Booking;
 use App\Models\BookingTask;
 use App\Models\Property;
 use App\Models\User;
+use App\Support\MediaStorage;
 use Illuminate\Http\Request;
 
 class TaskController extends Controller
@@ -211,6 +212,10 @@ class TaskController extends Controller
 
     private function uploadOptimizedFile($file, string $folder): string
     {
+        if (MediaStorage::disk() !== 'public') {
+            return MediaStorage::store($file, $folder);
+        }
+
         $destination = public_path($folder);
         if (! file_exists($destination)) {
             mkdir($destination, 0755, true);

@@ -10,6 +10,7 @@ use App\Models\BookingTask;
 use App\Models\LandlordAccountEntry;
 use App\Models\Property;
 use App\Models\User;
+use App\Support\MediaStorage;
 use App\Support\PdfRenderer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -344,17 +345,7 @@ class BookingController extends Controller
             return null;
         }
 
-        $file = $request->file($field);
-        $filename = uniqid() . '.' . $file->getClientOriginalExtension();
-        $destination = public_path($folder);
-
-        if (! file_exists($destination)) {
-            mkdir($destination, 0755, true);
-        }
-
-        $file->move($destination, $filename);
-
-        return $folder . '/' . $filename;
+        return MediaStorage::store($request->file($field), $folder);
     }
 
     private function createCheckoutTasks(Booking $booking): void

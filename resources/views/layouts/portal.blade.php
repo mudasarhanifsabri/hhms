@@ -58,7 +58,7 @@
                 @auth
                     <div class="portal-user">
                         <span>{{ auth()->user()->name }}</span>
-                        <img src="{{ auth()->user()->profile_photo ? asset('/' . auth()->user()->profile_photo) : asset('assets/images/logo-sm.png') }}" alt="">
+                        <img src="{{ auth()->user()->profile_photo ? \App\Support\MediaStorage::url(auth()->user()->profile_photo) : asset('assets/images/logo-sm.png') }}" alt="">
                     </div>
                 @endauth
             </header>

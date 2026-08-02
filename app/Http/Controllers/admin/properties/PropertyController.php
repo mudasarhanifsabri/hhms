@@ -8,15 +8,50 @@ use App\Models\UtilityAccount;
 use App\Models\User;
 use App\Models\Building;
 use App\Models\Smartlock;
+use App\Support\MediaStorage;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
 class PropertyController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $properties = Property::latest()->paginate(10);
-        return view('admin.properties.index', compact('properties'));
+        $status = $request->input('status');
+        $search = $request->input('q');
+
+        $properties = Property::with('building')
+            ->when($status, function ($query) use ($status) {
+                $statuses = match ($status) {
+                    'available' => ['available', 'vacant'],
+                    'booked' => ['booked', 'rented'],
+                    default => [$status],
+                };
+
+                $query->whereIn('status', $statuses);
+            })
+            ->when($search, function ($query) use ($search) {
+                $query->where(function ($query) use ($search) {
+                    $query->where('name', 'like', "%{$search}%")
+                        ->orWhere('category', 'like', "%{$search}%")
+                        ->orWhere('community', 'like', "%{$search}%")
+                        ->orWhereHas('building', function ($query) use ($search) {
+                            $query->where('building_name', 'like', "%{$search}%")
+                                ->orWhere('address', 'like', "%{$search}%");
+                        });
+                });
+            })
+            ->latest()
+            ->paginate(10)
+            ->withQueryString();
+
+        $unitStats = [
+            'total' => Property::count(),
+            'available' => Property::whereIn('status', ['available', 'vacant'])->count(),
+            'booked' => Property::whereIn('status', ['booked', 'rented'])->count(),
+            'attention' => Property::whereIn('status', ['under_cleaning', 'under_maintenance'])->count(),
+        ];
+
+        return view('admin.properties.index', compact('properties', 'unitStats', 'status', 'search'));
     }
 
     public function showGrid()
@@ -100,28 +135,28 @@ class PropertyController extends Controller
 
         unset($validated['utility_accounts']);
 
-        // Handle file uploads (store in /storage/app/public)
+        // Handle file uploads using the configured HHMS media disk.
         if ($request->hasFile('dtcm_unit_permit')) {
-            $validated['dtcm_unit_permit'] = $request->file('dtcm_unit_permit')->store('documents', 'public');
+            $validated['dtcm_unit_permit'] = MediaStorage::store($request->file('dtcm_unit_permit'), 'documents');
         }
 
         if ($request->hasFile('title_deed')) {
-            $validated['title_deed'] = $request->file('title_deed')->store('documents', 'public');
+            $validated['title_deed'] = MediaStorage::store($request->file('title_deed'), 'documents');
         }
 
         if ($request->hasFile('video')) {
-            $validated['video'] = $request->file('video')->store('videos', 'public');
+            $validated['video'] = MediaStorage::store($request->file('video'), 'videos');
         }
 
         if ($request->hasFile('floor_plan')) {
-            $validated['floor_plan'] = $request->file('floor_plan')->store('floor_plans', 'public');
+            $validated['floor_plan'] = MediaStorage::store($request->file('floor_plan'), 'floor_plans');
         }
 
         // Handle multiple photo uploads
         $photos = [];
         if ($request->hasFile('photos')) {
             foreach ($request->file('photos') as $photo) {
-                $photos[] = $photo->store('property_photos', 'public');
+                $photos[] = MediaStorage::store($photo, 'property_photos');
             }
             $validated['photos'] = $photos;
         }

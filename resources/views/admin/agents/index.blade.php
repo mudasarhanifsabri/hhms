@@ -98,7 +98,7 @@
                                        <td>
                                             <div class="d-flex align-items-center gap-2">
                                                  <div>
-                                                      <img src="{{ asset('/' . $agent->profile_photo) }}" alt="" class="avatar-sm rounded-circle">
+                                                      <img src="{{ \App\Support\MediaStorage::url($agent->profile_photo) }}" alt="" class="avatar-sm rounded-circle">
                                                  </div>
                                                  <div>
                                                       <a href="{{ route('admin.agent.show', $agent->id) }}" class="text-dark fw-medium fs-15">{{ $agent->name }}</a>

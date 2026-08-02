@@ -15,6 +15,7 @@ use App\Models\User;
 use App\Models\UtilityAccount;
 use App\Models\UtilityBill;
 use App\Models\Vendor;
+use App\Support\MediaStorage;
 use App\Support\PdfRenderer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -572,7 +573,7 @@ class AccountingController extends Controller
             return null;
         }
 
-        return $request->file($field)->store($folder, 'public');
+        return MediaStorage::store($request->file($field), $folder);
     }
 
     private function nextNumber(string $prefix, string $model, string $column): string

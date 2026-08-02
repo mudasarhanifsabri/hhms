@@ -1,4 +1,4 @@
-const CACHE_NAME = 'hhms-maintainer-v14';
+const CACHE_NAME = 'hhms-maintainer-v15';
 const APP_SHELL = [
   '/',
   '/maintainer/tasks',
@@ -36,11 +36,22 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  const url = new URL(request.url);
+  const isStaticAsset = APP_SHELL.includes(url.pathname);
+  const isMaintainerRoute = url.pathname.startsWith('/maintainer');
+
+  if (!isStaticAsset && !isMaintainerRoute) {
+    event.respondWith(fetch(request));
+    return;
+  }
+
   event.respondWith(
     fetch(request)
       .then((response) => {
-        const clone = response.clone();
-        caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+        if (isStaticAsset || isMaintainerRoute) {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+        }
         return response;
       })
       .catch(() => caches.match(request).then((cached) => cached || caches.match('/maintainer/tasks')))

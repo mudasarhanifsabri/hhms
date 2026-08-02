@@ -3,9 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Models\PropertyOwnerDocument;
+use App\Support\MediaStorage;
 use App\Support\OwnerDocumentPdf;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
 
 class OwnerDocumentSigningController extends Controller
 {
@@ -85,7 +85,7 @@ class OwnerDocumentSigningController extends Controller
         $signedHtml = $this->renderDocumentHtml($document, $validated['signature_data'], $validated['signed_by_name']);
 
         $path = 'owner-documents/' . $document->reference_no . '.pdf';
-        Storage::disk('public')->put($path, OwnerDocumentPdf::output($signedHtml));
+        MediaStorage::put($path, OwnerDocumentPdf::output($signedHtml));
 
         $document->forceFill([
             'signed_html' => $signedHtml,

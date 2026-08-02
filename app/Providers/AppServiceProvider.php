@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Route;          // ✅ you were using Route
 use Illuminate\Pagination\Paginator;
 use App\Models\User;
 use App\Services\SmsService;                   // (you had this imported)
+use App\Support\AppSettings;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -33,6 +34,7 @@ class AppServiceProvider extends ServiceProvider
             return User::where('uuid', $value)->firstOrFail();
         });
 
+        AppSettings::apply();
         Paginator::useBootstrap();
     }
 }

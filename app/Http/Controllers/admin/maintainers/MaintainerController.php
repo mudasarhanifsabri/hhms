@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use App\Models\User;
 use App\Models\Property;
+use App\Support\MediaStorage;
 use App\Support\PdfRenderer;
 use Illuminate\Http\Response;
 
@@ -35,7 +36,7 @@ class MaintainerController extends Controller
     public function show($id)
     {
         $maintainer = User::where('role', 'maintainer')->findOrFail($id);
-        $relatedProperties = Property::where('status', 'vacant')->latest()->limit(4)->get();
+        $relatedProperties = Property::whereIn('status', ['under_cleaning', 'under_maintenance'])->latest()->limit(4)->get();
         $profileUser = $maintainer;
         $roleLabel = 'Maintainer';
         $editRoute = route('admin.maintainer.edit', $maintainer->id);
@@ -117,14 +118,7 @@ class MaintainerController extends Controller
             $file = $request->file($field);
             if (is_array($file)) $file = $file[0];
 
-            $filename = uniqid() . '.' . $file->getClientOriginalExtension();
-            $destination = public_path($folder);
-
-            if (!file_exists($destination)) mkdir($destination, 0755, true);
-
-            $file->move($destination, $filename);
-
-            return $folder . '/' . $filename;
+            return MediaStorage::store($file, $folder);
         }
 
         return null;

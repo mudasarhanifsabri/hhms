@@ -29,7 +29,7 @@
                         <div class="dropdown topbar-item">
                             <a type="button" class="topbar-button" id="page-header-user-dropdown" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
                                 <span class="d-flex align-items-center">
-                                    <img class="rounded-circle" width="32" src="{{ auth()->check() && auth()->user()->profile_photo ? asset('/' . auth()->user()->profile_photo) : asset('default-avatar.png') }}" alt="User Avatar">
+                                    <img class="rounded-circle" width="32" src="{{ auth()->check() && auth()->user()->profile_photo ? \App\Support\MediaStorage::url(auth()->user()->profile_photo) : asset('default-avatar.png') }}" alt="User Avatar">
                                 </span>
                             </a>
                             <div class="dropdown-menu dropdown-menu-end">

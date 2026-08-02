@@ -15,11 +15,17 @@ class Property extends Model
 {
     use HasFactory, SoftDeletes;
 
-    public const STATUSES = [
+    public const ACTIVE_STATUSES = [
         'available' => 'Available',
         'booked' => 'Booked',
         'under_cleaning' => 'Under Cleaning',
         'under_maintenance' => 'Under Maintenance',
+    ];
+
+    public const STATUSES = [
+        ...self::ACTIVE_STATUSES,
+        'vacant' => 'Available',
+        'rented' => 'Booked',
     ];
 
     /**
@@ -193,8 +199,8 @@ public function getStatusLabelAttribute(): string
 public function getStatusClassAttribute(): string
 {
     return match ($this->status) {
-        'available' => 'bg-success',
-        'booked' => 'bg-primary',
+        'available', 'vacant' => 'bg-success',
+        'booked', 'rented' => 'bg-primary',
         'under_cleaning' => 'bg-info',
         'under_maintenance' => 'bg-warning',
         default => 'bg-secondary',

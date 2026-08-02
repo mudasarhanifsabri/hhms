@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use App\Models\User;
 use App\Models\Property;
+use App\Support\MediaStorage;
 use App\Support\PdfRenderer;
 use Illuminate\Http\Response;
 
@@ -135,16 +136,7 @@ class AgentController extends Controller
                 $file = $file[0];
             }
 
-            $filename = uniqid() . '.' . $file->getClientOriginalExtension();
-            $destination = public_path($folder);
-
-            if (!file_exists($destination)) {
-                mkdir($destination, 0755, true);
-            }
-
-            $file->move($destination, $filename);
-
-            return $folder . '/' . $filename;
+            return MediaStorage::store($file, $folder);
         }
 
         return null;

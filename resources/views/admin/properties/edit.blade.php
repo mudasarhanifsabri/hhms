@@ -105,7 +105,7 @@
                 <div class="col-lg-6">
                     <label for="status" class="form-label">Status</label>
                     <select class="form-control" id="status" name="status" required>
-                        @foreach(\App\Models\Property::STATUSES as $status => $label)
+                        @foreach(\App\Models\Property::ACTIVE_STATUSES as $status => $label)
                             <option value="{{ $status }}" @selected(old('status', $property->status) === $status)>{{ $label }}</option>
                         @endforeach
                     </select>
