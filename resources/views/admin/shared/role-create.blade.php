@@ -98,7 +98,7 @@
         <div class="alert alert-danger"><strong>Please check the form.</strong> {{ $errors->first() }}</div>
     @endif
 
-    <form action="{{ $storeRoute }}" method="POST" enctype="multipart/form-data">
+    <form action="{{ $storeRoute }}" method="POST" enctype="multipart/form-data" data-ocr-endpoint="{{ route('admin.document-ocr.scan') }}">
         @csrf
 
         <div class="ocr-steps">
@@ -341,6 +341,7 @@ document.addEventListener('change', function (event) {
             setUploadState(upload, 'done', 'Ready for review', 100);
             updateOcrStatus('Document uploaded', 'Review required', 'Medium confidence', 'warn');
             if (input.name === 'id_document' || input.name === 'camera_capture') {
+                runDocumentOcr(input, file);
                 tryAutoCropProfileFromDocument(file);
             }
         });
@@ -678,6 +679,91 @@ function updateOcrStatus(documentStatus, cropStatus, accuracy, confidenceState) 
         confidence.classList.toggle('is-warn', confidenceState === 'warn');
         confidence.textContent = confidenceState === 'error' ? 'Needs Review' : (confidenceState === 'ok' ? 'Profile Detected' : 'Review Required');
     }
+}
+
+async function runDocumentOcr(input, file) {
+    var form = document.querySelector('.ocr-create-shell form');
+    var endpoint = form ? form.getAttribute('data-ocr-endpoint') : '';
+    var token = form ? form.querySelector('input[name="_token"]') : null;
+
+    if (!endpoint || !token || input.name === 'profile_photo') return;
+    if (!file.type || file.type.indexOf('image/') !== 0) {
+        updateOcrStatus('Document uploaded', 'Manual crop needed', 'Manual review', 'warn');
+        return;
+    }
+
+    updateOcrStatus('OCR processing', 'Review required', 'Reading document', 'warn');
+    setOcrError('');
+
+    var payload = new FormData();
+    payload.append('_token', token.value);
+    payload.append('document', file);
+    payload.append('document_type', getActiveDocumentType());
+
+    try {
+        var response = await fetch(endpoint, {
+            method: 'POST',
+            headers: {
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+            body: payload,
+        });
+        var result = await response.json();
+
+        if (!response.ok || !result.ok) {
+            throw new Error(result.message || 'OCR failed. Please enter details manually.');
+        }
+
+        applyOcrData(result.data || {});
+    } catch (error) {
+        updateOcrStatus('OCR failed', 'Review required', 'Manual review', 'error');
+        setOcrError(error.message || 'OCR failed. Please enter details manually.');
+    }
+}
+
+function getActiveDocumentType() {
+    var activeType = document.querySelector('[data-doc-type].active');
+    return activeType ? activeType.getAttribute('data-doc-type') : 'emirates_id';
+}
+
+function applyOcrData(data) {
+    setFieldValue('name', data.name);
+    setFieldValue('name_ar', data.name_ar);
+    setFieldValue('eid_passport_no', data.eid_passport_no);
+    setFieldValue('dob', data.dob);
+    setFieldValue('id_issue_date', data.id_issue_date);
+    setFieldValue('id_expiry_date', data.id_expiry_date);
+    setFieldValue('nationality', data.nationality);
+    setSelectValue('gender', data.gender);
+
+    var confidence = parseInt(data.confidence || 0, 10);
+    var confidenceState = confidence >= 80 ? 'ok' : (confidence >= 45 ? 'warn' : 'error');
+    var accuracy = confidence ? (confidence + '% confidence') : 'Manual review';
+    updateOcrStatus('OCR completed', document.querySelector('[data-ocr-crop-status]')?.textContent || 'Review required', accuracy, confidenceState);
+
+    if (data.warnings && data.warnings.length) {
+        setOcrError(data.warnings.join(' '));
+    } else {
+        setOcrError('');
+    }
+}
+
+function setFieldValue(name, value) {
+    if (!value) return;
+    var field = document.querySelector('[name="' + name + '"]');
+    if (field && !field.value) field.value = value;
+}
+
+function setSelectValue(name, value) {
+    if (!value) return;
+    var field = document.querySelector('select[name="' + name + '"]');
+    if (!field) return;
+    Array.prototype.slice.call(field.options).forEach(function (option) {
+        if (option.value.toLowerCase() === String(value).toLowerCase()) {
+            field.value = option.value;
+        }
+    });
 }
 
 function setOcrError(message) {

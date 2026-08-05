@@ -16,6 +16,7 @@ use App\Http\Controllers\admin\inspections\InspectionController;
 use App\Http\Controllers\admin\accounting\AccountingController;
 use App\Http\Controllers\admin\SettingsController;
 use App\Http\Controllers\admin\SoftwareUpdateController;
+use App\Http\Controllers\admin\DocumentOcrController;
 
 
 
@@ -26,6 +27,7 @@ Route::get('/settings', [SettingsController::class, 'edit'])->name('settings.edi
 Route::put('/settings', [SettingsController::class, 'update'])->name('settings.update');
 Route::get('/software-update', [SoftwareUpdateController::class, 'index'])->name('software-update.index');
 Route::post('/software-update', [SoftwareUpdateController::class, 'update'])->name('software-update.run');
+Route::post('/document-ocr', [DocumentOcrController::class, 'scan'])->name('document-ocr.scan');
 
 // AdminAccounting Routes
 Route::get('/accounting', [AccountingController::class, 'dashboard'])->name('accounting.dashboard');
