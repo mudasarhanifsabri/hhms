@@ -216,7 +216,8 @@ class TaskController extends Controller
             return MediaStorage::store($file, $folder);
         }
 
-        $destination = public_path($folder);
+        $datedFolder = MediaStorage::datedFolder($folder);
+        $destination = public_path($datedFolder);
         if (! file_exists($destination)) {
             mkdir($destination, 0755, true);
         }
@@ -243,17 +244,17 @@ class TaskController extends Controller
                     $image = $resized;
                 }
 
-                $filename = uniqid() . '.webp';
+                $filename = MediaStorage::trackedFilename($file, 'webp');
                 imagewebp($image, $destination . DIRECTORY_SEPARATOR . $filename, 78);
                 imagedestroy($image);
 
-                return $folder . '/' . $filename;
+                return $datedFolder . '/' . $filename;
             }
         }
 
-        $filename = uniqid() . '.' . $extension;
+        $filename = MediaStorage::trackedFilename($file, $extension);
         $file->move($destination, $filename);
 
-        return $folder . '/' . $filename;
+        return $datedFolder . '/' . $filename;
     }
 }

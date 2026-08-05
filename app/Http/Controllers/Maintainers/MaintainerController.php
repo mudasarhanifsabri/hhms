@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Booking;
 use App\Models\BookingTask;
 use App\Models\BookingTaskCostItem;
+use App\Support\MediaStorage;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -454,7 +455,12 @@ class MaintainerController extends Controller
 
     private function uploadOptimizedFile($file, string $folder): string
     {
-        $destination = public_path($folder);
+        if (MediaStorage::disk() !== 'public') {
+            return MediaStorage::store($file, $folder);
+        }
+
+        $datedFolder = MediaStorage::datedFolder($folder);
+        $destination = public_path($datedFolder);
         if (! file_exists($destination)) {
             mkdir($destination, 0755, true);
         }
@@ -481,17 +487,17 @@ class MaintainerController extends Controller
                     $image = $resized;
                 }
 
-                $filename = uniqid() . '.webp';
+                $filename = MediaStorage::trackedFilename($file, 'webp');
                 imagewebp($image, $destination . DIRECTORY_SEPARATOR . $filename, 78);
                 imagedestroy($image);
 
-                return $folder . '/' . $filename;
+                return $datedFolder . '/' . $filename;
             }
         }
 
-        $filename = uniqid() . '.' . $extension;
+        $filename = MediaStorage::trackedFilename($file, $extension);
         $file->move($destination, $filename);
 
-        return $folder . '/' . $filename;
+        return $datedFolder . '/' . $filename;
     }
 }

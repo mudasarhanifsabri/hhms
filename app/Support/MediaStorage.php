@@ -4,6 +4,7 @@ namespace App\Support;
 
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class MediaStorage
 {
@@ -14,7 +15,20 @@ class MediaStorage
 
     public static function store(UploadedFile $file, string $folder): string
     {
-        return $file->store($folder, self::disk());
+        return $file->storeAs(self::datedFolder($folder), self::trackedFilename($file), self::disk());
+    }
+
+    public static function datedFolder(string $folder): string
+    {
+        return trim($folder, '/') . '/' . now()->format('Y/m/d');
+    }
+
+    public static function trackedFilename(UploadedFile $file, ?string $extension = null): string
+    {
+        $name = Str::slug(pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME)) ?: 'upload';
+        $extension ??= strtolower($file->getClientOriginalExtension() ?: 'bin');
+
+        return now()->format('His') . '-' . Str::lower(Str::random(6)) . '-' . Str::limit($name, 60, '') . '.' . $extension;
     }
 
     public static function put(string $path, string $contents): void
