@@ -6,6 +6,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Throwable;
 
 class MediaStorage
 {
@@ -16,7 +17,15 @@ class MediaStorage
 
     public static function store(UploadedFile $file, string $folder): string
     {
-        return $file->storeAs(self::path(self::datedFolder($folder)), self::trackedFilename($file), self::disk());
+        $folder = self::datedFolder($folder);
+
+        Storage::disk(self::disk())->putFileAs(
+            self::path($folder),
+            $file,
+            $filename = self::trackedFilename($file)
+        );
+
+        return trim($folder . '/' . $filename, '/');
     }
 
     public static function datedFolder(string $folder): string
@@ -59,7 +68,28 @@ class MediaStorage
             return null;
         }
 
+        if ($disk === 's3') {
+            return self::temporaryUrl($path);
+        }
+
         return Storage::disk($disk)->url(self::path($path));
+    }
+
+    private static function temporaryUrl(string $path): ?string
+    {
+        try {
+            return Storage::disk('s3')->temporaryUrl(
+                self::path($path),
+                now()->addMinutes((int) config('hhms.s3_temporary_url_minutes', 60))
+            );
+        } catch (Throwable $exception) {
+            Log::warning('Unable to generate S3 temporary media URL.', [
+                'path' => $path,
+                'message' => $exception->getMessage(),
+            ]);
+
+            return null;
+        }
     }
 
     public static function path(string $path): string
