@@ -280,7 +280,7 @@
                                         <div class="ocr-meta">Ask before create and send only when enabled.</div>
                                     </div>
                                     <div class="form-check form-switch m-0">
-                                        <input class="form-check-input" type="checkbox" name="send_welcome_email" value="1" @checked(old('send_welcome_email', true))>
+                                        <input class="form-check-input" type="checkbox" name="send_welcome_email" value="1" @checked(old('send_welcome_email'))>
                                     </div>
                                 </div>
                             </div>
@@ -296,7 +296,7 @@
                 <button type="button" class="ocr-secondary" data-ocr-reset><i class="ri-refresh-line"></i> Scan Again</button>
                 <button type="button" class="ocr-secondary d-none" data-wizard-prev><i class="ri-arrow-left-line"></i> Back</button>
                 <button type="button" class="ocr-primary" data-wizard-next>Continue <i class="ri-arrow-right-line"></i></button>
-                <button type="submit" class="ocr-primary d-none" data-wizard-submit>Create {{ $roleTitle }} <i class="ri-check-line"></i></button>
+                <button type="submit" class="ocr-primary d-none" data-wizard-submit data-submit-label="Create {{ $roleTitle }}">Create {{ $roleTitle }} <i class="ri-check-line"></i></button>
             </div>
         </div>
     </form>
@@ -363,6 +363,30 @@ document.addEventListener('input', function (event) {
 document.addEventListener('submit', function (event) {
     if (event.target.closest('.ocr-create-shell form')) {
         syncPhoneValue();
+
+        var submitButton = event.target.querySelector('[data-wizard-submit]');
+        if (submitButton) {
+            submitButton.disabled = true;
+            submitButton.innerHTML = '<i class="ri-loader-4-line"></i> Creating...';
+        }
+    }
+});
+
+document.addEventListener('click', function (event) {
+    var submitButton = event.target.closest('[data-wizard-submit]');
+    if (!submitButton) return;
+
+    var form = submitButton.closest('form');
+    if (!form) return;
+
+    syncPhoneValue();
+
+    if (!form.checkValidity()) {
+        event.preventDefault();
+        setWizardStep(1);
+        setTimeout(function () {
+            form.reportValidity();
+        }, 80);
     }
 });
 

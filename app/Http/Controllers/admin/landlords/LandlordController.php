@@ -233,15 +233,17 @@ public function store(Request $request)
         ]);
 
         if ($request->boolean('send_welcome_email')) {
-            try {
-                Notification::send($landlord, new LandlordCreated($landlord));
-            } catch (Throwable $mailException) {
-                Log::warning('Landlord welcome email failed.', [
-                    'landlord_id' => $landlord->id,
-                    'email' => $landlord->email,
-                    'error' => $mailException->getMessage(),
-                ]);
-            }
+            app()->terminating(function () use ($landlord) {
+                try {
+                    Notification::send($landlord, new LandlordCreated($landlord));
+                } catch (Throwable $mailException) {
+                    Log::warning('Landlord welcome email failed.', [
+                        'landlord_id' => $landlord->id,
+                        'email' => $landlord->email,
+                        'error' => $mailException->getMessage(),
+                    ]);
+                }
+            });
         }
 
         return redirect()->route('admin.landlord.index')
