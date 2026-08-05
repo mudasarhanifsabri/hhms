@@ -98,7 +98,7 @@
         <div class="alert alert-danger"><strong>Please check the form.</strong> {{ $errors->first() }}</div>
     @endif
 
-    <form action="{{ $storeRoute }}" method="POST" enctype="multipart/form-data" data-ocr-endpoint="{{ route('admin.document-ocr.scan') }}">
+    <form action="{{ $storeRoute }}" method="POST" enctype="multipart/form-data" data-ocr-endpoint="{{ url('/admin/document-ocr') }}">
         @csrf
 
         <div class="ocr-steps">
