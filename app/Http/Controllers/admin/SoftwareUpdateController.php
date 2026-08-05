@@ -5,6 +5,7 @@ namespace App\Http\Controllers\admin;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\File;
+use Throwable;
 use Symfony\Component\Process\Process;
 
 class SoftwareUpdateController extends Controller
@@ -35,7 +36,9 @@ class SoftwareUpdateController extends Controller
             'Before commit' => ['git', 'log', '-1', '--pretty=%h - %s'],
             'Fetch GitHub' => ['git', 'fetch', 'origin'],
             'Pull latest code' => ['git', 'pull', '--ff-only'],
-            'Install PHP packages' => ['composer', 'install', '--no-dev', '--prefer-dist', '--optimize-autoloader', '--no-interaction'],
+            'Check PHP version' => [PHP_BINARY, '-r', 'if (PHP_VERSION_ID < 80300) { fwrite(STDERR, "HHMS requires PHP 8.3 or newer. Current PHP: " . PHP_VERSION . PHP_EOL); exit(1); } echo "PHP " . PHP_VERSION . PHP_EOL;'],
+            'Check Composer' => [$this->composerBinary(), '--version', '--no-ansi'],
+            'Install PHP packages' => [$this->composerBinary(), 'install', '--no-dev', '--prefer-dist', '--optimize-autoloader', '--no-interaction', '--no-progress'],
             'Run migrations' => [PHP_BINARY, 'artisan', 'migrate', '--force'],
             'Clear Laravel cache' => [PHP_BINARY, 'artisan', 'optimize:clear'],
             'Cache config' => [PHP_BINARY, 'artisan', 'config:cache'],
@@ -46,7 +49,7 @@ class SoftwareUpdateController extends Controller
 
         $results = [];
         foreach ($commands as $label => $command) {
-            $result = $this->run($command, 300);
+            $result = $this->run($command, $label === 'Install PHP packages' ? 900 : 300);
             $results[] = compact('label', 'command', 'result');
 
             if (! $result['success']) {
@@ -63,9 +66,27 @@ class SoftwareUpdateController extends Controller
 
     private function run(array $command, int $timeout = 60): array
     {
+        File::ensureDirectoryExists(storage_path('composer'));
+
         $process = new Process($command, base_path());
         $process->setTimeout($timeout);
-        $process->run();
+        $process->setIdleTimeout(null);
+        $process->setEnv([
+            'COMPOSER_ALLOW_SUPERUSER' => '1',
+            'COMPOSER_HOME' => storage_path('composer'),
+            'COMPOSER_MEMORY_LIMIT' => '-1',
+        ]);
+
+        try {
+            $process->run();
+        } catch (Throwable $exception) {
+            return [
+                'success' => false,
+                'code' => $process->getExitCode(),
+                'output' => trim($process->getOutput()),
+                'error' => $exception->getMessage() . PHP_EOL . trim($process->getErrorOutput()),
+            ];
+        }
 
         return [
             'success' => $process->isSuccessful(),
@@ -73,5 +94,10 @@ class SoftwareUpdateController extends Controller
             'output' => trim($process->getOutput()),
             'error' => trim($process->getErrorOutput()),
         ];
+    }
+
+    private function composerBinary(): string
+    {
+        return env('COMPOSER_BINARY', 'composer');
     }
 }
