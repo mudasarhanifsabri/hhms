@@ -64,14 +64,19 @@
                         <th>Type</th>
                         <th>Property</th>
                         <th>Reference</th>
-                        <th>Attachments</th>
                         <th class="text-end">Credit</th>
                         <th class="text-end">Debit</th>
                         <th class="text-end">Balance</th>
+                        <th class="text-end">View</th>
                     </tr>
                 </thead>
                 <tbody>
                     @forelse ($accountEntries as $entry)
+                        @php
+                            $invoiceUrl = \App\Support\MediaStorage::url($entry->invoice_attachment);
+                            $receiptUrl = \App\Support\MediaStorage::url($entry->receipt_attachment);
+                            $hasAttachments = $invoiceUrl || $receiptUrl;
+                        @endphp
                         <tr>
                             <td>{{ $entry->entry_date?->format('d M Y') }}</td>
                             <td>
@@ -84,23 +89,6 @@
                             </td>
                             <td>{{ $entry->property?->name ?? 'General' }}</td>
                             <td>{{ $entry->reference ?? '-' }}</td>
-                            <td>
-                                <div class="d-flex flex-wrap gap-1">
-                                    @if ($entry->invoice_attachment)
-                                        <a href="{{ \App\Support\MediaStorage::url($entry->invoice_attachment) }}" target="_blank" class="badge bg-primary-subtle text-primary border">
-                                            <i class="ri-file-list-3-line me-1"></i>Invoice
-                                        </a>
-                                    @endif
-                                    @if ($entry->receipt_attachment)
-                                        <a href="{{ \App\Support\MediaStorage::url($entry->receipt_attachment) }}" target="_blank" class="badge bg-success-subtle text-success border">
-                                            <i class="ri-receipt-line me-1"></i>Receipt
-                                        </a>
-                                    @endif
-                                    @if (! $entry->invoice_attachment && ! $entry->receipt_attachment)
-                                        <span class="text-muted">-</span>
-                                    @endif
-                                </div>
-                            </td>
                             <td class="text-end text-success">
                                 {{ $entry->direction === 'credit' ? number_format((float) $entry->amount, 2) : '-' }}
                             </td>
@@ -108,6 +96,11 @@
                                 {{ $entry->direction === 'debit' ? number_format((float) $entry->amount, 2) : '-' }}
                             </td>
                             <td class="text-end fw-semibold">{{ number_format((float) $entry->balance_after, 2) }}</td>
+                            <td class="text-end">
+                                <button type="button" class="btn btn-sm {{ $hasAttachments ? 'btn-soft-primary' : 'btn-light' }}" data-bs-toggle="modal" data-bs-target="#statementAttachments{{ $entry->id }}">
+                                    <i class="ri-eye-line me-1"></i>View
+                                </button>
+                            </td>
                         </tr>
                     @empty
                         <tr>
@@ -128,6 +121,63 @@
         @endif
     </div>
 </div>
+
+@foreach ($accountEntries as $entry)
+    @php
+        $invoiceUrl = \App\Support\MediaStorage::url($entry->invoice_attachment);
+        $receiptUrl = \App\Support\MediaStorage::url($entry->receipt_attachment);
+    @endphp
+    <div class="modal fade" id="statementAttachments{{ $entry->id }}" tabindex="-1" aria-labelledby="statementAttachments{{ $entry->id }}Label" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <div>
+                        <h5 class="modal-title" id="statementAttachments{{ $entry->id }}Label">Statement Attachments</h5>
+                        <div class="text-muted small">{{ $entry->entry_date?->format('d M Y') }} · {{ $entry->type_label }} · {{ $entry->reference ?? 'No reference' }}</div>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <div class="border rounded p-3 h-100">
+                                <div class="d-flex align-items-center justify-content-between gap-2 mb-2">
+                                    <h6 class="mb-0"><i class="ri-file-list-3-line me-1 text-primary"></i>Invoice</h6>
+                                    @if ($invoiceUrl)
+                                        <a href="{{ $invoiceUrl }}" target="_blank" class="btn btn-sm btn-outline-primary">Open</a>
+                                    @endif
+                                </div>
+                                @if ($invoiceUrl)
+                                    <div class="text-muted small text-break">{{ basename($entry->invoice_attachment) }}</div>
+                                @else
+                                    <div class="text-muted">No invoice attached.</div>
+                                @endif
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="border rounded p-3 h-100">
+                                <div class="d-flex align-items-center justify-content-between gap-2 mb-2">
+                                    <h6 class="mb-0"><i class="ri-receipt-line me-1 text-success"></i>Receipt</h6>
+                                    @if ($receiptUrl)
+                                        <a href="{{ $receiptUrl }}" target="_blank" class="btn btn-sm btn-outline-success">Open</a>
+                                    @endif
+                                </div>
+                                @if ($receiptUrl)
+                                    <div class="text-muted small text-break">{{ basename($entry->receipt_attachment) }}</div>
+                                @else
+                                    <div class="text-muted">No receipt attached.</div>
+                                @endif
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+@endforeach
 
 <div class="modal fade" id="accountEntryModal" tabindex="-1" aria-labelledby="accountEntryModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg">
