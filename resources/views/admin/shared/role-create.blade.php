@@ -349,6 +349,9 @@ document.addEventListener('change', function (event) {
         simulateUploadProgress(upload, function () {
             setUploadState(upload, 'done', 'PDF ready for review', 100);
             updateOcrStatus('PDF uploaded', 'Manual crop needed', 'Manual review', 'warn');
+            if (input.name === 'id_document' || input.name === 'camera_capture') {
+                runDocumentOcr(input, file);
+            }
         });
     }
 });
@@ -687,8 +690,9 @@ async function runDocumentOcr(input, file) {
     var token = form ? form.querySelector('input[name="_token"]') : null;
 
     if (!endpoint || !token || input.name === 'profile_photo') return;
-    if (!file.type || file.type.indexOf('image/') !== 0) {
-        updateOcrStatus('Document uploaded', 'Manual crop needed', 'Manual review', 'warn');
+    var isOcrFile = file.type.indexOf('image/') === 0 || file.type === 'application/pdf';
+    if (!isOcrFile) {
+        updateOcrStatus('Document uploaded', 'Manual review', 'Manual review', 'warn');
         return;
     }
 

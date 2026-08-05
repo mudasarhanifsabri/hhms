@@ -28,9 +28,10 @@ return [
         'key' => env('RESEND_KEY'),
     ],
 
-    'openai' => [
-        'key' => env('OPENAI_API_KEY'),
-        'ocr_model' => env('OPENAI_OCR_MODEL', 'gpt-5.6'),
+    'textract' => [
+        'key' => env('AWS_ACCESS_KEY_ID'),
+        'secret' => env('AWS_SECRET_ACCESS_KEY'),
+        'region' => env('AWS_TEXTRACT_REGION', env('AWS_DEFAULT_REGION', 'us-east-1')),
     ],
 
     'slack' => [
