@@ -141,11 +141,9 @@
                </div>
                <!-- End Container Fluid -->
 
-               @unless(request()->is('*/create'))
-                   <!-- ========== Footer Start ========== -->
-                   @include('layouts.footer')
-                   <!-- ========== Footer End ========== -->
-               @endunless
+               <!-- ========== Footer Start ========== -->
+               @include('layouts.footer')
+               <!-- ========== Footer End ========== -->
 
           </div>
           <!-- ==================================================== -->

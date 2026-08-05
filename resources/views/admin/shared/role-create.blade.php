@@ -1,9 +1,10 @@
 @php
-    $nationalities = [
-        'United Arab Emirates', 'India', 'Pakistan', 'Bangladesh', 'Sri Lanka', 'Nepal', 'Philippines',
-        'United Kingdom', 'United States', 'Canada', 'Egypt', 'Jordan', 'Lebanon', 'Saudi Arabia',
-        'Oman', 'Kuwait', 'Qatar', 'Bahrain', 'Other',
-    ];
+    $countries = \App\Support\CountryOptions::all();
+    $nationalities = \App\Support\CountryOptions::nationalities();
+    $defaultCountry = collect($countries)->firstWhere('iso', old('phone_country_iso', 'AE')) ?? collect($countries)->firstWhere('iso', 'AE');
+    $phoneCountryLabel = old('phone_country_display', \App\Support\CountryOptions::phoneLabel($defaultCountry));
+    $phoneDialCode = old('phone_country_code', $defaultCountry['dial']);
+    $phoneLocal = old('phone_local', old('phone'));
     $roleTitle = $roleTitle ?? 'User';
     $backUrl = $backUrl ?? url()->previous();
 @endphp
@@ -35,17 +36,33 @@
     .ocr-upload.has-file .ocr-ok { display: block; }
     .ocr-preview { width: 118px; height: 58px; border-radius: 7px; object-fit: cover; background: #f8fafc; border: 1px solid var(--ocr-line); display: grid; place-items: center; color: var(--ocr-muted); overflow: hidden; font-size: 20px; }
     .ocr-preview img { width: 100%; height: 100%; object-fit: cover; }
+    .ocr-placeholder { width: 100%; height: 100%; padding: 8px; background: linear-gradient(135deg, #ffffff, #eef4ff); display: grid; align-content: center; gap: 4px; }
+    .ocr-placeholder-line { display: block; height: 5px; border-radius: 99px; background: #cbd5e1; }
+    .ocr-placeholder-line.short { width: 42%; }
+    .ocr-placeholder-line.mid { width: 64%; }
+    .ocr-placeholder-id { grid-template-columns: 28px 1fr; column-gap: 8px; }
+    .ocr-placeholder-id .ocr-placeholder-photo { grid-row: 1 / 4; width: 28px; height: 34px; border-radius: 6px; background: #dbeafe; border: 1px solid #bfdbfe; }
+    .ocr-placeholder-id:before { content: ""; position: absolute; }
+    .ocr-placeholder-back { background: linear-gradient(135deg, #ffffff, #f7f7fb); }
+    .ocr-placeholder-back .ocr-placeholder-chip { height: 13px; width: 36px; border-radius: 4px; background: #d9c99f; }
+    .ocr-placeholder-passport { background: linear-gradient(135deg, #f6f1ff, #e9f3ff); }
+    .ocr-placeholder-passport .ocr-placeholder-emblem { width: 26px; height: 26px; border-radius: 50%; border: 2px solid #7c3aed; margin: 0 auto 2px; opacity: .8; }
+    .ocr-placeholder-user { background: linear-gradient(135deg, #f8fafc, #eef2ff); }
+    .ocr-placeholder-user .ocr-placeholder-avatar { width: 30px; height: 30px; border-radius: 50%; background: #dbeafe; margin: 0 auto; position: relative; }
+    .ocr-placeholder-user .ocr-placeholder-avatar:after { content: ""; position: absolute; left: -8px; right: -8px; bottom: -16px; height: 18px; border-radius: 50% 50% 0 0; background: #c7d2fe; }
     .ocr-camera { width: 100%; border: 1px solid #d0d5dd; border-radius: 8px; background: #fff; padding: 10px 14px; color: var(--ocr-primary); font-weight: 800; display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 4px; cursor: pointer; }
     .ocr-note { background: linear-gradient(135deg, #f8f5ff, #f1fbff); border-radius: 9px; padding: 12px; color: #344054; margin-top: 10px; }
     .ocr-confidence { border-radius: 999px; background: #dff8ea; color: #027a48; padding: 8px 12px; font-weight: 800; font-size: 12px; }
     .ocr-field label { font-weight: 700; font-size: 12px; margin-bottom: 6px; color: #344054; }
     .ocr-field .form-control, .ocr-field .form-select { min-height: 42px; border-radius: 8px; border-color: #d9dee8; }
     .ocr-field .input-group-text { border-radius: 8px 0 0 8px; background: #fff; }
+    .ocr-phone-grid { display: grid; grid-template-columns: minmax(190px, .85fr) 1fr; gap: 8px; }
+    .ocr-country-input { font-weight: 700; }
     .ocr-actions { position: sticky; bottom: 0; background: rgba(255,255,255,.96); border-top: 1px solid var(--ocr-line); padding: 12px 0 0; margin-top: 12px; display: flex; justify-content: space-between; gap: 14px; }
     .ocr-primary { background: linear-gradient(135deg, #6d4dfc, #3d2cf0); color: #fff; border: 0; border-radius: 8px; padding: 11px 28px; font-weight: 800; }
     .ocr-secondary { border: 1px solid #cfd5e1; background: #fff; border-radius: 8px; padding: 11px 22px; font-weight: 800; color: #344054; }
     .ocr-switch { border: 1px solid var(--ocr-line); border-radius: 9px; padding: 13px 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px; background: #fbfcff; }
-    @media (max-width: 991px) { .ocr-steps { grid-template-columns: 1fr; } .ocr-step:after { display: none; } .ocr-upload { grid-template-columns: 44px 1fr; } .ocr-preview { grid-column: 1 / -1; width: 100%; height: 160px; } }
+    @media (max-width: 991px) { .ocr-steps { grid-template-columns: 1fr; } .ocr-step:after { display: none; } .ocr-upload { grid-template-columns: 44px 1fr; } .ocr-preview { grid-column: 1 / -1; width: 100%; height: 160px; } .ocr-phone-grid { grid-template-columns: 1fr; } }
 </style>
 @endpush
 
@@ -88,7 +105,7 @@
                             <input type="file" name="profile_photo" accept="image/*" data-ocr-preview>
                             <span class="ocr-upload-icon"><i class="ri-user-smile-line"></i></span>
                             <span><strong>Photo</strong><small>JPG or PNG</small><span class="ocr-ok"><i class="ri-check-line"></i> Uploaded</span></span>
-                            <span class="ocr-preview"><i class="ri-user-smile-line"></i></span>
+                            <span class="ocr-preview">{!! $placeholderUser ?? '<span class="ocr-placeholder ocr-placeholder-user"><span class="ocr-placeholder-avatar"></span></span>' !!}</span>
                         </label>
 
                         <label class="form-label fw-semibold mt-1" data-document-heading>Upload Emirates ID</label>
@@ -96,13 +113,13 @@
                             <input type="file" name="id_document" accept="image/*,.pdf" data-ocr-preview>
                             <span class="ocr-upload-icon"><i class="ri-id-card-line" data-front-icon></i></span>
                             <span><strong data-front-title>Front Side</strong><small data-front-help>JPG, PNG or PDF<br>Max 10MB</small><span class="ocr-ok"><i class="ri-check-line"></i> Uploaded</span></span>
-                            <span class="ocr-preview"><i class="ri-id-card-line" data-front-preview-icon></i></span>
+                            <span class="ocr-preview" data-front-preview>{!! $placeholderIdFront ?? '<span class="ocr-placeholder ocr-placeholder-id"><span class="ocr-placeholder-photo"></span><span class="ocr-placeholder-line mid"></span><span class="ocr-placeholder-line"></span><span class="ocr-placeholder-line short"></span></span>' !!}</span>
                         </label>
                         <label class="ocr-upload" data-ocr-upload data-back-upload>
                             <input type="file" name="id_document_back" accept="image/*,.pdf" data-ocr-preview>
                             <span class="ocr-upload-icon"><i class="ri-bank-card-2-line" data-back-icon></i></span>
                             <span><strong data-back-title>Back Side</strong><small data-back-help>JPG, PNG or PDF<br>Max 10MB</small><span class="ocr-ok"><i class="ri-check-line"></i> Uploaded</span></span>
-                            <span class="ocr-preview"><i class="ri-bank-card-2-line" data-back-preview-icon></i></span>
+                            <span class="ocr-preview" data-back-preview>{!! $placeholderIdBack ?? '<span class="ocr-placeholder ocr-placeholder-back"><span class="ocr-placeholder-chip"></span><span class="ocr-placeholder-line"></span><span class="ocr-placeholder-line mid"></span></span>' !!}</span>
                         </label>
                         <label class="ocr-camera">
                             <i class="ri-camera-line"></i> Scan with Camera
@@ -165,19 +182,17 @@
                             </div>
                             <div class="col-md-6 ocr-field">
                                 <label>Phone Number</label>
-                                <div class="input-group">
-                                    <span class="input-group-text">AE +971</span>
-                                    <input type="text" name="phone" class="form-control" value="{{ old('phone') }}" required>
+                                <div class="ocr-phone-grid">
+                                    <input type="text" name="phone_country_display" class="form-control ocr-country-input" value="{{ $phoneCountryLabel }}" list="phone-country-options" data-phone-country-display autocomplete="off" required>
+                                    <input type="text" name="phone_local" class="form-control" value="{{ $phoneLocal }}" placeholder="50 123 4567" data-phone-local required>
                                 </div>
+                                <input type="hidden" name="phone_country_iso" value="{{ old('phone_country_iso', $defaultCountry['iso']) }}" data-phone-country-iso>
+                                <input type="hidden" name="phone_country_code" value="{{ $phoneDialCode }}" data-phone-country-code>
+                                <input type="hidden" name="phone" value="{{ old('phone') }}" data-phone-full>
                             </div>
                             <div class="col-md-6 ocr-field">
                                 <label>Nationality</label>
-                                <select name="nationality" class="form-select">
-                                    <option value="">Select Nationality</option>
-                                    @foreach($nationalities as $nationality)
-                                        <option value="{{ $nationality }}" @selected(old('nationality') === $nationality)>{{ $nationality }}</option>
-                                    @endforeach
-                                </select>
+                                <input type="text" name="nationality" class="form-control" value="{{ old('nationality', 'Emirati') }}" list="nationality-options" placeholder="Search nationality" autocomplete="off">
                             </div>
                         </div>
                     </div>
@@ -249,6 +264,17 @@
             </div>
         </div>
     </form>
+
+    <datalist id="phone-country-options">
+        @foreach($countries as $country)
+            <option value="{{ \App\Support\CountryOptions::phoneLabel($country) }}" data-iso="{{ $country['iso'] }}" data-dial="{{ $country['dial'] }}"></option>
+        @endforeach
+    </datalist>
+    <datalist id="nationality-options">
+        @foreach($nationalities as $nationality)
+            <option value="{{ $nationality }}"></option>
+        @endforeach
+    </datalist>
 </div>
 
 @push('scripts')
@@ -271,6 +297,18 @@ document.addEventListener('change', function (event) {
     }
 });
 
+document.addEventListener('input', function (event) {
+    if (event.target.closest('[data-phone-country-display]') || event.target.closest('[data-phone-local]')) {
+        syncPhoneValue();
+    }
+});
+
+document.addEventListener('submit', function (event) {
+    if (event.target.closest('.ocr-create-shell form')) {
+        syncPhoneValue();
+    }
+});
+
 document.addEventListener('click', function (event) {
     var documentTypeButton = event.target.closest('[data-doc-type]');
     if (documentTypeButton) {
@@ -283,7 +321,7 @@ document.addEventListener('click', function (event) {
     document.querySelectorAll('[data-ocr-upload]').forEach(function (upload) {
         upload.classList.remove('has-file');
         var preview = upload.querySelector('.ocr-preview');
-        if (preview) preview.innerHTML = '<i class="' + previewIconForUpload(upload) + '"></i>';
+        if (preview) preview.innerHTML = previewPlaceholderForUpload(upload);
     });
 });
 
@@ -330,7 +368,8 @@ function setDocumentType(type) {
     var backTitle = document.querySelector('[data-back-title]');
     var backUpload = document.querySelector('[data-back-upload]');
     var frontIcon = document.querySelector('[data-front-icon]');
-    var frontPreviewIcon = document.querySelector('[data-front-preview-icon]');
+    var frontPreview = document.querySelector('[data-front-preview]');
+    var backPreview = document.querySelector('[data-back-preview]');
 
     if (heading) heading.textContent = isPassport ? 'Upload Passport' : 'Upload Emirates ID';
     if (idLabel) idLabel.textContent = isPassport ? 'Passport Number' : 'Emirates ID Number';
@@ -339,26 +378,71 @@ function setDocumentType(type) {
     if (backTitle) backTitle.textContent = 'Back Side';
     if (backUpload) backUpload.classList.toggle('d-none', isPassport);
 
-    [frontIcon, frontPreviewIcon].forEach(function (icon) {
-        if (!icon) return;
-        icon.className = isPassport ? 'ri-passport-line' : 'ri-id-card-line';
-    });
+    if (frontIcon) frontIcon.className = isPassport ? 'ri-passport-line' : 'ri-id-card-line';
+
+    if (frontPreview && !frontPreview.closest('[data-ocr-upload]').classList.contains('has-file')) {
+        frontPreview.innerHTML = isPassport ? passportPlaceholder() : idFrontPlaceholder();
+    }
+
+    if (backPreview && !backPreview.closest('[data-ocr-upload]').classList.contains('has-file')) {
+        backPreview.innerHTML = idBackPlaceholder();
+    }
 }
 
-function previewIconForUpload(upload) {
+function previewPlaceholderForUpload(upload) {
     var fileInput = upload.querySelector('input[type="file"]');
     if (fileInput && fileInput.name === 'profile_photo') {
-        return 'ri-user-smile-line';
+        return userPlaceholder();
     }
 
     if (upload.hasAttribute('data-back-upload')) {
-        return 'ri-bank-card-2-line';
+        return idBackPlaceholder();
     }
 
     var activeType = document.querySelector('[data-doc-type].active');
     return activeType && activeType.getAttribute('data-doc-type') === 'passport'
-        ? 'ri-passport-line'
-        : 'ri-id-card-line';
+        ? passportPlaceholder()
+        : idFrontPlaceholder();
 }
+
+function userPlaceholder() {
+    return '<span class="ocr-placeholder ocr-placeholder-user"><span class="ocr-placeholder-avatar"></span></span>';
+}
+
+function idFrontPlaceholder() {
+    return '<span class="ocr-placeholder ocr-placeholder-id"><span class="ocr-placeholder-photo"></span><span class="ocr-placeholder-line mid"></span><span class="ocr-placeholder-line"></span><span class="ocr-placeholder-line short"></span></span>';
+}
+
+function idBackPlaceholder() {
+    return '<span class="ocr-placeholder ocr-placeholder-back"><span class="ocr-placeholder-chip"></span><span class="ocr-placeholder-line"></span><span class="ocr-placeholder-line mid"></span></span>';
+}
+
+function passportPlaceholder() {
+    return '<span class="ocr-placeholder ocr-placeholder-passport"><span class="ocr-placeholder-emblem"></span><span class="ocr-placeholder-line"></span><span class="ocr-placeholder-line mid"></span></span>';
+}
+
+function syncPhoneValue() {
+    var countryInput = document.querySelector('[data-phone-country-display]');
+    var localInput = document.querySelector('[data-phone-local]');
+    var fullInput = document.querySelector('[data-phone-full]');
+    var isoInput = document.querySelector('[data-phone-country-iso]');
+    var codeInput = document.querySelector('[data-phone-country-code]');
+    if (!countryInput || !localInput || !fullInput) return;
+
+    var selected = Array.prototype.slice.call(document.querySelectorAll('#phone-country-options option')).find(function (option) {
+        return option.value === countryInput.value;
+    });
+    var dialCode = selected ? selected.getAttribute('data-dial') : (codeInput ? codeInput.value : '+971');
+
+    if (selected) {
+        if (isoInput) isoInput.value = selected.getAttribute('data-iso') || '';
+        if (codeInput) codeInput.value = dialCode;
+    }
+
+    var localValue = localInput.value.trim();
+    fullInput.value = localValue.indexOf('+') === 0 ? localValue : (dialCode + ' ' + localValue).trim();
+}
+
+syncPhoneValue();
 </script>
 @endpush
