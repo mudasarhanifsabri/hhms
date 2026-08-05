@@ -16,7 +16,7 @@ class MediaStorage
 
     public static function store(UploadedFile $file, string $folder): string
     {
-        return $file->storeAs(self::datedFolder($folder), self::trackedFilename($file), self::disk());
+        return $file->storeAs(self::path(self::datedFolder($folder)), self::trackedFilename($file), self::disk());
     }
 
     public static function datedFolder(string $folder): string
@@ -34,7 +34,7 @@ class MediaStorage
 
     public static function put(string $path, string $contents): void
     {
-        Storage::disk(self::disk())->put($path, $contents);
+        Storage::disk(self::disk())->put(self::path($path), $contents);
     }
 
     public static function url(?string $path): ?string
@@ -59,6 +59,23 @@ class MediaStorage
             return null;
         }
 
-        return Storage::disk($disk)->url($path);
+        return Storage::disk($disk)->url(self::path($path));
+    }
+
+    public static function path(string $path): string
+    {
+        $path = trim($path, '/');
+
+        if (self::disk() !== 's3') {
+            return $path;
+        }
+
+        $prefix = trim((string) config('hhms.s3_prefix', 'HHMS'), '/');
+
+        if ($prefix === '' || str_starts_with($path, $prefix . '/')) {
+            return $path;
+        }
+
+        return $prefix . '/' . $path;
     }
 }
