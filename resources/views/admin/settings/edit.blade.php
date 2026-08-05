@@ -6,6 +6,7 @@
     $mediaUrl = fn (?string $path) => $path ? \App\Support\MediaStorage::url($path) : null;
     $logoUrl = $mediaUrl($settings['logo_path'] ?? null);
     $faviconUrl = $mediaUrl($settings['favicon_path'] ?? null);
+    $whatsappCallbackUrl = rtrim(config('app.url'), '/') . '/webhooks/whatsapp';
 @endphp
 
 <div class="row">
@@ -217,6 +218,14 @@
                             <h4 class="card-title mb-0">WhatsApp API</h4>
                         </div>
                         <div class="card-body">
+                            <div class="alert alert-info border d-flex gap-2 align-items-start">
+                                <i class="ri-information-line fs-20"></i>
+                                <div>
+                                    <div class="fw-semibold">Meta WhatsApp Webhook Callback URL</div>
+                                    <input type="text" class="form-control form-control-sm font-monospace mt-2" value="{{ $whatsappCallbackUrl }}" readonly onclick="this.select()">
+                                    <div class="small mt-2">Use the same URL for webhook verification and incoming WhatsApp callbacks. The verify token below must match Meta.</div>
+                                </div>
+                            </div>
                             <div class="row g-3">
                                 <div class="col-md-6">
                                     <label class="form-label" for="whatsapp_provider">Provider</label>
