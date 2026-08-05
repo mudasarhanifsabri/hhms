@@ -12,7 +12,6 @@
     <title>{{ $title ?? 'Guest App' }}</title>
     <link rel="shortcut icon" href="assets/images/favicon.ico">
     <link href="assets/css/icons.min.css" rel="stylesheet" type="text/css">
-    <link href="{{ asset('assets/css/hhms-font.css') }}" rel="stylesheet" type="text/css">
     <link href="{{ asset('assets/css/tenant-pwa.css') }}" rel="stylesheet" type="text/css">
 </head>
 <body class="tenant-pwa-shell">

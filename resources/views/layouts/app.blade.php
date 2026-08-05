@@ -35,7 +35,6 @@
 
     <!-- App css (Require in all Page) -->
     <link href="assets/css/app.min.css" rel="stylesheet" type="text/css" />
-    <link href="{{ asset('assets/css/hhms-font.css') }}" rel="stylesheet" type="text/css" />
     <link href="{{ asset('assets/css/maintainer-pwa.css') }}" rel="stylesheet" type="text/css" />
 
     <!-- Theme Config js (Require in all Page) -->
