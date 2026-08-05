@@ -75,7 +75,7 @@
                <div class="container-fluid">
 
                     <!-- ========== Page Title Start ========== -->
-                    @unless($isMaintainerApp)
+                    @unless($isMaintainerApp || request()->is('*/create'))
                     <div class="row">
                         <div class="col-12">
                             <div class="page-title-box">

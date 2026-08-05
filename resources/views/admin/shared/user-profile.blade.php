@@ -101,10 +101,6 @@
                             <i class="ri-pass-valid-line fs-16 me-2 text-success"></i>
                             EID/Passport No: {{ $user->eid_passport_no ?? 'Not provided' }}
                         </p>
-                        <p class="mb-0">
-                            <i class="ri-user-heart-line fs-16 me-2 text-success"></i>
-                            Emergency Contact: {{ $user->emergency_contact_name ?? 'Not provided' }}
-                        </p>
                     </div>
                 </div>
             </div>
@@ -169,18 +165,6 @@
                 </ul>
             </div>
         </div>
-
-        <div class="card">
-            <div class="card-header">
-                <h4 class="card-title mb-0">Emergency Contact</h4>
-            </div>
-            <div class="card-body">
-                <p class="mb-2"><strong>Name:</strong> {{ $user->emergency_contact_name ?? 'Not provided' }}</p>
-                <p class="mb-2"><strong>Phone:</strong> {{ $user->emergency_contact_phone ?? 'Not provided' }}</p>
-                <p class="mb-2"><strong>Email:</strong> {{ $user->emergency_contact_email ?? 'Not provided' }}</p>
-                <p class="mb-0"><strong>Relationship:</strong> {{ $user->emergency_contact_relationship ?? 'Not provided' }}</p>
-            </div>
-        </div>
     </div>
 </div>
 
@@ -212,3 +196,4 @@
         </div>
     </div>
 @endif
+

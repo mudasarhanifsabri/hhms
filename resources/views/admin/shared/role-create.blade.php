@@ -68,11 +68,11 @@
 
         <div class="ocr-steps">
             <div class="ocr-step active"><span>1</span> Document Scan</div>
-            <div class="ocr-step"><span>2</span> OCR Preview</div>
-            <div class="ocr-step"><span>3</span> Review & Save</div>
+            <div class="ocr-step" data-wizard-step-label="1"><span>2</span> OCR Preview</div>
+            <div class="ocr-step" data-wizard-step-label="2"><span>3</span> Bank & Save</div>
         </div>
 
-        <div class="row g-4">
+        <div class="row g-4" data-wizard-panel="1">
             <div class="col-xl-4">
                 <div class="ocr-panel">
                     <div class="ocr-panel-body">
@@ -179,31 +179,25 @@
                                     @endforeach
                                 </select>
                             </div>
-                            <div class="col-md-6 ocr-field">
-                                <label>Emergency Contact Relationship</label>
-                                <select name="emergency_contact_relationship" class="form-select" required>
-                                    <option value="">Select Relationship</option>
-                                    @foreach(['parent' => 'Parent', 'spouse' => 'Spouse', 'sibling' => 'Sibling', 'child' => 'Child', 'relative' => 'Relative', 'friend' => 'Friend', 'colleague' => 'Colleague', 'other' => 'Other'] as $value => $label)
-                                        <option value="{{ $value }}" @selected(old('emergency_contact_relationship') === $value)>{{ $label }}</option>
-                                    @endforeach
-                                </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row g-4 d-none" data-wizard-panel="2">
+            <div class="col-xl-8 mx-auto">
+                <div class="ocr-panel">
+                    <div class="ocr-panel-body">
+                        <div class="d-flex align-items-center justify-content-between gap-2 mb-4">
+                            <div>
+                                <h5 class="fw-bold mb-1">Bank Details</h5>
+                                <div class="ocr-meta">Optional account details can be added now or updated later from the profile.</div>
                             </div>
-                            <div class="col-12 ocr-field">
-                                <label>Address</label>
-                                <textarea name="address" class="form-control" rows="3" required>{{ old('address') }}</textarea>
-                            </div>
-                            <div class="col-md-4 ocr-field">
-                                <label>Emergency Contact Name</label>
-                                <input type="text" name="emergency_contact_name" class="form-control" value="{{ old('emergency_contact_name') }}" required>
-                            </div>
-                            <div class="col-md-4 ocr-field">
-                                <label>Emergency Contact Phone</label>
-                                <input type="text" name="emergency_contact_phone" class="form-control" value="{{ old('emergency_contact_phone') }}" required>
-                            </div>
-                            <div class="col-md-4 ocr-field">
-                                <label>Emergency Contact Email</label>
-                                <input type="email" name="emergency_contact_email" class="form-control" value="{{ old('emergency_contact_email') }}" required>
-                            </div>
+                            <span class="ocr-confidence">Final Step <i class="ri-bank-card-line"></i></span>
+                        </div>
+
+                        <div class="row g-3">
                             <div class="col-md-6 ocr-field">
                                 <label>Bank Name</label>
                                 <input type="text" name="bank_name" class="form-control" value="{{ old('bank_name') }}">
@@ -219,6 +213,14 @@
                             <div class="col-md-6 ocr-field">
                                 <label>Bank Account Number</label>
                                 <input type="text" name="bank_account_number" class="form-control" value="{{ old('bank_account_number') }}">
+                            </div>
+                            <div class="col-md-6 ocr-field">
+                                <label>Swift Code</label>
+                                <input type="text" name="swift_code" class="form-control" value="{{ old('swift_code') }}">
+                            </div>
+                            <div class="col-md-6 ocr-field">
+                                <label>Bank Branch</label>
+                                <input type="text" name="bank_branch" class="form-control" value="{{ old('bank_branch') }}">
                             </div>
                             <div class="col-12">
                                 <div class="ocr-switch">
@@ -241,7 +243,9 @@
             <a href="{{ $backUrl }}" class="ocr-secondary">Cancel</a>
             <div class="d-flex gap-2">
                 <button type="button" class="ocr-secondary" data-ocr-reset><i class="ri-refresh-line"></i> Scan Again</button>
-                <button type="submit" class="ocr-primary">Create {{ $roleTitle }} <i class="ri-arrow-right-line"></i></button>
+                <button type="button" class="ocr-secondary d-none" data-wizard-prev><i class="ri-arrow-left-line"></i> Back</button>
+                <button type="button" class="ocr-primary" data-wizard-next>Continue <i class="ri-arrow-right-line"></i></button>
+                <button type="submit" class="ocr-primary d-none" data-wizard-submit>Create {{ $roleTitle }} <i class="ri-check-line"></i></button>
             </div>
         </div>
     </form>
@@ -276,5 +280,35 @@ document.addEventListener('click', function (event) {
         if (preview) preview.textContent = 'Preview';
     });
 });
+
+document.addEventListener('click', function (event) {
+    if (event.target.closest('[data-wizard-next]')) {
+        setWizardStep(2);
+    }
+
+    if (event.target.closest('[data-wizard-prev]')) {
+        setWizardStep(1);
+    }
+});
+
+function setWizardStep(step) {
+    document.querySelectorAll('[data-wizard-panel]').forEach(function (panel) {
+        panel.classList.toggle('d-none', panel.getAttribute('data-wizard-panel') !== String(step));
+    });
+
+    document.querySelectorAll('[data-wizard-step-label]').forEach(function (label) {
+        label.classList.toggle('active', label.getAttribute('data-wizard-step-label') === String(step));
+    });
+
+    var next = document.querySelector('[data-wizard-next]');
+    var previous = document.querySelector('[data-wizard-prev]');
+    var submit = document.querySelector('[data-wizard-submit]');
+    var reset = document.querySelector('[data-ocr-reset]');
+
+    if (next) next.classList.toggle('d-none', step === 2);
+    if (previous) previous.classList.toggle('d-none', step === 1);
+    if (submit) submit.classList.toggle('d-none', step !== 2);
+    if (reset) reset.classList.toggle('d-none', step === 2);
+}
 </script>
 @endpush

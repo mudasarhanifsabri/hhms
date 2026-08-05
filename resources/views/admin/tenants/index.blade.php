@@ -82,7 +82,6 @@
                              <thead class="bg-light-subtle">
                                   <tr>
                                        <th>Guest Photo & Name</th>
-                                       <th>Address</th>
                                        <th>Email</th>
                                        <th>Contact</th>
                                        <th>Units</th>
@@ -104,7 +103,6 @@
                                                  </div>
                                             </div>
                                        </td>
-                                       <td>{{ $tenant->address ?? 'N/A' }}</td>
                                        <td>{{ $tenant->email ?? 'N/A' }}</td>
                                        <td>{{ $tenant->phone ?? 'N/A' }}</td>
                                        <td>3 Units</td>
@@ -188,3 +186,4 @@
     </div>
 </div>
 @endsection
+

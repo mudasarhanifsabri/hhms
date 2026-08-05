@@ -83,7 +83,6 @@
                              <thead class="bg-light-subtle">
                                   <tr>
                                        <th>Agent Photo & Name</th>
-                                       <th>Address</th>
                                        <th>Email</th>
                                        <th>Contact</th>
                                        <th>Units</th>
@@ -105,7 +104,6 @@
                                                  </div>
                                             </div>
                                        </td>
-                                       <td>{{ $agent->address ?? 'N/A' }}</td>
                                        <td>{{ $agent->email ?? 'N/A' }}</td>
                                        <td>{{ $agent->phone ?? 'N/A' }}</td>
                                        <td>3 Units</td>
@@ -192,3 +190,4 @@
     </div>
 </div>
 @endsection
+

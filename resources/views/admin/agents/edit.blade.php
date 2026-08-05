@@ -93,59 +93,6 @@
                             </div>
                         </div>
 
-                        <div class="col-lg-12">
-                            <div class="mb-3">
-                                <label for="address" class="form-label">Agent Address</label>
-                                <textarea class="form-control" id="address" name="address" rows="3" placeholder="Enter address" required>{{ old('address', $agent->address) }}</textarea>
-                                @error('address') <span class="text-danger">{{ $message }}</span> @enderror
-                            </div>
-                        </div>
-
-                        <div class="col-lg-4">
-                            <div class="mb-3">
-                                <label for="emergency_contact_name" class="form-label">Emergency Contact Full Name</label>
-                                <input type="text" id="emergency_contact_name" name="emergency_contact_name" class="form-control" placeholder="Enter Full Name"
-                                    value="{{ old('emergency_contact_name', $agent->emergency_contact_name) }}" required>
-                                @error('emergency_contact_name') <span class="text-danger">{{ $message }}</span> @enderror
-                            </div>
-                        </div>
-
-                        <div class="col-lg-4">
-                            <div class="mb-3">
-                                <label for="emergency_contact_phone" class="form-label">Emergency Contact Phone</label>
-                                <input type="text" id="emergency_contact_phone" name="emergency_contact_phone" class="form-control" placeholder="Enter Phone Number"
-                                    value="{{ old('emergency_contact_phone', $agent->emergency_contact_phone) }}" required>
-                                @error('emergency_contact_phone') <span class="text-danger">{{ $message }}</span> @enderror
-                            </div>
-                        </div>
-
-                        <div class="col-lg-4">
-                            <div class="mb-3">
-                                <label for="emergency_contact_email" class="form-label">Emergency Contact Email</label>
-                                <input type="email" id="emergency_contact_email" name="emergency_contact_email" class="form-control" placeholder="Enter Email"
-                                    value="{{ old('emergency_contact_email', $agent->emergency_contact_email) }}" required>
-                                @error('emergency_contact_email') <span class="text-danger">{{ $message }}</span> @enderror
-                            </div>
-                        </div>
-
-                        <div class="col-lg-4">
-                            <div class="mb-3">
-                                <label for="emergency_contact_relationship" class="form-label">Relationship with Agent</label>
-                                <select class="form-control" id="emergency_contact_relationship" name="emergency_contact_relationship" required>
-                                    <option value="">Select Relationship</option>
-                                    @php
-                                        $relationships = ['parent', 'spouse', 'sibling', 'child', 'relative', 'friend', 'colleague', 'other'];
-                                    @endphp
-                                    @foreach ($relationships as $relation)
-                                        <option value="{{ $relation }}" {{ old('emergency_contact_relationship', $agent->emergency_contact_relationship) == $relation ? 'selected' : '' }}>
-                                            {{ ucfirst($relation) }}
-                                        </option>
-                                    @endforeach
-                                </select>
-                                @error('emergency_contact_relationship') <span class="text-danger">{{ $message }}</span> @enderror
-                            </div>
-                        </div>
-
                     </div>
                 </div>
             </div>
@@ -166,3 +113,4 @@
 </form>
 
 @endsection
+

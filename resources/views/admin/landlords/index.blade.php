@@ -89,7 +89,6 @@
                              <thead class="bg-light-subtle">
                                   <tr>
                                        <th>Landlord Photo & Name</th>
-                                       <th>Address</th>
                                        <th>Email</th>
                                        <th>Contact</th>
                                        <th>Properties</th>
@@ -112,7 +111,6 @@
                                             </div>
 
                                        </td>
-                                       <td>{{ $landlord->address ?? 'N/A' }}</td>
                                        <td>{{ $landlord->email ?? 'N/A' }}</td>
                                        <td>{{ $landlord->phone ?? 'N/A' }}</td>
                                        <td>10 Units</td>
@@ -213,5 +211,6 @@
 
 
 @endsection
+
 
 
