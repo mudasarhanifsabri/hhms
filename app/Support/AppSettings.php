@@ -19,6 +19,8 @@ class AppSettings
         'sms_api_secret',
         'aws_access_key_id',
         'aws_secret_access_key',
+        'aws_textract_access_key_id',
+        'aws_textract_secret_access_key',
     ];
 
     public static function all(): array
@@ -96,6 +98,9 @@ class AppSettings
             'filesystems.disks.s3.bucket' => $settings['aws_bucket'] ?? config('filesystems.disks.s3.bucket'),
             'filesystems.disks.s3.url' => $settings['aws_url'] ?? config('filesystems.disks.s3.url'),
             'filesystems.disks.s3.endpoint' => $settings['aws_endpoint'] ?? config('filesystems.disks.s3.endpoint'),
+            'services.textract.key' => $settings['aws_textract_access_key_id'] ?? $settings['aws_access_key_id'] ?? config('services.textract.key'),
+            'services.textract.secret' => $settings['aws_textract_secret_access_key'] ?? $settings['aws_secret_access_key'] ?? config('services.textract.secret'),
+            'services.textract.region' => $settings['aws_textract_region'] ?? $settings['aws_default_region'] ?? config('services.textract.region'),
             'services.whatsapp.provider' => $settings['whatsapp_provider'] ?? null,
             'services.whatsapp.phone_number_id' => $settings['whatsapp_phone_number_id'] ?? null,
             'services.whatsapp.token' => $settings['whatsapp_token'] ?? null,
@@ -128,6 +133,7 @@ class AppSettings
             str_starts_with($key, 'mail_') => 'email',
             str_starts_with($key, 'whatsapp_') => 'whatsapp',
             str_starts_with($key, 'sms_') => 'sms',
+            str_starts_with($key, 'aws_textract_') => 'ocr',
             str_starts_with($key, 'aws_'), $key === 'media_disk' => 'storage',
             str_contains($key, 'logo'), str_contains($key, 'favicon'), str_starts_with($key, 'company_') => 'branding',
             default => 'general',

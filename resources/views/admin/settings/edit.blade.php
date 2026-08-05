@@ -52,6 +52,9 @@
                         <button class="nav-link text-start" id="media-tab" data-bs-toggle="pill" data-bs-target="#media-panel" type="button" role="tab">
                             <i class="ri-cloud-line me-1"></i>Media & S3
                         </button>
+                        <button class="nav-link text-start" id="ocr-tab" data-bs-toggle="pill" data-bs-target="#ocr-panel" type="button" role="tab">
+                            <i class="ri-scan-2-line me-1"></i>AWS OCR
+                        </button>
                         <button class="nav-link text-start" id="email-tab" data-bs-toggle="pill" data-bs-target="#email-panel" type="button" role="tab">
                             <i class="ri-mail-settings-line me-1"></i>Email SMTP
                         </button>
@@ -156,6 +159,40 @@
                             </div>
                             <div class="alert alert-light border mt-3 mb-0">
                                 Select S3 only after the bucket, region, and keys are correct.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tab-pane fade" id="ocr-panel" role="tabpanel" aria-labelledby="ocr-tab">
+                    <div class="card">
+                        <div class="card-header bg-light-subtle">
+                            <h4 class="card-title mb-0">AWS Textract OCR</h4>
+                        </div>
+                        <div class="card-body">
+                            <div class="alert alert-info border d-flex gap-2 align-items-start">
+                                <i class="ri-information-line fs-20"></i>
+                                <div>
+                                    <div class="fw-semibold">Used for Emirates ID and passport OCR on role create pages.</div>
+                                    <div class="small mt-1">If OCR access key fields are blank, the system will use the AWS S3 access key and secret from Media & S3.</div>
+                                </div>
+                            </div>
+                            <div class="row g-3">
+                                <div class="col-md-4">
+                                    <label class="form-label" for="aws_textract_region">Textract Region</label>
+                                    <input type="text" class="form-control" id="aws_textract_region" name="aws_textract_region" value="{{ $value('aws_textract_region', $value('aws_default_region', config('services.textract.region'))) }}" placeholder="us-east-1">
+                                </div>
+                                <div class="col-md-8">
+                                    <label class="form-label" for="aws_textract_access_key_id">OCR Access Key ID</label>
+                                    <input type="text" class="form-control" id="aws_textract_access_key_id" name="aws_textract_access_key_id" value="{{ $value('aws_textract_access_key_id') }}" placeholder="Optional - leave blank to use AWS S3 key">
+                                </div>
+                                <div class="col-md-12">
+                                    <label class="form-label" for="aws_textract_secret_access_key">OCR Secret Access Key</label>
+                                    <input type="password" class="form-control" id="aws_textract_secret_access_key" name="aws_textract_secret_access_key" placeholder="{{ filled($settings['aws_textract_secret_access_key'] ?? null) ? 'Saved - leave blank to keep current' : 'Optional - leave blank to use AWS S3 secret' }}">
+                                </div>
+                            </div>
+                            <div class="alert alert-light border mt-3 mb-0">
+                                IAM permissions required: <code>textract:AnalyzeID</code> and <code>textract:DetectDocumentText</code>.
                             </div>
                         </div>
                     </div>

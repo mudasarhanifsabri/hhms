@@ -49,6 +49,9 @@ class SettingsController extends Controller
             'aws_bucket' => 'nullable|string|max:255',
             'aws_url' => 'nullable|url|max:500',
             'aws_endpoint' => 'nullable|url|max:500',
+            'aws_textract_region' => 'nullable|string|max:100',
+            'aws_textract_access_key_id' => 'nullable|string|max:255',
+            'aws_textract_secret_access_key' => 'nullable|string|max:1000',
 
             'logo' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:2048',
             'favicon' => 'nullable|mimes:ico,png|max:512',

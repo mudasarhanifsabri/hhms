@@ -29,8 +29,8 @@ return [
     ],
 
     'textract' => [
-        'key' => env('AWS_ACCESS_KEY_ID'),
-        'secret' => env('AWS_SECRET_ACCESS_KEY'),
+        'key' => env('AWS_TEXTRACT_ACCESS_KEY_ID', env('AWS_ACCESS_KEY_ID')),
+        'secret' => env('AWS_TEXTRACT_SECRET_ACCESS_KEY', env('AWS_SECRET_ACCESS_KEY')),
         'region' => env('AWS_TEXTRACT_REGION', env('AWS_DEFAULT_REGION', 'us-east-1')),
     ],
 
