@@ -16,11 +16,11 @@
                     <div class="col-lg-6">
                         <div class="card-body">
                             <label for="profile_photo" class="form-label">Profile Photo</label>
-                            <input type="file" class="form-control" id="profile_photo" name="profile_photo">
+                            <input type="file" class="form-control" id="profile_photo" name="profile_photo" accept="image/*">
                             @error('profile_photo') <span class="text-danger">{{ $message }}</span> @enderror
                             @if ($maintainer->profile_photo)
                                 <div class="mt-2">
-                                    <img src="{{ asset($maintainer->profile_photo) }}" alt="Profile Photo" width="100" />
+                                    <img src="{{ \App\Support\MediaStorage::url($maintainer->profile_photo) }}" alt="Profile Photo" width="100" />
                                 </div>
                             @endif
                         </div>
@@ -29,11 +29,24 @@
                     <div class="col-lg-6">
                         <div class="card-body">
                             <label for="id_document" class="form-label">ID Document</label>
-                            <input type="file" class="form-control" id="id_document" name="id_document">
+                            <input type="file" class="form-control" id="id_document" name="id_document" accept="image/*,.pdf">
                             @error('id_document') <span class="text-danger">{{ $message }}</span> @enderror
                             @if ($maintainer->id_document)
                                 <div class="mt-2">
-                                    <a href="{{ asset($maintainer->id_document) }}" target="_blank">View Current Document</a>
+                                    <a href="{{ \App\Support\MediaStorage::url($maintainer->id_document) }}" target="_blank">View Current Document</a>
+                                </div>
+                            @endif
+                        </div>
+                    </div>
+
+                    <div class="col-lg-6">
+                        <div class="card-body">
+                            <label for="id_document_back" class="form-label">ID Document Back Side</label>
+                            <input type="file" class="form-control" id="id_document_back" name="id_document_back" accept="image/*,.pdf">
+                            @error('id_document_back') <span class="text-danger">{{ $message }}</span> @enderror
+                            @if ($maintainer->id_document_back)
+                                <div class="mt-2">
+                                    <a href="{{ \App\Support\MediaStorage::url($maintainer->id_document_back) }}" target="_blank">View Current Back Side</a>
                                 </div>
                             @endif
                         </div>

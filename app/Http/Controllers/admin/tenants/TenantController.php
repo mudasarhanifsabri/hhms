@@ -73,9 +73,10 @@ class TenantController extends Controller
     public function store(Request $request)
     {
         $validatedData = $request->validate([
-            'profile_photo' => 'nullable|image|mimes:jpg,jpeg,png|max:10240',
-            'id_document' => 'nullable|mimes:pdf,jpg,jpeg,png|max:10240',
-            'id_document_back' => 'nullable|mimes:pdf,jpg,jpeg,png|max:10240',
+            'profile_photo' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:10240',
+            'id_document' => 'nullable|mimes:pdf,jpg,jpeg,png,webp|max:10240',
+            'id_document_back' => 'nullable|mimes:pdf,jpg,jpeg,png,webp|max:10240',
+            'camera_capture' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:10240',
             'name' => 'required|string|max:255',
             'name_ar' => 'nullable|string|max:255',
             'email' => 'required|email|max:255|unique:users,email',
@@ -101,7 +102,8 @@ class TenantController extends Controller
 
         try {
             $profilePhotoPath = $this->uploadFile($request, 'profile_photo', 'profile_photos');
-            $idDocumentPath = $this->uploadFile($request, 'id_document', 'id_documents');
+            $idDocumentPath = $this->uploadFile($request, 'id_document', 'id_documents')
+                ?? $this->uploadFile($request, 'camera_capture', 'id_documents');
             $idDocumentBackPath = $this->uploadFile($request, 'id_document_back', 'id_documents');
 
             $tenant = User::create([
@@ -169,8 +171,9 @@ class TenantController extends Controller
         $tenant = User::findOrFail($id);
 
         $validatedData = $request->validate([
-            'profile_photo' => 'nullable|image|mimes:jpg,jpeg,png|max:2048',
-            'id_document' => 'nullable|mimes:pdf,jpg,jpeg,png|max:2048',
+            'profile_photo' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:10240',
+            'id_document' => 'nullable|mimes:pdf,jpg,jpeg,png,webp|max:10240',
+            'id_document_back' => 'nullable|mimes:pdf,jpg,jpeg,png,webp|max:10240',
             'name' => 'required|string|max:255',
             'email' => 'required|email|max:255|unique:users,email,' . $tenant->id,
             'phone' => 'required',
@@ -192,6 +195,7 @@ class TenantController extends Controller
         try {
             $profilePhotoPath = $this->uploadFile($request, 'profile_photo', 'profile_photos');
             $idDocumentPath = $this->uploadFile($request, 'id_document', 'id_documents');
+            $idDocumentBackPath = $this->uploadFile($request, 'id_document_back', 'id_documents');
 
             $tenant->update([
                 'name' => $validatedData['name'],
@@ -212,6 +216,7 @@ class TenantController extends Controller
                 'bank_branch' => $validatedData['bank_branch'] ?? null,
                 'profile_photo' => $profilePhotoPath ?? $tenant->profile_photo,
                 'id_document' => $idDocumentPath ?? $tenant->id_document,
+                'id_document_back' => $idDocumentBackPath ?? $tenant->id_document_back,
             ]);
 
             return redirect()->route('admin.tenant.index')

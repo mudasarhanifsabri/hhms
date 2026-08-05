@@ -77,7 +77,7 @@
     .ocr-combo-option:hover, .ocr-combo-option.active { background: #f4f2ff; color: var(--ocr-primary); }
     .ocr-combo-empty { padding: 10px; color: var(--ocr-muted); font-size: 13px; display: none; }
     .ocr-combo.no-results .ocr-combo-empty { display: block; }
-    .ocr-actions { position: sticky; bottom: 0; background: rgba(255,255,255,.96); border-top: 1px solid var(--ocr-line); padding: 12px 0 0; margin-top: 12px; display: flex; justify-content: space-between; gap: 14px; }
+    .ocr-actions { position: sticky; bottom: 0; background: rgba(255,255,255,.98); border-top: 1px solid var(--ocr-line); padding: 12px 0; margin-top: 12px; display: flex; align-items: center; justify-content: space-between; gap: 14px; min-height: 66px; }
     .ocr-primary { background: linear-gradient(135deg, #6d4dfc, #3d2cf0); color: #fff; border: 0; border-radius: 8px; padding: 11px 28px; font-weight: 800; }
     .ocr-secondary { border: 1px solid #cfd5e1; background: #fff; border-radius: 8px; padding: 11px 22px; font-weight: 800; color: #344054; }
     .ocr-switch { border: 1px solid var(--ocr-line); border-radius: 9px; padding: 13px 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px; background: #fbfcff; }
@@ -304,7 +304,11 @@
 document.addEventListener('change', function (event) {
     var input = event.target.closest('[data-ocr-preview]');
     if (!input) return;
-    var upload = input.closest('[data-ocr-upload]') || input.closest('.ocr-camera');
+    var upload = input.closest('[data-ocr-upload]');
+    if (!upload && input.name === 'camera_capture') {
+        var frontInput = document.querySelector('input[name="id_document"]');
+        upload = frontInput ? frontInput.closest('[data-ocr-upload]') : null;
+    }
     if (!upload || !input.files || !input.files.length) return;
     var file = input.files[0];
     var validationError = validateUploadFile(file);

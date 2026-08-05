@@ -70,9 +70,10 @@ class MaintainerController extends Controller
     public function store(Request $request)
     {
         $validatedData = $request->validate([
-            'profile_photo' => 'nullable|image|mimes:jpg,jpeg,png|max:10240',
-            'id_document' => 'nullable|mimes:pdf,jpg,jpeg,png|max:10240',
-            'id_document_back' => 'nullable|mimes:pdf,jpg,jpeg,png|max:10240',
+            'profile_photo' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:10240',
+            'id_document' => 'nullable|mimes:pdf,jpg,jpeg,png,webp|max:10240',
+            'id_document_back' => 'nullable|mimes:pdf,jpg,jpeg,png,webp|max:10240',
+            'camera_capture' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:10240',
             'name' => 'required|string|max:255',
             'name_ar' => 'nullable|string|max:255',
             'email' => 'required|email|max:255|unique:users,email',
@@ -98,8 +99,10 @@ class MaintainerController extends Controller
 
         try {
             $profilePhotoPath = $this->uploadFile($request, 'profile_photo', 'profile_photos');
-            $idDocumentPath = $this->uploadFile($request, 'id_document', 'id_documents');
+            $idDocumentPath = $this->uploadFile($request, 'id_document', 'id_documents')
+                ?? $this->uploadFile($request, 'camera_capture', 'id_documents');
             $idDocumentBackPath = $this->uploadFile($request, 'id_document_back', 'id_documents');
+            unset($validatedData['camera_capture']);
 
             $maintainer = User::create(array_merge($validatedData, [
                 'password' => Hash::make(Str::random(8)),
@@ -143,8 +146,9 @@ class MaintainerController extends Controller
         $maintainer = User::findOrFail($id);
 
         $validatedData = $request->validate([
-            'profile_photo' => 'nullable|image|mimes:jpg,jpeg,png|max:2048',
-            'id_document' => 'nullable|mimes:pdf,jpg,jpeg,png|max:2048',
+            'profile_photo' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:10240',
+            'id_document' => 'nullable|mimes:pdf,jpg,jpeg,png,webp|max:10240',
+            'id_document_back' => 'nullable|mimes:pdf,jpg,jpeg,png,webp|max:10240',
             'name' => 'required|string|max:255',
             'email' => 'required|email|max:255|unique:users,email,' . $maintainer->id,
             'phone' => 'required',
@@ -166,10 +170,12 @@ class MaintainerController extends Controller
         try {
             $profilePhotoPath = $this->uploadFile($request, 'profile_photo', 'profile_photos');
             $idDocumentPath = $this->uploadFile($request, 'id_document', 'id_documents');
+            $idDocumentBackPath = $this->uploadFile($request, 'id_document_back', 'id_documents');
 
             $maintainer->update(array_merge($validatedData, [
                 'profile_photo' => $profilePhotoPath ?? $maintainer->profile_photo,
                 'id_document' => $idDocumentPath ?? $maintainer->id_document,
+                'id_document_back' => $idDocumentBackPath ?? $maintainer->id_document_back,
             ]));
 
             return redirect()->route('admin.maintainer.index')

@@ -5,6 +5,20 @@
     $statusText = $user->is_active ? 'Active' : 'Inactive';
     $documentUrl = $user->id_document ? \App\Support\MediaStorage::url($user->id_document) : null;
     $documentName = $user->id_document ? basename($user->id_document) : null;
+    $documentBackUrl = $user->id_document_back ? \App\Support\MediaStorage::url($user->id_document_back) : null;
+    $documentBackName = $user->id_document_back ? basename($user->id_document_back) : null;
+    $identityDocuments = collect([
+        [
+            'label' => 'Front / Passport',
+            'url' => $documentUrl,
+            'name' => $documentName,
+        ],
+        [
+            'label' => 'Back Side',
+            'url' => $documentBackUrl,
+            'name' => $documentBackName,
+        ],
+    ])->filter(fn ($document) => filled($document['url']))->values();
     $bankDetails = [
         'bank_name' => ['label' => 'Bank Name', 'value' => $user->bank_name],
         'bank_account_holder' => ['label' => 'Account Holder', 'value' => $user->bank_account_holder],
@@ -80,18 +94,23 @@
                 <div class="row g-3">
                     <div class="col-lg-4">
                         <h4 class="card-title mb-2">Identity Document</h4>
-                        @if ($documentUrl)
-                            <div class="d-flex p-2 gap-2 bg-light-subtle align-items-center text-start position-relative border rounded mt-3">
-                                <iconify-icon icon="solar:file-check-bold" class="text-danger fs-24"></iconify-icon>
-                                <div class="overflow-hidden">
-                                    <h4 class="fs-14 mb-1 text-truncate">
-                                        <a href="{{ $documentUrl }}" class="text-dark stretched-link" target="_blank">{{ $documentName }}</a>
-                                    </h4>
-                                    <p class="fs-12 mb-0">Uploaded document</p>
-                                </div>
-                                <a href="{{ $documentUrl }}" download="{{ $documentName }}" class="ms-auto position-relative">
-                                    <i class="ri-download-cloud-line fs-20 text-muted"></i>
-                                </a>
+                        @if ($identityDocuments->isNotEmpty())
+                            <div class="d-flex flex-column gap-2 mt-3">
+                                @foreach ($identityDocuments as $index => $document)
+                                    <div class="d-flex p-2 gap-2 bg-light-subtle align-items-center text-start border rounded">
+                                        <iconify-icon icon="solar:file-check-bold" class="text-danger fs-24"></iconify-icon>
+                                        <div class="overflow-hidden flex-grow-1">
+                                            <h4 class="fs-14 mb-1 text-truncate">{{ $document['label'] }}</h4>
+                                            <p class="fs-12 mb-0 text-truncate">{{ $document['name'] }}</p>
+                                        </div>
+                                        <button type="button" class="btn btn-sm btn-outline-primary position-relative" data-bs-toggle="modal" data-bs-target="#identityDocumentModal{{ $index }}">
+                                            View
+                                        </button>
+                                        <a href="{{ $document['url'] }}" download="{{ $document['name'] }}" target="_blank" class="btn btn-sm btn-light position-relative" title="Download">
+                                            <i class="ri-download-cloud-line fs-18"></i>
+                                        </a>
+                                    </div>
+                                @endforeach
                             </div>
                         @else
                             <div class="border rounded p-3 bg-light-subtle mt-3">
@@ -205,3 +224,39 @@
     </div>
 @endif
 
+@foreach ($identityDocuments as $index => $document)
+    @php
+        $extension = strtolower(pathinfo($document['name'] ?? '', PATHINFO_EXTENSION));
+        $isPdf = $extension === 'pdf';
+    @endphp
+    <div class="modal fade" id="identityDocumentModal{{ $index }}" tabindex="-1" aria-labelledby="identityDocumentModalLabel{{ $index }}" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <div>
+                        <h5 class="modal-title" id="identityDocumentModalLabel{{ $index }}">{{ $document['label'] }}</h5>
+                        <p class="text-muted mb-0 fs-12">{{ $document['name'] }}</p>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body bg-light-subtle">
+                    @if ($isPdf)
+                        <iframe src="{{ $document['url'] }}" title="{{ $document['label'] }}" class="w-100 border rounded bg-white" style="height: 72vh;"></iframe>
+                    @else
+                        <div class="text-center">
+                            <img src="{{ $document['url'] }}" alt="{{ $document['label'] }}" class="img-fluid rounded border bg-white" style="max-height: 72vh;">
+                        </div>
+                    @endif
+                </div>
+                <div class="modal-footer">
+                    <a href="{{ $document['url'] }}" target="_blank" class="btn btn-light">
+                        <i class="ri-external-link-line me-1"></i>Open
+                    </a>
+                    <a href="{{ $document['url'] }}" download="{{ $document['name'] }}" target="_blank" class="btn btn-primary">
+                        <i class="ri-download-cloud-line me-1"></i>Download
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+@endforeach

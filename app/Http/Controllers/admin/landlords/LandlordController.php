@@ -169,9 +169,10 @@ class LandlordController extends Controller
 public function store(Request $request)
 {
     $validatedData = $request->validate([
-        'profile_photo' => 'nullable|image|mimes:jpg,jpeg,png|max:10240',
-        'id_document' => 'nullable|mimes:pdf,jpg,jpeg,png|max:10240',
-        'id_document_back' => 'nullable|mimes:pdf,jpg,jpeg,png|max:10240',
+        'profile_photo' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:10240',
+        'id_document' => 'nullable|mimes:pdf,jpg,jpeg,png,webp|max:10240',
+        'id_document_back' => 'nullable|mimes:pdf,jpg,jpeg,png,webp|max:10240',
+        'camera_capture' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:10240',
         'name' => 'required|string|max:255',
         'name_ar' => 'nullable|string|max:255',
         'email' => 'required|email|max:255|unique:users,email',
@@ -200,7 +201,8 @@ public function store(Request $request)
     try {
         // Handle file uploads
         $profilePhotoPath = $this->uploadFile($request, 'profile_photo', 'profile_photos');
-        $idDocumentPath = $this->uploadFile($request, 'id_document', 'id_documents');
+        $idDocumentPath = $this->uploadFile($request, 'id_document', 'id_documents')
+            ?? $this->uploadFile($request, 'camera_capture', 'id_documents');
         $idDocumentBackPath = $this->uploadFile($request, 'id_document_back', 'id_documents');
 
         // Create the landlord user
@@ -294,8 +296,9 @@ public function update(Request $request, $id)
     $landlord = User::findOrFail($id);
 
     $validatedData = $request->validate([
-        'profile_photo' => 'nullable|image|mimes:jpg,jpeg,png|max:2048',
-        'id_document' => 'nullable|mimes:pdf,jpg,jpeg,png|max:2048',
+        'profile_photo' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:10240',
+        'id_document' => 'nullable|mimes:pdf,jpg,jpeg,png,webp|max:10240',
+        'id_document_back' => 'nullable|mimes:pdf,jpg,jpeg,png,webp|max:10240',
         'name' => 'required|string|max:255',
         'email' => 'required|email|max:255|unique:users,email,' . $landlord->id,
         'phone' => 'required',
@@ -319,6 +322,7 @@ public function update(Request $request, $id)
         // Handle file uploads if new files are submitted
         $profilePhotoPath = $this->uploadFile($request, 'profile_photo', 'profile_photos');
         $idDocumentPath = $this->uploadFile($request, 'id_document', 'id_documents');
+        $idDocumentBackPath = $this->uploadFile($request, 'id_document_back', 'id_documents');
 
         // Update landlord fields
         $landlord->update([
@@ -341,6 +345,7 @@ public function update(Request $request, $id)
             'bank_branch' => $validatedData['bank_branch'] ?? null,
             'profile_photo' => $profilePhotoPath ?? $landlord->profile_photo,
             'id_document' => $idDocumentPath ?? $landlord->id_document,
+            'id_document_back' => $idDocumentBackPath ?? $landlord->id_document_back,
         ]);
 
         return redirect()->route('admin.landlord.index')

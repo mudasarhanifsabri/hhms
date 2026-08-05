@@ -70,9 +70,10 @@ class AgentController extends Controller
     public function store(Request $request)
     {
         $validatedData = $request->validate([
-            'profile_photo' => 'nullable|image|mimes:jpg,jpeg,png|max:10240',
-            'id_document' => 'nullable|mimes:pdf,jpg,jpeg,png|max:10240',
-            'id_document_back' => 'nullable|mimes:pdf,jpg,jpeg,png|max:10240',
+            'profile_photo' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:10240',
+            'id_document' => 'nullable|mimes:pdf,jpg,jpeg,png,webp|max:10240',
+            'id_document_back' => 'nullable|mimes:pdf,jpg,jpeg,png,webp|max:10240',
+            'camera_capture' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:10240',
             'name' => 'required|string|max:255',
             'name_ar' => 'nullable|string|max:255',
             'email' => 'required|email|max:255|unique:users,email',
@@ -98,7 +99,8 @@ class AgentController extends Controller
 
         try {
             $profilePhotoPath = $this->uploadFile($request, 'profile_photo', 'profile_photos');
-            $idDocumentPath = $this->uploadFile($request, 'id_document', 'id_documents');
+            $idDocumentPath = $this->uploadFile($request, 'id_document', 'id_documents')
+                ?? $this->uploadFile($request, 'camera_capture', 'id_documents');
             $idDocumentBackPath = $this->uploadFile($request, 'id_document_back', 'id_documents');
 
             $agent = User::create([
@@ -166,8 +168,9 @@ class AgentController extends Controller
         $agent = User::findOrFail($id);
 
         $validatedData = $request->validate([
-            'profile_photo' => 'nullable|image|mimes:jpg,jpeg,png|max:2048',
-            'id_document' => 'nullable|mimes:pdf,jpg,jpeg,png|max:2048',
+            'profile_photo' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:10240',
+            'id_document' => 'nullable|mimes:pdf,jpg,jpeg,png,webp|max:10240',
+            'id_document_back' => 'nullable|mimes:pdf,jpg,jpeg,png,webp|max:10240',
             'name' => 'required|string|max:255',
             'email' => 'required|email|max:255|unique:users,email,' . $agent->id,
             'phone' => 'required',
@@ -189,6 +192,7 @@ class AgentController extends Controller
         try {
             $profilePhotoPath = $this->uploadFile($request, 'profile_photo', 'profile_photos');
             $idDocumentPath = $this->uploadFile($request, 'id_document', 'id_documents');
+            $idDocumentBackPath = $this->uploadFile($request, 'id_document_back', 'id_documents');
 
             $agent->update([
                 'name' => $validatedData['name'],
@@ -209,6 +213,7 @@ class AgentController extends Controller
                 'bank_branch' => $validatedData['bank_branch'] ?? null,
                 'profile_photo' => $profilePhotoPath ?? $agent->profile_photo,
                 'id_document' => $idDocumentPath ?? $agent->id_document,
+                'id_document_back' => $idDocumentBackPath ?? $agent->id_document_back,
             ]);
 
             return redirect()->route('admin.agent.index')
