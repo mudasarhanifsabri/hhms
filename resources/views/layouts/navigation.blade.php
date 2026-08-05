@@ -167,10 +167,16 @@
             </li>
 
             <li class="nav-item">
-                <a class="nav-link" href="{{ route('admin.settings.edit') }}">
-                    <span class="nav-icon"><i class="ri-settings-3-line"></i></span>
-                    <span class="nav-text"> Settings </span>
+                <a class="nav-link menu-arrow" href="#sidebarAdministration" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="sidebarAdministration">
+                    <span class="nav-icon"><i class="ri-shield-user-line"></i></span>
+                    <span class="nav-text"> Administration </span>
                 </a>
+                <div class="collapse" id="sidebarAdministration">
+                    <ul class="nav sub-navbar-nav">
+                        <li class="sub-nav-item"><a class="sub-nav-link" href="{{ route('admin.settings.edit') }}">Settings</a></li>
+                        <li class="sub-nav-item"><a class="sub-nav-link" href="{{ route('admin.software-update.index') }}">Update Software</a></li>
+                    </ul>
+                </div>
             </li>
         </ul>
     </div>

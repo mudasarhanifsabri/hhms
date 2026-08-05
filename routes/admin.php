@@ -15,6 +15,7 @@ use App\Http\Controllers\admin\tasks\TaskController;
 use App\Http\Controllers\admin\inspections\InspectionController;
 use App\Http\Controllers\admin\accounting\AccountingController;
 use App\Http\Controllers\admin\SettingsController;
+use App\Http\Controllers\admin\SoftwareUpdateController;
 
 
 
@@ -23,6 +24,8 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->grou
 Route::get('/dashboard', [AdminController::class, 'dashboard'])->name('dashboard');
 Route::get('/settings', [SettingsController::class, 'edit'])->name('settings.edit');
 Route::put('/settings', [SettingsController::class, 'update'])->name('settings.update');
+Route::get('/software-update', [SoftwareUpdateController::class, 'index'])->name('software-update.index');
+Route::post('/software-update', [SoftwareUpdateController::class, 'update'])->name('software-update.run');
 
 // AdminAccounting Routes
 Route::get('/accounting', [AccountingController::class, 'dashboard'])->name('accounting.dashboard');
