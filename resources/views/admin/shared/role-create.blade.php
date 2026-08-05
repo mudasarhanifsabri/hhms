@@ -173,7 +173,7 @@
                             </div>
                             <div class="col-md-6 ocr-field">
                                 <label data-id-label>Emirates ID Number</label>
-                                <input type="text" name="eid_passport_no" class="form-control" value="{{ old('eid_passport_no') }}" required>
+                                <input type="text" name="eid_passport_no" class="form-control" value="{{ old('eid_passport_no') }}">
                             </div>
                             <div class="col-md-6 ocr-field">
                                 <label>Full Name (Arabic)</label>
@@ -185,7 +185,7 @@
                             </div>
                             <div class="col-md-6 ocr-field">
                                 <label>Date of Birth</label>
-                                <input type="date" name="dob" class="form-control" value="{{ old('dob') }}" required>
+                                <input type="date" name="dob" class="form-control" value="{{ old('dob') }}">
                             </div>
                             <div class="col-md-6 ocr-field">
                                 <label>Gender</label>

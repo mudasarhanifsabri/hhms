@@ -174,8 +174,8 @@ public function store(Request $request)
         'name_ar' => 'nullable|string|max:255',
         'email' => 'required|email|max:255|unique:users,email',
         'phone' => 'required',
-        'dob' => 'required|date',
-        'eid_passport_no' => 'required|string|max:50',
+        'dob' => 'nullable|date',
+        'eid_passport_no' => 'nullable|string|max:50',
         'nationality' => 'nullable|string|max:100',
         'gender' => 'nullable|string|max:30',
         'id_issue_date' => 'nullable|date',
@@ -207,8 +207,8 @@ public function store(Request $request)
             'name_ar' => $validatedData['name_ar'] ?? null,
             'email' => $validatedData['email'],
             'phone' => $validatedData['phone'],
-            'dob' => $validatedData['dob'],
-            'eid_passport_no' => $validatedData['eid_passport_no'],
+            'dob' => $validatedData['dob'] ?? null,
+            'eid_passport_no' => $validatedData['eid_passport_no'] ?? null,
             'nationality' => $validatedData['nationality'] ?? null,
             'gender' => $validatedData['gender'] ?? null,
             'id_issue_date' => $validatedData['id_issue_date'] ?? null,
@@ -296,8 +296,8 @@ public function update(Request $request, $id)
         'name' => 'required|string|max:255',
         'email' => 'required|email|max:255|unique:users,email,' . $landlord->id,
         'phone' => 'required',
-        'dob' => 'required|date',
-        'eid_passport_no' => 'required|string|max:50',
+        'dob' => 'nullable|date',
+        'eid_passport_no' => 'nullable|string|max:50',
         'address' => 'nullable|string|max:255',
         'emergency_contact_name' => 'nullable|string|max:255',
         'emergency_contact_phone' => 'nullable',
@@ -322,8 +322,8 @@ public function update(Request $request, $id)
             'name' => $validatedData['name'],
             'email' => $validatedData['email'],
             'phone' => $validatedData['phone'],
-            'dob' => $validatedData['dob'],
-            'eid_passport_no' => $validatedData['eid_passport_no'],
+            'dob' => $validatedData['dob'] ?? null,
+            'eid_passport_no' => $validatedData['eid_passport_no'] ?? null,
             'address' => $validatedData['address'] ?? null,
             'emergency_contact_name' => $validatedData['emergency_contact_name'] ?? null,
             'emergency_contact_phone' => $validatedData['emergency_contact_phone'] ?? null,
@@ -505,8 +505,5 @@ private function statementPeriod($accountEntries, array $filters): array
         'to' => $lastDate ? \Carbon\Carbon::parse($lastDate) : now(),
     ];
 }
-
-
-
 
 }
