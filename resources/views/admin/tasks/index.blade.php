@@ -1,5 +1,73 @@
 @extends('layouts.app')
 
+@push('styles')
+<style>
+    .task-list-table {
+        table-layout: fixed;
+        width: 100%;
+    }
+
+    .task-list-table th,
+    .task-list-table td {
+        white-space: normal;
+        vertical-align: middle;
+    }
+
+    .task-list-table .task-col-main { width: 26%; }
+    .task-list-table .task-col-unit { width: 24%; }
+    .task-list-table .task-col-type { width: 13%; }
+    .task-list-table .task-col-staff { width: 15%; }
+    .task-list-table .task-col-status { width: 14%; }
+    .task-list-table .task-col-action { width: 8%; }
+
+    .task-list-title {
+        display: block;
+        line-height: 1.25;
+        max-width: 100%;
+        overflow-wrap: anywhere;
+    }
+
+    .task-list-muted {
+        color: #667085;
+        display: block;
+        font-size: 12px;
+        line-height: 1.35;
+        margin-top: 3px;
+    }
+
+    .task-location-lines span {
+        display: block;
+        line-height: 1.35;
+    }
+
+    .task-location-lines .unit-name {
+        color: #111827;
+        font-weight: 700;
+        overflow-wrap: anywhere;
+    }
+
+    .task-location-lines .building-name,
+    .task-location-lines .sub-unit {
+        color: #667085;
+        font-size: 12px;
+    }
+
+    .task-list-progress {
+        min-width: 0;
+        width: 100%;
+    }
+
+    @media (max-width: 1199.98px) {
+        .task-list-table .task-col-main { width: 28%; }
+        .task-list-table .task-col-unit { width: 25%; }
+        .task-list-table .task-col-type { width: 12%; }
+        .task-list-table .task-col-staff { width: 15%; }
+        .task-list-table .task-col-status { width: 13%; }
+        .task-list-table .task-col-action { width: 7%; }
+    }
+</style>
+@endpush
+
 @section('content')
 <div class="row">
     <div class="col-md-3">
@@ -73,58 +141,71 @@
             </div>
         </form>
     </div>
-    <div class="table-responsive">
-        <table class="table align-middle text-nowrap table-hover table-centered mb-0">
+    <div class="table-responsive overflow-visible">
+        <table class="table align-middle table-hover table-centered mb-0 task-list-table">
             <thead class="bg-light-subtle">
                 <tr>
-                    <th>Task ID</th>
-                    <th>Title</th>
-                    <th>Property</th>
-                    <th>Unit</th>
-                    <th>Category</th>
-                    <th>Priority</th>
-                    <th>Assigned To</th>
-                    <th>Due Date</th>
-                    <th>Status</th>
-                    <th>Progress</th>
-                    <th>Created By</th>
-                    <th>Created Date</th>
-                    <th>Action</th>
+                    <th class="task-col-main">Task</th>
+                    <th class="task-col-unit">Unit / Building</th>
+                    <th class="task-col-type">Category</th>
+                    <th class="task-col-staff">Staff / Due</th>
+                    <th class="task-col-status">Status</th>
+                    <th class="task-col-action text-center">Action</th>
                 </tr>
             </thead>
             <tbody>
                 @forelse($tasks as $task)
+                    @php
+                        $taskProperty = $task->booking?->property ?: $task->property;
+                        $taskBuilding = $taskProperty?->building;
+                        $buildingName = $taskBuilding?->building_name ?: $taskBuilding?->name;
+                        $subUnitDetails = collect([
+                            $taskProperty?->community,
+                            $taskProperty?->unit_floor_label ?: ($taskProperty?->floor ? 'Floor ' . $taskProperty->floor : null),
+                            $taskProperty?->room_no ? 'Room ' . $taskProperty->room_no : null,
+                        ])->filter()->implode(' | ');
+                    @endphp
                     <tr>
-                        <td class="fw-semibold">{{ $task->task_display_number }}</td>
                         <td>
-                            <a href="{{ route('admin.task.show', $task->id) }}" class="text-dark fw-medium">{{ $task->title }}</a>
+                            <span class="fw-semibold text-primary">{{ $task->task_display_number }}</span>
+                            <a href="{{ route('admin.task.show', $task->id) }}" class="text-dark fw-medium task-list-title">{{ $task->title }}</a>
                             @if($task->booking)
-                                <div class="text-muted small">{{ $task->booking->booking_reference }}</div>
+                                <span class="task-list-muted">Booking: {{ $task->booking->booking_reference }}</span>
                             @endif
+                            <span class="task-list-muted">Created: {{ $task->created_at?->format('d M Y') }} by {{ $task->createdBy?->name ?? 'System' }}</span>
                         </td>
-                        <td>{{ $task->booking?->property?->building?->name ?? $task->property?->building?->name ?? '-' }}</td>
-                        <td>{{ $task->booking?->property?->name ?? $task->property?->name ?? '-' }}</td>
-                        <td>{{ $task->type_label }}</td>
-                        <td><span class="badge bg-light-subtle text-dark border">{{ $task->priority_label }}</span></td>
-                        <td>{{ $task->assignedUser?->name ?? 'Not assigned' }}</td>
-                        <td>{{ $task->due_date?->format('d M Y') ?? '-' }}</td>
-                        <td><span class="badge {{ $task->status_class }} text-white">{{ $task->status_label }}</span></td>
                         <td>
-                            <div class="progress" style="height: 6px; min-width: 90px;">
+                            <div class="task-location-lines">
+                                <span class="unit-name">{{ $taskProperty?->name ?? '-' }}</span>
+                                <span class="building-name">{{ $buildingName ?: 'No Building' }}</span>
+                                @if($subUnitDetails)
+                                    <span class="sub-unit">{{ $subUnitDetails }}</span>
+                                @endif
+                            </div>
+                        </td>
+                        <td>
+                            <div class="fw-medium">{{ $task->type_label }}</div>
+                            <span class="badge bg-light-subtle text-dark border mt-1">{{ $task->priority_label }}</span>
+                        </td>
+                        <td>
+                            <div class="fw-medium">{{ $task->assignedUser?->name ?? 'Not assigned' }}</div>
+                            <span class="task-list-muted">Due: {{ $task->due_date?->format('d M Y') ?? '-' }}</span>
+                        </td>
+                        <td>
+                            <span class="badge {{ $task->status_class }} text-white">{{ $task->status_label }}</span>
+                            <div class="progress task-list-progress mt-2" style="height: 6px;">
                                 <div class="progress-bar" style="width: {{ (int) $task->progress }}%"></div>
                             </div>
                             <span class="small text-muted">{{ (int) $task->progress }}%</span>
                         </td>
-                        <td>{{ $task->createdBy?->name ?? 'System' }}</td>
-                        <td>{{ $task->created_at?->format('d M Y') }}</td>
-                        <td>
+                        <td class="text-center">
                             <a href="{{ route('admin.task.show', $task->id) }}" class="btn btn-light btn-sm" title="Task Details" aria-label="Task Details">
                                 <iconify-icon icon="solar:eye-broken" class="align-middle fs-18"></iconify-icon>
                             </a>
                         </td>
                     </tr>
                 @empty
-                    <tr><td colspan="13" class="text-center py-4 text-muted">No tasks found.</td></tr>
+                    <tr><td colspan="6" class="text-center py-4 text-muted">No tasks found.</td></tr>
                 @endforelse
             </tbody>
         </table>
