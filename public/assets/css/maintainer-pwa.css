@@ -948,7 +948,7 @@ body.maintainer-pwa-shell [class*="wrapper"] {
   }
 
   .pwa-live-task-popup.show .pwa-live-task-bell {
-    animation: pwa-bell-ring 0.9s ease;
+    animation: pwa-bell-ring 1.05s ease-in-out 5;
   }
 
   .pwa-live-task-copy {
@@ -1008,12 +1008,13 @@ body.maintainer-pwa-shell [class*="wrapper"] {
   }
 
   @keyframes pwa-bell-ring {
-    0%, 100% { transform: rotate(0deg); }
-    15% { transform: rotate(16deg); }
-    30% { transform: rotate(-14deg); }
-    45% { transform: rotate(10deg); }
-    60% { transform: rotate(-8deg); }
-    75% { transform: rotate(4deg); }
+    0%, 100% { transform: rotate(0deg) scale(1); }
+    12% { transform: rotate(20deg) scale(1.06); }
+    24% { transform: rotate(-18deg) scale(1.08); }
+    38% { transform: rotate(15deg) scale(1.06); }
+    52% { transform: rotate(-12deg) scale(1.04); }
+    68% { transform: rotate(8deg) scale(1.02); }
+    82% { transform: rotate(-5deg) scale(1); }
   }
 
   @keyframes pwa-card-received {

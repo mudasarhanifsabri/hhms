@@ -435,23 +435,44 @@
     var AudioContextClass = window.AudioContext || window.webkitAudioContext;
     var context = new AudioContextClass();
     var masterGain = context.createGain();
-    masterGain.connect(context.destination);
-    masterGain.gain.setValueAtTime(0.0001, context.currentTime);
-    masterGain.gain.exponentialRampToValueAtTime(0.58, context.currentTime + 0.03);
-    masterGain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + 2.6);
+    var compressor = context.createDynamicsCompressor();
 
-    [880, 1175, 880, 1320, 1046, 1320].forEach(function (frequency, index) {
+    compressor.threshold.setValueAtTime(-18, context.currentTime);
+    compressor.knee.setValueAtTime(18, context.currentTime);
+    compressor.ratio.setValueAtTime(4, context.currentTime);
+    compressor.attack.setValueAtTime(0.003, context.currentTime);
+    compressor.release.setValueAtTime(0.18, context.currentTime);
+
+    masterGain.connect(context.destination);
+    compressor.connect(masterGain);
+    masterGain.gain.setValueAtTime(0.0001, context.currentTime);
+    masterGain.gain.exponentialRampToValueAtTime(0.88, context.currentTime + 0.04);
+    masterGain.gain.setValueAtTime(0.88, context.currentTime + 4.6);
+    masterGain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + 5.2);
+
+    [
+      880, 1175, 880, 1320,
+      1046, 1320, 1046, 1480,
+      1175, 1480, 1320, 1046
+    ].forEach(function (frequency, index) {
+      var startAt = context.currentTime + (index * 0.34);
       var oscillator = context.createOscillator();
-      oscillator.type = 'sine';
-      oscillator.frequency.setValueAtTime(frequency, context.currentTime + (index * 0.26));
-      oscillator.connect(masterGain);
-      oscillator.start(context.currentTime + (index * 0.26));
-      oscillator.stop(context.currentTime + 0.42 + (index * 0.26));
+      var toneGain = context.createGain();
+
+      oscillator.type = index % 2 === 0 ? 'triangle' : 'sine';
+      oscillator.frequency.setValueAtTime(frequency, startAt);
+      toneGain.gain.setValueAtTime(0.0001, startAt);
+      toneGain.gain.exponentialRampToValueAtTime(0.92, startAt + 0.025);
+      toneGain.gain.exponentialRampToValueAtTime(0.0001, startAt + 0.48);
+      oscillator.connect(toneGain);
+      toneGain.connect(compressor);
+      oscillator.start(startAt);
+      oscillator.stop(startAt + 0.52);
     });
 
     window.setTimeout(function () {
       context.close();
-    }, 3000);
+    }, 5600);
   }
 
   function escapeHtml(value) {
