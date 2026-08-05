@@ -176,10 +176,6 @@
                                 <input type="text" name="eid_passport_no" class="form-control" value="{{ old('eid_passport_no') }}">
                             </div>
                             <div class="col-md-6 ocr-field">
-                                <label>Full Name (Arabic)</label>
-                                <input type="text" name="name_ar" class="form-control text-end" dir="rtl" value="{{ old('name_ar') }}">
-                            </div>
-                            <div class="col-md-6 ocr-field">
                                 <label>Expiry Date</label>
                                 <input type="date" name="id_expiry_date" class="form-control" value="{{ old('id_expiry_date') }}">
                             </div>
@@ -729,7 +725,6 @@ function getActiveDocumentType() {
 
 function applyOcrData(data) {
     setFieldValue('name', data.name);
-    setFieldValue('name_ar', data.name_ar);
     setFieldValue('eid_passport_no', data.eid_passport_no);
     setFieldValue('dob', data.dob);
     setFieldValue('id_expiry_date', data.id_expiry_date);
