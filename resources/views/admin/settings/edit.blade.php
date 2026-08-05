@@ -139,6 +139,7 @@
                                 <div class="col-md-4">
                                     <label class="form-label" for="aws_bucket">Bucket Name</label>
                                     <input type="text" class="form-control" id="aws_bucket" name="aws_bucket" value="{{ $value('aws_bucket') }}" placeholder="hhms-media">
+                                    <small class="text-muted">Use the real S3 bucket name only. Do not enter folders like id_documents.</small>
                                 </div>
                                 <div class="col-md-6">
                                     <label class="form-label" for="aws_access_key_id">Access Key ID</label>
@@ -158,7 +159,7 @@
                                 </div>
                             </div>
                             <div class="alert alert-light border mt-3 mb-0">
-                                Select S3 only after the bucket, region, and keys are correct.
+                                Select S3 only after the bucket exists in AWS and the region/keys are correct. File folders are created inside that bucket automatically.
                             </div>
                         </div>
                     </div>

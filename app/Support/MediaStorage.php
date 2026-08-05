@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
@@ -46,10 +47,18 @@ class MediaStorage
             return $path;
         }
 
-        if (self::disk() === 'public' && file_exists(public_path($path))) {
+        $disk = self::disk();
+
+        if ($disk === 'public' && file_exists(public_path($path))) {
             return asset($path);
         }
 
-        return Storage::disk(self::disk())->url($path);
+        if ($disk === 's3' && blank(config('filesystems.disks.s3.bucket'))) {
+            Log::warning('S3 media URL requested without AWS bucket configured.', ['path' => $path]);
+
+            return null;
+        }
+
+        return Storage::disk($disk)->url($path);
     }
 }

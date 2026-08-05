@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Support\AppSettings;
 use App\Support\MediaStorage;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class SettingsController extends Controller
 {
@@ -43,10 +44,10 @@ class SettingsController extends Controller
             'sms_api_key' => 'nullable|string|max:1000',
             'sms_api_secret' => 'nullable|string|max:1000',
 
-            'aws_access_key_id' => 'nullable|string|max:255',
-            'aws_secret_access_key' => 'nullable|string|max:1000',
-            'aws_default_region' => 'nullable|string|max:100',
-            'aws_bucket' => 'nullable|string|max:255',
+            'aws_access_key_id' => [Rule::requiredIf($request->input('media_disk') === 's3' && blank(AppSettings::get('aws_access_key_id'))), 'nullable', 'string', 'max:255'],
+            'aws_secret_access_key' => [Rule::requiredIf($request->input('media_disk') === 's3' && blank(AppSettings::get('aws_secret_access_key'))), 'nullable', 'string', 'max:1000'],
+            'aws_default_region' => [Rule::requiredIf($request->input('media_disk') === 's3'), 'nullable', 'string', 'max:100'],
+            'aws_bucket' => [Rule::requiredIf($request->input('media_disk') === 's3'), 'nullable', 'string', 'max:255'],
             'aws_url' => 'nullable|url|max:500',
             'aws_endpoint' => 'nullable|url|max:500',
             'aws_textract_region' => 'nullable|string|max:100',
