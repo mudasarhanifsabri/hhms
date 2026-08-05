@@ -10,6 +10,7 @@
     <link href="assets/css/vendor.min.css" rel="stylesheet" type="text/css">
     <link href="assets/css/icons.min.css" rel="stylesheet" type="text/css">
     <link href="assets/css/app.min.css" rel="stylesheet" type="text/css">
+    <link href="{{ asset('assets/css/hhms-font.css') }}" rel="stylesheet" type="text/css">
     <link href="{{ asset('assets/css/role-portals.css') }}" rel="stylesheet" type="text/css">
     @stack('styles')
 </head>

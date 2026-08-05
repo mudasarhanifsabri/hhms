@@ -10,40 +10,40 @@
 
 @push('styles')
 <style>
-    .ocr-create-shell { --ocr-primary: #5b3df5; --ocr-ink: #111827; --ocr-muted: #667085; --ocr-line: #e5e7eb; color: var(--ocr-ink); }
-    .ocr-page-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 22px; }
-    .ocr-back { display: inline-flex; align-items: center; gap: 8px; color: #344054; font-weight: 600; margin-bottom: 18px; }
-    .ocr-title h4 { font-size: 28px; margin: 0 0 4px; font-weight: 800; }
+    .ocr-create-shell { --ocr-primary: #5b3df5; --ocr-ink: #111827; --ocr-muted: #667085; --ocr-line: #e5e7eb; color: var(--ocr-ink); max-height: calc(100vh - 92px); overflow: hidden; }
+    .ocr-page-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 12px; }
+    .ocr-back { display: inline-flex; align-items: center; gap: 8px; color: #344054; font-weight: 600; margin-bottom: 10px; }
+    .ocr-title h4 { font-size: 24px; margin: 0 0 2px; font-weight: 800; }
     .ocr-title p { color: var(--ocr-muted); margin: 0; }
-    .ocr-steps { display: grid; grid-template-columns: 1fr 1fr 1fr; align-items: center; gap: 14px; margin-bottom: 22px; }
+    .ocr-steps { display: grid; grid-template-columns: 1fr 1fr 1fr; align-items: center; gap: 14px; margin-bottom: 14px; }
     .ocr-step { display: flex; align-items: center; gap: 12px; color: #344054; font-weight: 700; }
     .ocr-step:after { content: ""; height: 1px; flex: 1; background: var(--ocr-line); }
     .ocr-step:last-child:after { display: none; }
-    .ocr-step span { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; border: 1px solid var(--ocr-line); background: #fff; }
+    .ocr-step span { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; border: 1px solid var(--ocr-line); background: #fff; }
     .ocr-step.active span { background: var(--ocr-primary); color: #fff; box-shadow: 0 10px 20px rgba(91, 61, 245, .22); }
     .ocr-panel { border: 1px solid var(--ocr-line); border-radius: 10px; background: #fff; box-shadow: 0 16px 40px rgba(16, 24, 40, .04); height: 100%; }
-    .ocr-panel-body { padding: 26px; }
-    .ocr-doc-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
-    .ocr-doc-tab { border: 1px solid var(--ocr-line); border-radius: 8px; padding: 13px 16px; display: flex; align-items: center; justify-content: center; gap: 10px; font-weight: 800; background: #fff; }
+    .ocr-panel-body { padding: 18px; }
+    .ocr-doc-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+    .ocr-doc-tab { border: 1px solid var(--ocr-line); border-radius: 8px; padding: 10px 14px; display: flex; align-items: center; justify-content: center; gap: 10px; font-weight: 800; background: #fff; }
     .ocr-doc-tab.active { color: var(--ocr-primary); border-color: var(--ocr-primary); background: #f5f3ff; }
-    .ocr-upload { border: 1px dashed #cfd5e1; border-radius: 9px; padding: 16px; display: grid; grid-template-columns: 44px 1fr 150px; gap: 14px; align-items: center; margin-bottom: 14px; cursor: pointer; min-height: 116px; }
+    .ocr-upload { border: 1px dashed #cfd5e1; border-radius: 9px; padding: 12px; display: grid; grid-template-columns: 38px 1fr 118px; gap: 12px; align-items: center; margin-bottom: 10px; cursor: pointer; min-height: 88px; }
     .ocr-upload input { display: none; }
-    .ocr-upload-icon { width: 42px; height: 42px; border-radius: 12px; display: grid; place-items: center; color: var(--ocr-primary); background: #f4f2ff; font-size: 24px; }
+    .ocr-upload-icon { width: 36px; height: 36px; border-radius: 12px; display: grid; place-items: center; color: var(--ocr-primary); background: #f4f2ff; font-size: 22px; }
     .ocr-upload strong { display: block; font-size: 15px; }
     .ocr-upload small, .ocr-meta { color: var(--ocr-muted); display: block; }
     .ocr-upload .ocr-ok { color: #10b981; font-weight: 700; margin-top: 4px; display: none; }
     .ocr-upload.has-file .ocr-ok { display: block; }
-    .ocr-preview { width: 150px; height: 76px; border-radius: 7px; object-fit: cover; background: #f8fafc; border: 1px solid var(--ocr-line); display: grid; place-items: center; color: var(--ocr-muted); overflow: hidden; }
+    .ocr-preview { width: 118px; height: 58px; border-radius: 7px; object-fit: cover; background: #f8fafc; border: 1px solid var(--ocr-line); display: grid; place-items: center; color: var(--ocr-muted); overflow: hidden; font-size: 20px; }
     .ocr-preview img { width: 100%; height: 100%; object-fit: cover; }
-    .ocr-camera { width: 100%; border: 1px solid #d0d5dd; border-radius: 8px; background: #fff; padding: 12px 16px; color: var(--ocr-primary); font-weight: 800; display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 6px; cursor: pointer; }
-    .ocr-note { background: linear-gradient(135deg, #f8f5ff, #f1fbff); border-radius: 9px; padding: 16px; color: #344054; margin-top: 18px; }
-    .ocr-confidence { border-radius: 999px; background: #dff8ea; color: #027a48; padding: 9px 14px; font-weight: 800; font-size: 13px; }
-    .ocr-field label { font-weight: 700; font-size: 13px; margin-bottom: 8px; color: #344054; }
-    .ocr-field .form-control, .ocr-field .form-select { min-height: 48px; border-radius: 8px; border-color: #d9dee8; }
+    .ocr-camera { width: 100%; border: 1px solid #d0d5dd; border-radius: 8px; background: #fff; padding: 10px 14px; color: var(--ocr-primary); font-weight: 800; display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 4px; cursor: pointer; }
+    .ocr-note { background: linear-gradient(135deg, #f8f5ff, #f1fbff); border-radius: 9px; padding: 12px; color: #344054; margin-top: 10px; }
+    .ocr-confidence { border-radius: 999px; background: #dff8ea; color: #027a48; padding: 8px 12px; font-weight: 800; font-size: 12px; }
+    .ocr-field label { font-weight: 700; font-size: 12px; margin-bottom: 6px; color: #344054; }
+    .ocr-field .form-control, .ocr-field .form-select { min-height: 42px; border-radius: 8px; border-color: #d9dee8; }
     .ocr-field .input-group-text { border-radius: 8px 0 0 8px; background: #fff; }
-    .ocr-actions { position: sticky; bottom: 0; background: rgba(255,255,255,.96); border-top: 1px solid var(--ocr-line); padding: 18px 0 0; margin-top: 20px; display: flex; justify-content: space-between; gap: 14px; }
-    .ocr-primary { background: linear-gradient(135deg, #6d4dfc, #3d2cf0); color: #fff; border: 0; border-radius: 8px; padding: 13px 30px; font-weight: 800; }
-    .ocr-secondary { border: 1px solid #cfd5e1; background: #fff; border-radius: 8px; padding: 13px 24px; font-weight: 800; color: #344054; }
+    .ocr-actions { position: sticky; bottom: 0; background: rgba(255,255,255,.96); border-top: 1px solid var(--ocr-line); padding: 12px 0 0; margin-top: 12px; display: flex; justify-content: space-between; gap: 14px; }
+    .ocr-primary { background: linear-gradient(135deg, #6d4dfc, #3d2cf0); color: #fff; border: 0; border-radius: 8px; padding: 11px 28px; font-weight: 800; }
+    .ocr-secondary { border: 1px solid #cfd5e1; background: #fff; border-radius: 8px; padding: 11px 22px; font-weight: 800; color: #344054; }
     .ocr-switch { border: 1px solid var(--ocr-line); border-radius: 9px; padding: 13px 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px; background: #fbfcff; }
     @media (max-width: 991px) { .ocr-steps { grid-template-columns: 1fr; } .ocr-step:after { display: none; } .ocr-upload { grid-template-columns: 44px 1fr; } .ocr-preview { grid-column: 1 / -1; width: 100%; height: 160px; } }
 </style>
@@ -76,11 +76,11 @@
             <div class="col-xl-4">
                 <div class="ocr-panel">
                     <div class="ocr-panel-body">
-                        <h5 class="fw-bold mb-3">Document Scan</h5>
+                        <h5 class="fw-bold mb-2">Document Scan</h5>
                         <label class="form-label fw-semibold">Select Document Type</label>
                         <div class="ocr-doc-tabs">
-                            <button type="button" class="ocr-doc-tab active"><i class="ri-id-card-line"></i> Emirates ID</button>
-                            <button type="button" class="ocr-doc-tab"><i class="ri-passport-line"></i> Passport</button>
+                            <button type="button" class="ocr-doc-tab active" data-doc-type="emirates_id"><i class="ri-id-card-line"></i> Emirates ID</button>
+                            <button type="button" class="ocr-doc-tab" data-doc-type="passport"><i class="ri-passport-line"></i> Passport</button>
                         </div>
 
                         <label class="form-label fw-semibold">Profile Photo</label>
@@ -88,21 +88,21 @@
                             <input type="file" name="profile_photo" accept="image/*" data-ocr-preview>
                             <span class="ocr-upload-icon"><i class="ri-user-smile-line"></i></span>
                             <span><strong>Photo</strong><small>JPG or PNG</small><span class="ocr-ok"><i class="ri-check-line"></i> Uploaded</span></span>
-                            <span class="ocr-preview">Preview</span>
+                            <span class="ocr-preview"><i class="ri-user-smile-line"></i></span>
                         </label>
 
-                        <label class="form-label fw-semibold mt-2">Upload Emirates ID</label>
+                        <label class="form-label fw-semibold mt-1" data-document-heading>Upload Emirates ID</label>
                         <label class="ocr-upload" data-ocr-upload>
                             <input type="file" name="id_document" accept="image/*,.pdf" data-ocr-preview>
-                            <span class="ocr-upload-icon"><i class="ri-upload-cloud-2-line"></i></span>
-                            <span><strong>Front Side</strong><small>JPG, PNG or PDF<br>Max 10MB</small><span class="ocr-ok"><i class="ri-check-line"></i> Uploaded</span></span>
-                            <span class="ocr-preview">Preview</span>
+                            <span class="ocr-upload-icon"><i class="ri-id-card-line" data-front-icon></i></span>
+                            <span><strong data-front-title>Front Side</strong><small data-front-help>JPG, PNG or PDF<br>Max 10MB</small><span class="ocr-ok"><i class="ri-check-line"></i> Uploaded</span></span>
+                            <span class="ocr-preview"><i class="ri-id-card-line" data-front-preview-icon></i></span>
                         </label>
-                        <label class="ocr-upload" data-ocr-upload>
+                        <label class="ocr-upload" data-ocr-upload data-back-upload>
                             <input type="file" name="id_document_back" accept="image/*,.pdf" data-ocr-preview>
-                            <span class="ocr-upload-icon"><i class="ri-upload-cloud-2-line"></i></span>
-                            <span><strong>Back Side</strong><small>JPG, PNG or PDF<br>Max 10MB</small><span class="ocr-ok"><i class="ri-check-line"></i> Uploaded</span></span>
-                            <span class="ocr-preview">Preview</span>
+                            <span class="ocr-upload-icon"><i class="ri-bank-card-2-line" data-back-icon></i></span>
+                            <span><strong data-back-title>Back Side</strong><small data-back-help>JPG, PNG or PDF<br>Max 10MB</small><span class="ocr-ok"><i class="ri-check-line"></i> Uploaded</span></span>
+                            <span class="ocr-preview"><i class="ri-bank-card-2-line" data-back-preview-icon></i></span>
                         </label>
                         <label class="ocr-camera">
                             <i class="ri-camera-line"></i> Scan with Camera
@@ -131,7 +131,7 @@
                                 <input type="text" name="name" class="form-control" value="{{ old('name') }}" required>
                             </div>
                             <div class="col-md-6 ocr-field">
-                                <label>ID Number</label>
+                                <label data-id-label>Emirates ID Number</label>
                                 <input type="text" name="eid_passport_no" class="form-control" value="{{ old('eid_passport_no') }}" required>
                             </div>
                             <div class="col-md-6 ocr-field">
@@ -166,7 +166,7 @@
                             <div class="col-md-6 ocr-field">
                                 <label>Phone Number</label>
                                 <div class="input-group">
-                                    <span class="input-group-text">🇦🇪 +971</span>
+                                    <span class="input-group-text">AE +971</span>
                                     <input type="text" name="phone" class="form-control" value="{{ old('phone') }}" required>
                                 </div>
                             </div>
@@ -272,12 +272,18 @@ document.addEventListener('change', function (event) {
 });
 
 document.addEventListener('click', function (event) {
+    var documentTypeButton = event.target.closest('[data-doc-type]');
+    if (documentTypeButton) {
+        setDocumentType(documentTypeButton.getAttribute('data-doc-type'));
+        return;
+    }
+
     if (!event.target.closest('[data-ocr-reset]')) return;
     document.querySelectorAll('[data-ocr-preview]').forEach(function (input) { input.value = ''; });
     document.querySelectorAll('[data-ocr-upload]').forEach(function (upload) {
         upload.classList.remove('has-file');
         var preview = upload.querySelector('.ocr-preview');
-        if (preview) preview.textContent = 'Preview';
+        if (preview) preview.innerHTML = '<i class="' + previewIconForUpload(upload) + '"></i>';
     });
 });
 
@@ -309,6 +315,50 @@ function setWizardStep(step) {
     if (previous) previous.classList.toggle('d-none', step === 1);
     if (submit) submit.classList.toggle('d-none', step !== 2);
     if (reset) reset.classList.toggle('d-none', step === 2);
+}
+
+function setDocumentType(type) {
+    document.querySelectorAll('[data-doc-type]').forEach(function (button) {
+        button.classList.toggle('active', button.getAttribute('data-doc-type') === type);
+    });
+
+    var isPassport = type === 'passport';
+    var heading = document.querySelector('[data-document-heading]');
+    var idLabel = document.querySelector('[data-id-label]');
+    var frontTitle = document.querySelector('[data-front-title]');
+    var frontHelp = document.querySelector('[data-front-help]');
+    var backTitle = document.querySelector('[data-back-title]');
+    var backUpload = document.querySelector('[data-back-upload]');
+    var frontIcon = document.querySelector('[data-front-icon]');
+    var frontPreviewIcon = document.querySelector('[data-front-preview-icon]');
+
+    if (heading) heading.textContent = isPassport ? 'Upload Passport' : 'Upload Emirates ID';
+    if (idLabel) idLabel.textContent = isPassport ? 'Passport Number' : 'Emirates ID Number';
+    if (frontTitle) frontTitle.textContent = isPassport ? 'Passport ID Page' : 'Front Side';
+    if (frontHelp) frontHelp.innerHTML = isPassport ? 'Passport photo page<br>Max 10MB' : 'JPG, PNG or PDF<br>Max 10MB';
+    if (backTitle) backTitle.textContent = 'Back Side';
+    if (backUpload) backUpload.classList.toggle('d-none', isPassport);
+
+    [frontIcon, frontPreviewIcon].forEach(function (icon) {
+        if (!icon) return;
+        icon.className = isPassport ? 'ri-passport-line' : 'ri-id-card-line';
+    });
+}
+
+function previewIconForUpload(upload) {
+    var fileInput = upload.querySelector('input[type="file"]');
+    if (fileInput && fileInput.name === 'profile_photo') {
+        return 'ri-user-smile-line';
+    }
+
+    if (upload.hasAttribute('data-back-upload')) {
+        return 'ri-bank-card-2-line';
+    }
+
+    var activeType = document.querySelector('[data-doc-type].active');
+    return activeType && activeType.getAttribute('data-doc-type') === 'passport'
+        ? 'ri-passport-line'
+        : 'ri-id-card-line';
 }
 </script>
 @endpush
