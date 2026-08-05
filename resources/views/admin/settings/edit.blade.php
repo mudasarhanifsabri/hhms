@@ -7,6 +7,8 @@
     $logoUrl = $mediaUrl($settings['logo_path'] ?? null);
     $faviconUrl = $mediaUrl($settings['favicon_path'] ?? null);
     $whatsappCallbackUrl = rtrim(config('app.url'), '/') . '/webhooks/whatsapp';
+    $savedBucket = $settings['aws_bucket'] ?? null;
+    $bucketLooksInvalid = filled($savedBucket) && ! \App\Support\AppSettings::validS3Bucket($savedBucket);
 @endphp
 
 <div class="row">
@@ -125,6 +127,13 @@
                         </div>
                         <div class="card-body">
                             <div class="row g-3">
+                                @if($bucketLooksInvalid)
+                                    <div class="col-12">
+                                        <div class="alert alert-warning border mb-0">
+                                            Saved bucket value <strong>{{ $savedBucket }}</strong> looks like a folder, not an AWS bucket. Enter the real shared bucket name and save again.
+                                        </div>
+                                    </div>
+                                @endif
                                 <div class="col-md-4">
                                     <label class="form-label" for="media_disk">Media Storage</label>
                                     <select class="form-select" id="media_disk" name="media_disk">

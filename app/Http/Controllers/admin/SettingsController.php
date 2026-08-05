@@ -47,7 +47,15 @@ class SettingsController extends Controller
             'aws_access_key_id' => [Rule::requiredIf($request->input('media_disk') === 's3' && blank(AppSettings::get('aws_access_key_id'))), 'nullable', 'string', 'max:255'],
             'aws_secret_access_key' => [Rule::requiredIf($request->input('media_disk') === 's3' && blank(AppSettings::get('aws_secret_access_key'))), 'nullable', 'string', 'max:1000'],
             'aws_default_region' => [Rule::requiredIf($request->input('media_disk') === 's3'), 'nullable', 'string', 'max:100'],
-            'aws_bucket' => [Rule::requiredIf($request->input('media_disk') === 's3'), 'nullable', 'string', 'max:255'],
+            'aws_bucket' => [
+                Rule::requiredIf($request->input('media_disk') === 's3'),
+                'nullable',
+                'string',
+                'min:3',
+                'max:63',
+                'regex:/^[a-z0-9][a-z0-9.-]*[a-z0-9]$/',
+                Rule::notIn(AppSettings::RESERVED_MEDIA_FOLDERS),
+            ],
             'aws_url' => 'nullable|url|max:500',
             'aws_endpoint' => 'nullable|url|max:500',
             'aws_textract_region' => 'nullable|string|max:100',
@@ -56,6 +64,9 @@ class SettingsController extends Controller
 
             'logo' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:2048',
             'favicon' => 'nullable|mimes:ico,png|max:512',
+        ], [
+            'aws_bucket.regex' => 'AWS bucket must be the real S3 bucket name only. Do not enter folders like id_documents.',
+            'aws_bucket.not_in' => 'AWS bucket cannot be an upload folder. Enter the real shared S3 bucket name.',
         ]);
 
         unset($validated['logo'], $validated['favicon']);

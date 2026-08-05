@@ -12,6 +12,18 @@ class AppSettings
 {
     public const CACHE_KEY = 'application_settings_map';
 
+    public const RESERVED_MEDIA_FOLDERS = [
+        'branding',
+        'documents',
+        'floor_plans',
+        'id_documents',
+        'property_photos',
+        'task_attachments',
+        'task_costs',
+        'task_photos',
+        'videos',
+    ];
+
     public const ENCRYPTED_KEYS = [
         'mail_password',
         'whatsapp_token',
@@ -91,11 +103,16 @@ class AppSettings
             ]);
         }
 
+        $savedS3Bucket = $settings['aws_bucket'] ?? null;
+        $s3Bucket = self::validS3Bucket($savedS3Bucket)
+            ? $savedS3Bucket
+            : config('filesystems.disks.s3.bucket');
+
         config([
             'filesystems.disks.s3.key' => $settings['aws_access_key_id'] ?? config('filesystems.disks.s3.key'),
             'filesystems.disks.s3.secret' => $settings['aws_secret_access_key'] ?? config('filesystems.disks.s3.secret'),
             'filesystems.disks.s3.region' => $settings['aws_default_region'] ?? config('filesystems.disks.s3.region'),
-            'filesystems.disks.s3.bucket' => $settings['aws_bucket'] ?? config('filesystems.disks.s3.bucket'),
+            'filesystems.disks.s3.bucket' => $s3Bucket,
             'filesystems.disks.s3.url' => $settings['aws_url'] ?? config('filesystems.disks.s3.url'),
             'filesystems.disks.s3.endpoint' => $settings['aws_endpoint'] ?? config('filesystems.disks.s3.endpoint'),
             'services.textract.key' => $settings['aws_textract_access_key_id'] ?? $settings['aws_access_key_id'] ?? config('services.textract.key'),
@@ -125,6 +142,21 @@ class AppSettings
         } catch (Throwable) {
             return null;
         }
+    }
+
+    public static function validS3Bucket(?string $bucket): bool
+    {
+        if (blank($bucket) || str_contains($bucket, '/') || str_contains($bucket, '\\')) {
+            return false;
+        }
+
+        $bucket = trim($bucket);
+
+        if (in_array($bucket, self::RESERVED_MEDIA_FOLDERS, true)) {
+            return false;
+        }
+
+        return (bool) preg_match('/^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/', $bucket);
     }
 
     private static function groupFor(string $key): string
