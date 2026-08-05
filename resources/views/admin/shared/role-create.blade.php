@@ -34,6 +34,11 @@
     .ocr-upload small, .ocr-meta { color: var(--ocr-muted); display: block; }
     .ocr-upload .ocr-ok { color: #10b981; font-weight: 700; margin-top: 4px; display: none; }
     .ocr-upload.has-file .ocr-ok { display: block; }
+    .ocr-upload .ocr-progress { grid-column: 1 / -1; height: 6px; border-radius: 99px; background: #eef2f7; overflow: hidden; display: none; }
+    .ocr-upload .ocr-progress span { display: block; width: 0; height: 100%; border-radius: inherit; background: linear-gradient(135deg, #6d4dfc, #10b981); transition: width .28s ease; }
+    .ocr-upload.processing .ocr-progress { display: block; }
+    .ocr-upload.error { border-color: #fda29b; background: #fff8f7; }
+    .ocr-upload.error .ocr-upload-status { color: #b42318; }
     .ocr-preview { width: 118px; height: 58px; border-radius: 7px; object-fit: cover; background: #f8fafc; border: 1px solid var(--ocr-line); display: grid; place-items: center; color: var(--ocr-muted); overflow: hidden; font-size: 20px; }
     .ocr-preview img { width: 100%; height: 100%; object-fit: cover; }
     .ocr-placeholder { width: 100%; height: 100%; padding: 8px; background: linear-gradient(135deg, #ffffff, #eef4ff); display: grid; align-content: center; gap: 4px; }
@@ -51,8 +56,13 @@
     .ocr-placeholder-user .ocr-placeholder-avatar { width: 30px; height: 30px; border-radius: 50%; background: #dbeafe; margin: 0 auto; position: relative; }
     .ocr-placeholder-user .ocr-placeholder-avatar:after { content: ""; position: absolute; left: -8px; right: -8px; bottom: -16px; height: 18px; border-radius: 50% 50% 0 0; background: #c7d2fe; }
     .ocr-camera { width: 100%; border: 1px solid #d0d5dd; border-radius: 8px; background: #fff; padding: 10px 14px; color: var(--ocr-primary); font-weight: 800; display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 4px; cursor: pointer; }
-    .ocr-note { background: linear-gradient(135deg, #f8f5ff, #f1fbff); border-radius: 9px; padding: 12px; color: #344054; margin-top: 10px; }
     .ocr-confidence { border-radius: 999px; background: #dff8ea; color: #027a48; padding: 8px 12px; font-weight: 800; font-size: 12px; }
+    .ocr-confidence.is-warn { background: #fff3cd; color: #946200; }
+    .ocr-confidence.is-error { background: #fee4e2; color: #b42318; }
+    .ocr-status-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 14px; }
+    .ocr-status-pill { border: 1px solid var(--ocr-line); border-radius: 10px; padding: 10px 12px; background: #fbfcff; }
+    .ocr-status-pill span { display: block; color: var(--ocr-muted); font-size: 11px; font-weight: 700; }
+    .ocr-status-pill strong { display: block; font-size: 13px; margin-top: 2px; }
     .ocr-field label { font-weight: 700; font-size: 12px; margin-bottom: 6px; color: #344054; }
     .ocr-field .form-control, .ocr-field .form-select { min-height: 42px; border-radius: 8px; border-color: #d9dee8; }
     .ocr-field .input-group-text { border-radius: 8px 0 0 8px; background: #fff; }
@@ -71,7 +81,7 @@
     .ocr-primary { background: linear-gradient(135deg, #6d4dfc, #3d2cf0); color: #fff; border: 0; border-radius: 8px; padding: 11px 28px; font-weight: 800; }
     .ocr-secondary { border: 1px solid #cfd5e1; background: #fff; border-radius: 8px; padding: 11px 22px; font-weight: 800; color: #344054; }
     .ocr-switch { border: 1px solid var(--ocr-line); border-radius: 9px; padding: 13px 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px; background: #fbfcff; }
-    @media (max-width: 991px) { .ocr-steps { grid-template-columns: 1fr; } .ocr-step:after { display: none; } .ocr-upload { grid-template-columns: 44px 1fr; } .ocr-preview { grid-column: 1 / -1; width: 100%; height: 160px; } .ocr-phone-grid { grid-template-columns: 1fr; } }
+    @media (max-width: 991px) { .ocr-steps { grid-template-columns: 1fr; } .ocr-step:after { display: none; } .ocr-upload { grid-template-columns: 44px 1fr; } .ocr-preview { grid-column: 1 / -1; width: 100%; height: 160px; } .ocr-phone-grid, .ocr-status-grid { grid-template-columns: 1fr; } }
 </style>
 @endpush
 
@@ -81,7 +91,6 @@
     <div class="ocr-page-head">
         <div class="ocr-title">
             <h4>Add New {{ $roleTitle }}</h4>
-            <p>Capture Emirates ID or Passport with OCR-ready manual review</p>
         </div>
     </div>
 
@@ -113,32 +122,32 @@
                         <label class="ocr-upload" data-ocr-upload>
                             <input type="file" name="profile_photo" accept="image/*" data-ocr-preview>
                             <span class="ocr-upload-icon"><i class="ri-user-smile-line"></i></span>
-                            <span><strong>Photo</strong><small>JPG or PNG</small><span class="ocr-ok"><i class="ri-check-line"></i> Uploaded</span></span>
+                            <span><strong>Photo</strong><small>JPG or PNG</small><span class="ocr-ok"><i class="ri-check-line"></i> Uploaded</span><small class="ocr-upload-status"></small></span>
                             <span class="ocr-preview">{!! $placeholderUser ?? '<span class="ocr-placeholder ocr-placeholder-user"><span class="ocr-placeholder-avatar"></span></span>' !!}</span>
+                            <span class="ocr-progress"><span></span></span>
                         </label>
 
                         <label class="form-label fw-semibold mt-1" data-document-heading>Upload Emirates ID</label>
                         <label class="ocr-upload" data-ocr-upload>
                             <input type="file" name="id_document" accept="image/*,.pdf" data-ocr-preview>
                             <span class="ocr-upload-icon"><i class="ri-id-card-line" data-front-icon></i></span>
-                            <span><strong data-front-title>Front Side</strong><small data-front-help>JPG, PNG or PDF<br>Max 10MB</small><span class="ocr-ok"><i class="ri-check-line"></i> Uploaded</span></span>
+                            <span><strong data-front-title>Front Side</strong><small data-front-help>JPG, PNG or PDF<br>Max 10MB</small><span class="ocr-ok"><i class="ri-check-line"></i> Uploaded</span><small class="ocr-upload-status"></small></span>
                             <span class="ocr-preview" data-front-preview>{!! $placeholderIdFront ?? '<span class="ocr-placeholder ocr-placeholder-id"><span class="ocr-placeholder-photo"></span><span class="ocr-placeholder-line mid"></span><span class="ocr-placeholder-line"></span><span class="ocr-placeholder-line short"></span></span>' !!}</span>
+                            <span class="ocr-progress"><span></span></span>
                         </label>
                         <label class="ocr-upload" data-ocr-upload data-back-upload>
                             <input type="file" name="id_document_back" accept="image/*,.pdf" data-ocr-preview>
                             <span class="ocr-upload-icon"><i class="ri-bank-card-2-line" data-back-icon></i></span>
-                            <span><strong data-back-title>Back Side</strong><small data-back-help>JPG, PNG or PDF<br>Max 10MB</small><span class="ocr-ok"><i class="ri-check-line"></i> Uploaded</span></span>
+                            <span><strong data-back-title>Back Side</strong><small data-back-help>JPG, PNG or PDF<br>Max 10MB</small><span class="ocr-ok"><i class="ri-check-line"></i> Uploaded</span><small class="ocr-upload-status"></small></span>
                             <span class="ocr-preview" data-back-preview>{!! $placeholderIdBack ?? '<span class="ocr-placeholder ocr-placeholder-back"><span class="ocr-placeholder-chip"></span><span class="ocr-placeholder-line"></span><span class="ocr-placeholder-line mid"></span></span>' !!}</span>
+                            <span class="ocr-progress"><span></span></span>
                         </label>
                         <label class="ocr-camera">
                             <i class="ri-camera-line"></i> Scan with Camera
                             <input type="file" name="camera_capture" accept="image/*" capture="environment" hidden data-ocr-preview>
                         </label>
 
-                        <div class="ocr-note">
-                            <div class="fw-bold mb-1"><i class="ri-sparkling-2-line text-primary"></i> AI OCR Technology</div>
-                            <div class="small">Upload preview is ready now. If OCR result is unclear, enter or correct details manually before save.</div>
-                        </div>
+                        <div class="alert alert-warning d-none mb-0 mt-3" data-ocr-error></div>
                     </div>
                 </div>
             </div>
@@ -147,8 +156,14 @@
                 <div class="ocr-panel">
                     <div class="ocr-panel-body">
                         <div class="d-flex align-items-center justify-content-between gap-2 mb-4">
-                            <h5 class="fw-bold mb-0">Extracted Information (OCR Results)</h5>
-                            <span class="ocr-confidence">Manual Review <i class="ri-check-line"></i></span>
+                            <h5 class="fw-bold mb-0">Document Information</h5>
+                            <span class="ocr-confidence is-warn" data-ocr-confidence>Waiting Upload</span>
+                        </div>
+
+                        <div class="ocr-status-grid">
+                            <div class="ocr-status-pill"><span>Document</span><strong data-ocr-doc-status>Not uploaded</strong></div>
+                            <div class="ocr-status-pill"><span>Profile Crop</span><strong data-ocr-crop-status>Not started</strong></div>
+                            <div class="ocr-status-pill"><span>Accuracy</span><strong data-ocr-accuracy>Manual review</strong></div>
                         </div>
 
                         <div class="row g-3">
@@ -304,6 +319,15 @@ document.addEventListener('change', function (event) {
     var upload = input.closest('[data-ocr-upload]') || input.closest('.ocr-camera');
     if (!upload || !input.files || !input.files.length) return;
     var file = input.files[0];
+    var validationError = validateUploadFile(file);
+    if (validationError) {
+        setUploadState(upload, 'error', validationError, 0);
+        setOcrError(validationError);
+        input.value = '';
+        return;
+    }
+
+    setUploadState(upload, 'processing', 'Uploading...', 25);
     upload.classList.add('has-file');
     var preview = upload.querySelector('.ocr-preview');
     if (!preview) return;
@@ -313,6 +337,18 @@ document.addEventListener('change', function (event) {
         image.src = URL.createObjectURL(file);
         image.onload = function () { URL.revokeObjectURL(image.src); };
         preview.appendChild(image);
+        simulateUploadProgress(upload, function () {
+            setUploadState(upload, 'done', 'Ready for review', 100);
+            updateOcrStatus('Document uploaded', 'Review required', 'Medium confidence', 'warn');
+            if (input.name === 'id_document' || input.name === 'camera_capture') {
+                tryAutoCropProfileFromDocument(file);
+            }
+        });
+    } else {
+        simulateUploadProgress(upload, function () {
+            setUploadState(upload, 'done', 'PDF ready for review', 100);
+            updateOcrStatus('PDF uploaded', 'Manual crop needed', 'Manual review', 'warn');
+        });
     }
 });
 
@@ -406,9 +442,12 @@ document.addEventListener('click', function (event) {
     document.querySelectorAll('[data-ocr-preview]').forEach(function (input) { input.value = ''; });
     document.querySelectorAll('[data-ocr-upload]').forEach(function (upload) {
         upload.classList.remove('has-file');
+        setUploadState(upload, 'idle', '', 0);
         var preview = upload.querySelector('.ocr-preview');
         if (preview) preview.innerHTML = previewPlaceholderForUpload(upload);
     });
+    setOcrError('');
+    updateOcrStatus('Not uploaded', 'Not started', 'Manual review', 'warn');
 });
 
 document.addEventListener('click', function (event) {
@@ -584,6 +623,152 @@ function setComboActive(options, index) {
         option.classList.toggle('active', optionIndex === nextIndex);
     });
     options[nextIndex].scrollIntoView({ block: 'nearest' });
+}
+
+function validateUploadFile(file) {
+    var maxSize = 10 * 1024 * 1024;
+    var allowed = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'];
+
+    if (file.size > maxSize) {
+        return 'File is too large. Maximum allowed size is 10MB.';
+    }
+
+    if (allowed.indexOf(file.type) === -1) {
+        return 'Unsupported file type. Please upload PDF, JPG, PNG or WebP.';
+    }
+
+    return '';
+}
+
+function setUploadState(upload, state, message, percent) {
+    if (!upload) return;
+    upload.classList.toggle('processing', state === 'processing');
+    upload.classList.toggle('error', state === 'error');
+
+    var status = upload.querySelector('.ocr-upload-status');
+    if (status) status.textContent = message || '';
+
+    var bar = upload.querySelector('.ocr-progress span');
+    if (bar) bar.style.width = (percent || 0) + '%';
+}
+
+function simulateUploadProgress(upload, callback) {
+    var progress = 25;
+    var timer = setInterval(function () {
+        progress += 25;
+        setUploadState(upload, 'processing', progress < 100 ? 'Processing...' : 'Finalizing...', Math.min(progress, 100));
+        if (progress >= 100) {
+            clearInterval(timer);
+            callback();
+        }
+    }, 160);
+}
+
+function updateOcrStatus(documentStatus, cropStatus, accuracy, confidenceState) {
+    var documentNode = document.querySelector('[data-ocr-doc-status]');
+    var cropNode = document.querySelector('[data-ocr-crop-status]');
+    var accuracyNode = document.querySelector('[data-ocr-accuracy]');
+    var confidence = document.querySelector('[data-ocr-confidence]');
+
+    if (documentNode) documentNode.textContent = documentStatus;
+    if (cropNode) cropNode.textContent = cropStatus;
+    if (accuracyNode) accuracyNode.textContent = accuracy;
+    if (confidence) {
+        confidence.classList.toggle('is-error', confidenceState === 'error');
+        confidence.classList.toggle('is-warn', confidenceState === 'warn');
+        confidence.textContent = confidenceState === 'error' ? 'Needs Review' : (confidenceState === 'ok' ? 'Profile Detected' : 'Review Required');
+    }
+}
+
+function setOcrError(message) {
+    var error = document.querySelector('[data-ocr-error]');
+    if (!error) return;
+    error.textContent = message || '';
+    error.classList.toggle('d-none', !message);
+}
+
+async function tryAutoCropProfileFromDocument(file) {
+    if (!file.type || file.type.indexOf('image/') !== 0) return;
+
+    if (!('FaceDetector' in window)) {
+        updateOcrStatus('Image uploaded', 'Manual photo needed', 'Manual review', 'warn');
+        setOcrError('Profile photo could not be auto-cropped in this browser. Upload a profile photo manually if needed.');
+        return;
+    }
+
+    try {
+        var bitmap = await createImageBitmap(file);
+        var detector = new FaceDetector({ fastMode: true, maxDetectedFaces: 3 });
+        var faces = await detector.detect(bitmap);
+
+        if (!faces.length) {
+            updateOcrStatus('Image uploaded', 'Face not detected', 'Manual review', 'warn');
+            setOcrError('Face was not detected clearly. Please upload profile photo manually or use a clearer document image.');
+            return;
+        }
+
+        var face = faces.sort(function (a, b) {
+            return (b.boundingBox.width * b.boundingBox.height) - (a.boundingBox.width * a.boundingBox.height);
+        })[0].boundingBox;
+        var croppedBlob = cropFaceFromBitmap(bitmap, face);
+        if (!croppedBlob) return;
+
+        var profileInput = document.querySelector('input[name="profile_photo"]');
+        if (!profileInput || typeof DataTransfer === 'undefined') return;
+
+        var croppedFile = new File([croppedBlob], 'profile-from-document.jpg', { type: 'image/jpeg' });
+        var transfer = new DataTransfer();
+        transfer.items.add(croppedFile);
+        profileInput.files = transfer.files;
+
+        var profileUpload = profileInput.closest('[data-ocr-upload]');
+        if (profileUpload) {
+            var preview = profileUpload.querySelector('.ocr-preview');
+            profileUpload.classList.add('has-file');
+            setUploadState(profileUpload, 'done', 'Auto-cropped from document', 100);
+            if (preview) {
+                preview.innerHTML = '';
+                var image = document.createElement('img');
+                image.src = URL.createObjectURL(croppedBlob);
+                image.onload = function () { URL.revokeObjectURL(image.src); };
+                preview.appendChild(image);
+            }
+        }
+
+        setOcrError('');
+        updateOcrStatus('Image uploaded', 'Profile cropped', 'High confidence', 'ok');
+    } catch (error) {
+        updateOcrStatus('Image uploaded', 'Crop failed', 'Manual review', 'warn');
+        setOcrError('Auto-crop could not read this image clearly. Please upload profile photo manually.');
+    }
+}
+
+function cropFaceFromBitmap(bitmap, face) {
+    var paddingX = face.width * 0.75;
+    var paddingTop = face.height * 0.9;
+    var paddingBottom = face.height * 1.05;
+    var cropX = Math.max(0, face.x - paddingX);
+    var cropY = Math.max(0, face.y - paddingTop);
+    var cropW = Math.min(bitmap.width - cropX, face.width + paddingX * 2);
+    var cropH = Math.min(bitmap.height - cropY, face.height + paddingTop + paddingBottom);
+
+    var canvas = document.createElement('canvas');
+    canvas.width = 480;
+    canvas.height = 600;
+    var context = canvas.getContext('2d');
+    context.fillStyle = '#ffffff';
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    context.drawImage(bitmap, cropX, cropY, cropW, cropH, 0, 0, canvas.width, canvas.height);
+
+    var dataUrl = canvas.toDataURL('image/jpeg', .86);
+    var parts = dataUrl.split(',');
+    var binary = atob(parts[1]);
+    var bytes = new Uint8Array(binary.length);
+    for (var index = 0; index < binary.length; index++) {
+        bytes[index] = binary.charCodeAt(index);
+    }
+
+    return new Blob([bytes], { type: 'image/jpeg' });
 }
 </script>
 @endpush
