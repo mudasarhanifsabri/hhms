@@ -42,6 +42,14 @@
                         <a href="{{ $backRoute }}" class="btn btn-light">
                             <i class="ri-arrow-left-line me-1"></i>Back
                         </a>
+                        @if (! empty($welcomeEmailRoute))
+                            <form action="{{ $welcomeEmailRoute }}" method="POST" class="d-inline">
+                                @csrf
+                                <button type="submit" class="btn btn-outline-success">
+                                    <i class="ri-mail-send-line me-1"></i>Send Welcome Email Again
+                                </button>
+                            </form>
+                        @endif
                     </div>
                     <div class="d-flex gap-1">
                         <a href="{{ $editRoute }}" class="btn btn-dark avatar-sm d-flex align-items-center justify-content-center fs-20" title="Edit Profile">

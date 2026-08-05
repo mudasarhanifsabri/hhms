@@ -94,10 +94,6 @@
         </div>
     </div>
 
-    @if($errors->any())
-        <div class="alert alert-danger"><strong>Please check the form.</strong> {{ $errors->first() }}</div>
-    @endif
-
     <form action="{{ $storeRoute }}" method="POST" enctype="multipart/form-data" data-ocr-endpoint="{{ url('/admin/document-ocr') }}">
         @csrf
 

@@ -53,6 +53,7 @@ class LandlordController extends Controller
         $editRoute = route('admin.landlord.edit', $landlord->id);
         $backRoute = route('admin.landlord.index');
         $bankRoute = route('admin.landlord.updateBank', $landlord->id);
+        $welcomeEmailRoute = route('admin.landlord.sendWelcomeEmail', $landlord->id);
         $accountStatementRoute = route('admin.landlord.account-statement', $landlord->id);
         $ownedPropertiesRoute = route('admin.landlord.owned-properties', $landlord->id);
         $propertiesTitle = 'Owned Units';
@@ -69,6 +70,7 @@ class LandlordController extends Controller
             'editRoute',
             'backRoute',
             'bankRoute',
+            'welcomeEmailRoute',
             'accountStatementRoute',
             'ownedPropertiesRoute',
             'propertiesTitle',
@@ -233,17 +235,7 @@ public function store(Request $request)
         ]);
 
         if ($request->boolean('send_welcome_email')) {
-            app()->terminating(function () use ($landlord) {
-                try {
-                    Notification::send($landlord, new LandlordCreated($landlord));
-                } catch (Throwable $mailException) {
-                    Log::warning('Landlord welcome email failed.', [
-                        'landlord_id' => $landlord->id,
-                        'email' => $landlord->email,
-                        'error' => $mailException->getMessage(),
-                    ]);
-                }
-            });
+            $this->sendWelcomeEmailAfterResponse($landlord);
         }
 
         return redirect()->route('admin.landlord.index')
@@ -259,6 +251,15 @@ public function store(Request $request)
             ->withErrors(['error' => config('app.debug') ? $e->getMessage() : 'An error occurred while creating the landlord. Please try again.'])
             ->withInput();
     }
+}
+
+public function sendWelcomeEmail($id)
+{
+    $landlord = User::where('role', 'landlord')->findOrFail($id);
+
+    $this->sendWelcomeEmailAfterResponse($landlord);
+
+    return back()->with('success', 'Welcome email is being sent again.');
 }
 
 /**
@@ -506,6 +507,21 @@ private function statementPeriod($accountEntries, array $filters): array
         'from' => $firstDate ? \Carbon\Carbon::parse($firstDate) : now(),
         'to' => $lastDate ? \Carbon\Carbon::parse($lastDate) : now(),
     ];
+}
+
+private function sendWelcomeEmailAfterResponse(User $landlord): void
+{
+    app()->terminating(function () use ($landlord) {
+        try {
+            Notification::send($landlord, new LandlordCreated($landlord));
+        } catch (Throwable $mailException) {
+            Log::warning('Landlord welcome email failed.', [
+                'landlord_id' => $landlord->id,
+                'email' => $landlord->email,
+                'error' => $mailException->getMessage(),
+            ]);
+        }
+    });
 }
 
 }
