@@ -58,6 +58,15 @@
     .ocr-field .input-group-text { border-radius: 8px 0 0 8px; background: #fff; }
     .ocr-phone-grid { display: grid; grid-template-columns: minmax(190px, .85fr) 1fr; gap: 8px; }
     .ocr-country-input { font-weight: 700; }
+    .ocr-combo { position: relative; }
+    .ocr-combo:after { content: "\ea4e"; font-family: remixicon; position: absolute; right: 13px; top: 50%; transform: translateY(-50%); color: #667085; pointer-events: none; }
+    .ocr-combo .form-control { padding-right: 38px; }
+    .ocr-combo-menu { position: absolute; left: 0; right: 0; top: calc(100% + 6px); z-index: 30; max-height: 220px; overflow: auto; border: 1px solid #d9dee8; border-radius: 10px; background: #fff; box-shadow: 0 18px 36px rgba(16, 24, 40, .16); padding: 6px; display: none; }
+    .ocr-combo.open .ocr-combo-menu { display: block; }
+    .ocr-combo-option { width: 100%; border: 0; background: transparent; border-radius: 7px; padding: 9px 10px; text-align: left; color: #111827; font-weight: 600; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .ocr-combo-option:hover, .ocr-combo-option.active { background: #f4f2ff; color: var(--ocr-primary); }
+    .ocr-combo-empty { padding: 10px; color: var(--ocr-muted); font-size: 13px; display: none; }
+    .ocr-combo.no-results .ocr-combo-empty { display: block; }
     .ocr-actions { position: sticky; bottom: 0; background: rgba(255,255,255,.96); border-top: 1px solid var(--ocr-line); padding: 12px 0 0; margin-top: 12px; display: flex; justify-content: space-between; gap: 14px; }
     .ocr-primary { background: linear-gradient(135deg, #6d4dfc, #3d2cf0); color: #fff; border: 0; border-radius: 8px; padding: 11px 28px; font-weight: 800; }
     .ocr-secondary { border: 1px solid #cfd5e1; background: #fff; border-radius: 8px; padding: 11px 22px; font-weight: 800; color: #344054; }
@@ -183,7 +192,17 @@
                             <div class="col-md-6 ocr-field">
                                 <label>Phone Number</label>
                                 <div class="ocr-phone-grid">
-                                    <input type="text" name="phone_country_display" class="form-control ocr-country-input" value="{{ $phoneCountryLabel }}" list="phone-country-options" data-phone-country-display autocomplete="off" required>
+                                    <div class="ocr-combo" data-combo>
+                                        <input type="text" name="phone_country_display" class="form-control ocr-country-input" value="{{ $phoneCountryLabel }}" data-combo-input data-phone-country-display autocomplete="off" required>
+                                        <div class="ocr-combo-menu">
+                                            @foreach($countries as $country)
+                                                <button type="button" class="ocr-combo-option" data-combo-option data-value="{{ \App\Support\CountryOptions::phoneLabel($country) }}" data-iso="{{ $country['iso'] }}" data-dial="{{ $country['dial'] }}">
+                                                    <span>{{ \App\Support\CountryOptions::phoneLabel($country) }}</span>
+                                                </button>
+                                            @endforeach
+                                            <div class="ocr-combo-empty">No country found</div>
+                                        </div>
+                                    </div>
                                     <input type="text" name="phone_local" class="form-control" value="{{ $phoneLocal }}" placeholder="50 123 4567" data-phone-local required>
                                 </div>
                                 <input type="hidden" name="phone_country_iso" value="{{ old('phone_country_iso', $defaultCountry['iso']) }}" data-phone-country-iso>
@@ -192,7 +211,17 @@
                             </div>
                             <div class="col-md-6 ocr-field">
                                 <label>Nationality</label>
-                                <input type="text" name="nationality" class="form-control" value="{{ old('nationality', 'Emirati') }}" list="nationality-options" placeholder="Search nationality" autocomplete="off">
+                                <div class="ocr-combo" data-combo>
+                                    <input type="text" name="nationality" class="form-control" value="{{ old('nationality', 'Emirati') }}" data-combo-input placeholder="Search nationality" autocomplete="off">
+                                    <div class="ocr-combo-menu">
+                                        @foreach($nationalities as $nationality)
+                                            <button type="button" class="ocr-combo-option" data-combo-option data-value="{{ $nationality }}">
+                                                <span>{{ $nationality }}</span>
+                                            </button>
+                                        @endforeach
+                                        <div class="ocr-combo-empty">No nationality found</div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -265,16 +294,6 @@
         </div>
     </form>
 
-    <datalist id="phone-country-options">
-        @foreach($countries as $country)
-            <option value="{{ \App\Support\CountryOptions::phoneLabel($country) }}" data-iso="{{ $country['iso'] }}" data-dial="{{ $country['dial'] }}"></option>
-        @endforeach
-    </datalist>
-    <datalist id="nationality-options">
-        @foreach($nationalities as $nationality)
-            <option value="{{ $nationality }}"></option>
-        @endforeach
-    </datalist>
 </div>
 
 @push('scripts')
@@ -298,6 +317,12 @@ document.addEventListener('change', function (event) {
 });
 
 document.addEventListener('input', function (event) {
+    var comboInput = event.target.closest('[data-combo-input]');
+    if (comboInput) {
+        openCombo(comboInput.closest('[data-combo]'));
+        filterCombo(comboInput.closest('[data-combo]'));
+    }
+
     if (event.target.closest('[data-phone-country-display]') || event.target.closest('[data-phone-local]')) {
         syncPhoneValue();
     }
@@ -306,6 +331,67 @@ document.addEventListener('input', function (event) {
 document.addEventListener('submit', function (event) {
     if (event.target.closest('.ocr-create-shell form')) {
         syncPhoneValue();
+    }
+});
+
+document.addEventListener('click', function (event) {
+    var comboInput = event.target.closest('[data-combo-input]');
+    if (comboInput) {
+        openCombo(comboInput.closest('[data-combo]'));
+        filterCombo(comboInput.closest('[data-combo]'), true);
+        comboInput.select();
+        return;
+    }
+
+    var comboOption = event.target.closest('[data-combo-option]');
+    if (comboOption) {
+        selectComboOption(comboOption);
+        return;
+    }
+
+    if (!event.target.closest('[data-combo]')) {
+        closeCombos();
+    }
+});
+
+document.addEventListener('focusin', function (event) {
+    var comboInput = event.target.closest('[data-combo-input]');
+    if (comboInput) {
+        openCombo(comboInput.closest('[data-combo]'));
+        filterCombo(comboInput.closest('[data-combo]'), true);
+    }
+});
+
+document.addEventListener('keydown', function (event) {
+    var input = event.target.closest('[data-combo-input]');
+    if (!input) return;
+    var combo = input.closest('[data-combo]');
+    var visibleOptions = Array.prototype.slice.call(combo.querySelectorAll('[data-combo-option]')).filter(function (option) {
+        return option.style.display !== 'none';
+    });
+    var activeIndex = visibleOptions.findIndex(function (option) { return option.classList.contains('active'); });
+
+    if (event.key === 'ArrowDown') {
+        event.preventDefault();
+        openCombo(combo);
+        setComboActive(visibleOptions, activeIndex + 1);
+    }
+
+    if (event.key === 'ArrowUp') {
+        event.preventDefault();
+        setComboActive(visibleOptions, activeIndex - 1);
+    }
+
+    if (event.key === 'Enter' && combo.classList.contains('open')) {
+        var active = visibleOptions.find(function (option) { return option.classList.contains('active'); }) || visibleOptions[0];
+        if (active) {
+            event.preventDefault();
+            selectComboOption(active);
+        }
+    }
+
+    if (event.key === 'Escape') {
+        closeCombos();
     }
 });
 
@@ -429,8 +515,8 @@ function syncPhoneValue() {
     var codeInput = document.querySelector('[data-phone-country-code]');
     if (!countryInput || !localInput || !fullInput) return;
 
-    var selected = Array.prototype.slice.call(document.querySelectorAll('#phone-country-options option')).find(function (option) {
-        return option.value === countryInput.value;
+    var selected = Array.prototype.slice.call(document.querySelectorAll('[data-phone-country-display] + .ocr-combo-menu [data-combo-option]')).find(function (option) {
+        return option.getAttribute('data-value') === countryInput.value;
     });
     var dialCode = selected ? selected.getAttribute('data-dial') : (codeInput ? codeInput.value : '+971');
 
@@ -444,5 +530,60 @@ function syncPhoneValue() {
 }
 
 syncPhoneValue();
+
+function openCombo(combo) {
+    if (!combo) return;
+    closeCombos(combo);
+    combo.classList.add('open');
+}
+
+function closeCombos(except) {
+    document.querySelectorAll('[data-combo].open').forEach(function (combo) {
+        if (combo !== except) combo.classList.remove('open');
+    });
+}
+
+function filterCombo(combo, showAll) {
+    if (!combo) return;
+    var input = combo.querySelector('[data-combo-input]');
+    var query = !showAll && input ? input.value.toLowerCase().trim() : '';
+    var visibleCount = 0;
+    combo.querySelectorAll('[data-combo-option]').forEach(function (option) {
+        var matches = option.getAttribute('data-value').toLowerCase().indexOf(query) !== -1;
+        option.style.display = matches ? '' : 'none';
+        option.classList.remove('active');
+        if (matches) visibleCount++;
+    });
+    combo.classList.toggle('no-results', visibleCount === 0);
+    setComboActive(Array.prototype.slice.call(combo.querySelectorAll('[data-combo-option]')).filter(function (option) {
+        return option.style.display !== 'none';
+    }), 0);
+}
+
+function selectComboOption(option) {
+    var combo = option.closest('[data-combo]');
+    var input = combo.querySelector('[data-combo-input]');
+    if (!input) return;
+    input.value = option.getAttribute('data-value');
+
+    if (input.hasAttribute('data-phone-country-display')) {
+        var isoInput = document.querySelector('[data-phone-country-iso]');
+        var codeInput = document.querySelector('[data-phone-country-code]');
+        if (isoInput) isoInput.value = option.getAttribute('data-iso') || '';
+        if (codeInput) codeInput.value = option.getAttribute('data-dial') || '';
+        syncPhoneValue();
+    }
+
+    closeCombos();
+}
+
+function setComboActive(options, index) {
+    if (!options.length) return;
+    var nextIndex = ((index % options.length) + options.length) % options.length;
+    options.forEach(function (option, optionIndex) {
+        option.classList.toggle('active', optionIndex === nextIndex);
+    });
+    options[nextIndex].scrollIntoView({ block: 'nearest' });
+}
 </script>
 @endpush
