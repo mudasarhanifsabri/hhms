@@ -179,7 +179,7 @@ class DocumentOcrController extends Controller
             'nationality' => $this->normalizeNationality($nationality),
             'gender' => $this->normalizeGender($this->firstFilled($fields['sex'] ?? null, $fields['gender'] ?? null, $mrz['gender'] ?? null, $this->extractAfterLabel($normalizedText, ['Sex']))),
             'dob' => $this->normalizeDate($this->firstFilled($fields['date_of_birth'] ?? null, $fields['birth_date'] ?? null, $mrz['dob'] ?? null, $dates['birth'] ?? null)),
-            'id_issue_date' => $this->normalizeDate($this->firstFilled($fields['date_of_issue'] ?? null, $fields['issue_date'] ?? null, $dates['issue'] ?? null)),
+            'id_issue_date' => null,
             'id_expiry_date' => $this->normalizeDate($this->firstFilled($fields['expiration_date'] ?? null, $fields['expiry_date'] ?? null, $mrz['expiry'] ?? null, $dates['expiry'] ?? null)),
             'confidence' => max(0, min(100, (int) ($fields['_confidence'] ?? 55))),
             'warnings' => [],
@@ -215,17 +215,46 @@ class DocumentOcrController extends Controller
 
     private function extractDates(string $text): array
     {
-        $dates = [];
+        $datePattern = '(\d{1,2}\s*(?:[\/\-.]\s*)\d{1,2}\s*(?:[\/\-.]\s*)\d{2,4}|\d{1,2}\s+[A-Z]{3,9}\s+\d{2,4})';
 
-        foreach ([
-            'birth' => '/(?:Date of Birth|Birth Date|DOB)[^\d]{0,20}(\d{1,2}[\/\-. ]\d{1,2}[\/\-. ]\d{2,4})/i',
-            'issue' => '/(?:Issuing Date|Issue Date|Date of Issue)[^\d]{0,20}(\d{1,2}[\/\-. ]\d{1,2}[\/\-. ]\d{2,4})/i',
-            'expiry' => '/(?:Expiry Date|Expiration Date|Date of Expiry|Date of Expiry)[^\d]{0,20}(\d{1,2}[\/\-. ]\d{1,2}[\/\-. ]\d{2,4})/i',
-        ] as $key => $pattern) {
-            $dates[$key] = $this->matchFirst($pattern, $text);
+        return [
+            'birth' => $this->dateNearLabels($text, [
+                'Date of Birth', 'Birth Date', 'DOB', 'Birth/Birth Date', 'Date naiss',
+            ], $datePattern),
+            'issue' => $this->dateNearLabels($text, [
+                'Issuing Date', 'Issue Date', 'Date of Issue', 'Date d issue',
+            ], $datePattern),
+            'expiry' => $this->dateNearLabels($text, [
+                'Expiry Date', 'Expiration Date', 'Date of Expiry', 'Date of expiration', 'Valid until', 'Valid thru',
+            ], $datePattern),
+        ];
+    }
+
+    private function dateNearLabels(string $text, array $labels, string $datePattern): ?string
+    {
+        foreach ($labels as $label) {
+            $pattern = '/' . preg_quote($label, '/') . '[^\n\d]{0,80}' . $datePattern . '/iu';
+            if (preg_match($pattern, $text, $matches)) {
+                return trim($matches[1]);
+            }
         }
 
-        return $dates;
+        $lines = array_values(array_filter(array_map('trim', preg_split('/\R/', $text) ?: [])));
+
+        foreach ($lines as $index => $line) {
+            foreach ($labels as $label) {
+                if (! Str::contains(Str::lower($line), Str::lower($label))) {
+                    continue;
+                }
+
+                $window = implode(' ', array_slice($lines, $index, 3));
+                if (preg_match('/' . $datePattern . '/iu', $window, $matches)) {
+                    return trim($matches[1]);
+                }
+            }
+        }
+
+        return null;
     }
 
     private function extractAfterLabel(string $text, array $labels): ?string
@@ -264,9 +293,9 @@ class DocumentOcrController extends Controller
             return null;
         }
 
-        $value = trim(str_replace(['.', ' '], ['/', '/'], $value));
+        $value = trim(preg_replace('/\s+/', ' ', str_replace('.', '/', $value)) ?: $value);
 
-        foreach (['d/m/Y', 'd/m/y', 'Y-m-d', 'Y/m/d', 'd-m-Y', 'd-m-y'] as $format) {
+        foreach (['d/m/Y', 'd/m/y', 'Y-m-d', 'Y/m/d', 'd-m-Y', 'd-m-y', 'd M Y', 'd M y', 'd F Y', 'd F y'] as $format) {
             try {
                 $date = \Carbon\Carbon::createFromFormat($format, $value);
 

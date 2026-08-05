@@ -180,10 +180,6 @@
                                 <input type="text" name="name_ar" class="form-control text-end" dir="rtl" value="{{ old('name_ar') }}">
                             </div>
                             <div class="col-md-6 ocr-field">
-                                <label>Issue Date</label>
-                                <input type="date" name="id_issue_date" class="form-control" value="{{ old('id_issue_date') }}">
-                            </div>
-                            <div class="col-md-6 ocr-field">
                                 <label>Expiry Date</label>
                                 <input type="date" name="id_expiry_date" class="form-control" value="{{ old('id_expiry_date') }}">
                             </div>
@@ -736,7 +732,6 @@ function applyOcrData(data) {
     setFieldValue('name_ar', data.name_ar);
     setFieldValue('eid_passport_no', data.eid_passport_no);
     setFieldValue('dob', data.dob);
-    setFieldValue('id_issue_date', data.id_issue_date);
     setFieldValue('id_expiry_date', data.id_expiry_date);
     setFieldValue('nationality', data.nationality);
     setSelectValue('gender', data.gender);

@@ -18,7 +18,7 @@ use App\Support\PdfRenderer;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Notification;
 use App\Notifications\LandlordCreated;
-use App\Notifications\LandlordUpdated;
+use Throwable;
 
 
 
@@ -192,6 +192,7 @@ public function store(Request $request)
         'swift_code' => 'nullable|string|max:255',
         'iban' => 'nullable|string|max:255',
         'bank_branch' => 'nullable|string|max:255',
+        'send_welcome_email' => 'nullable|boolean',
     ]);
 
     try {
@@ -231,13 +232,29 @@ public function store(Request $request)
             'id_document_back' => $idDocumentBackPath,
         ]);
 
+        if ($request->boolean('send_welcome_email')) {
+            try {
+                Notification::send($landlord, new LandlordCreated($landlord));
+            } catch (Throwable $mailException) {
+                Log::warning('Landlord welcome email failed.', [
+                    'landlord_id' => $landlord->id,
+                    'email' => $landlord->email,
+                    'error' => $mailException->getMessage(),
+                ]);
+            }
+        }
+
         return redirect()->route('admin.landlord.index')
             ->with('success', 'Landlord created successfully!');
-    } catch (\Exception $e) {
-        Log::error('Error creating landlord: ' . $e->getMessage());
+    } catch (Throwable $e) {
+        Log::error('Error creating landlord.', [
+            'error' => $e->getMessage(),
+            'email' => $validatedData['email'] ?? null,
+            'bank_name' => $validatedData['bank_name'] ?? null,
+        ]);
 
         return redirect()->route('admin.landlord.create')
-            ->withErrors(['error' => 'An error occurred while creating the landlord. Please try again.'])
+            ->withErrors(['error' => config('app.debug') ? $e->getMessage() : 'An error occurred while creating the landlord. Please try again.'])
             ->withInput();
     }
 }
