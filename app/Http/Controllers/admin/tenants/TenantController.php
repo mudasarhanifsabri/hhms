@@ -73,13 +73,19 @@ class TenantController extends Controller
     public function store(Request $request)
     {
         $validatedData = $request->validate([
-            'profile_photo' => 'nullable|image|mimes:jpg,jpeg,png|max:2048',
-            'id_document' => 'nullable|mimes:pdf,jpg,jpeg,png|max:2048',
+            'profile_photo' => 'nullable|image|mimes:jpg,jpeg,png|max:10240',
+            'id_document' => 'nullable|mimes:pdf,jpg,jpeg,png|max:10240',
+            'id_document_back' => 'nullable|mimes:pdf,jpg,jpeg,png|max:10240',
             'name' => 'required|string|max:255',
+            'name_ar' => 'nullable|string|max:255',
             'email' => 'required|email|max:255|unique:users,email',
             'phone' => 'required',
             'dob' => 'required|date',
             'eid_passport_no' => 'required|string|max:50',
+            'nationality' => 'nullable|string|max:100',
+            'gender' => 'nullable|string|max:30',
+            'id_issue_date' => 'nullable|date',
+            'id_expiry_date' => 'nullable|date',
             'address' => 'required|string|max:255',
             'emergency_contact_name' => 'required|string|max:255',
             'emergency_contact_phone' => 'required',
@@ -96,13 +102,19 @@ class TenantController extends Controller
         try {
             $profilePhotoPath = $this->uploadFile($request, 'profile_photo', 'profile_photos');
             $idDocumentPath = $this->uploadFile($request, 'id_document', 'id_documents');
+            $idDocumentBackPath = $this->uploadFile($request, 'id_document_back', 'id_documents');
 
             $tenant = User::create([
                 'name' => $validatedData['name'],
+                'name_ar' => $validatedData['name_ar'] ?? null,
                 'email' => $validatedData['email'],
                 'phone' => $validatedData['phone'],
                 'dob' => $validatedData['dob'],
                 'eid_passport_no' => $validatedData['eid_passport_no'],
+                'nationality' => $validatedData['nationality'] ?? null,
+                'gender' => $validatedData['gender'] ?? null,
+                'id_issue_date' => $validatedData['id_issue_date'] ?? null,
+                'id_expiry_date' => $validatedData['id_expiry_date'] ?? null,
                 'address' => $validatedData['address'],
                 'emergency_contact_name' => $validatedData['emergency_contact_name'],
                 'emergency_contact_phone' => $validatedData['emergency_contact_phone'],
@@ -118,6 +130,7 @@ class TenantController extends Controller
                 'role' => 'tenant',
                 'profile_photo' => $profilePhotoPath,
                 'id_document' => $idDocumentPath,
+                'id_document_back' => $idDocumentBackPath,
             ]);
 
             return redirect()->route('admin.tenant.index')

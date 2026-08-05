@@ -33,10 +33,11 @@ class User extends Authenticatable
         });
     }
     protected $fillable = [
-        'name', 'email', 'phone', 'dob', 'eid_passport_no', 'address',
+        'name', 'name_ar', 'email', 'phone', 'dob', 'eid_passport_no', 'address',
         'emergency_contact_name', 'emergency_contact_phone', 'emergency_contact_email',
         'emergency_contact_relationship', 'password', 'role',
-        'profile_photo', 'id_document','bank_name', 'bank_account_holder', 'bank_account_number',
+        'profile_photo', 'id_document', 'id_document_back', 'nationality', 'gender', 'id_issue_date', 'id_expiry_date',
+        'bank_name', 'bank_account_holder', 'bank_account_number',
         'bank_account_type', 'swift_code', 'iban', 'bank_branch', 'agent_commission', 'is_active'
     ];
 
@@ -59,6 +60,9 @@ class User extends Authenticatable
     {
         return [
             'email_verified_at' => 'datetime',
+            'dob' => 'date',
+            'id_issue_date' => 'date',
+            'id_expiry_date' => 'date',
             'password' => 'hashed',
         ];
     }
