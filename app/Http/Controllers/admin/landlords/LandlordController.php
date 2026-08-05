@@ -412,6 +412,9 @@ public function storeAccountEntry(Request $request, $id)
         'property_id' => 'nullable|exists:properties,id',
         'reference' => 'nullable|string|max:255',
         'description' => 'nullable|string|max:1000',
+        'invoice_attachment' => 'nullable|file|mimes:pdf,jpg,jpeg,png,webp|max:10240',
+        'receipt_attachment' => 'nullable|file|mimes:pdf,jpg,jpeg,png,webp|max:10240',
+        'redirect_to' => 'nullable|string|max:2048',
     ]);
 
     $propertyId = $validatedData['property_id'] ?? null;
@@ -430,11 +433,20 @@ public function storeAccountEntry(Request $request, $id)
         'amount' => $validatedData['amount'],
         'reference' => $validatedData['reference'] ?? null,
         'description' => $validatedData['description'] ?? null,
+        'invoice_attachment' => $this->uploadFile($request, 'invoice_attachment', 'owner_statement_invoices'),
+        'receipt_attachment' => $this->uploadFile($request, 'receipt_attachment', 'owner_statement_receipts'),
     ]);
 
     LandlordAccountEntry::recalculateBalancesFor($landlord->id);
 
-    return redirect()->route('admin.landlord.show', $landlord->id)
+    $redirectTo = $validatedData['redirect_to'] ?? null;
+    $fallbackUrl = route('admin.landlord.account-statement', $landlord->id);
+
+    if (! $redirectTo || ! str_starts_with($redirectTo, url('/'))) {
+        $redirectTo = $fallbackUrl;
+    }
+
+    return redirect()->to($redirectTo)
         ->with('success', 'Owner account statement entry added successfully.');
 }
 

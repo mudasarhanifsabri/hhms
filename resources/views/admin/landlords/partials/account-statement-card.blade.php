@@ -64,6 +64,7 @@
                         <th>Type</th>
                         <th>Property</th>
                         <th>Reference</th>
+                        <th>Attachments</th>
                         <th class="text-end">Credit</th>
                         <th class="text-end">Debit</th>
                         <th class="text-end">Balance</th>
@@ -83,6 +84,23 @@
                             </td>
                             <td>{{ $entry->property?->name ?? 'General' }}</td>
                             <td>{{ $entry->reference ?? '-' }}</td>
+                            <td>
+                                <div class="d-flex flex-wrap gap-1">
+                                    @if ($entry->invoice_attachment)
+                                        <a href="{{ \App\Support\MediaStorage::url($entry->invoice_attachment) }}" target="_blank" class="badge bg-primary-subtle text-primary border">
+                                            <i class="ri-file-list-3-line me-1"></i>Invoice
+                                        </a>
+                                    @endif
+                                    @if ($entry->receipt_attachment)
+                                        <a href="{{ \App\Support\MediaStorage::url($entry->receipt_attachment) }}" target="_blank" class="badge bg-success-subtle text-success border">
+                                            <i class="ri-receipt-line me-1"></i>Receipt
+                                        </a>
+                                    @endif
+                                    @if (! $entry->invoice_attachment && ! $entry->receipt_attachment)
+                                        <span class="text-muted">-</span>
+                                    @endif
+                                </div>
+                            </td>
                             <td class="text-end text-success">
                                 {{ $entry->direction === 'credit' ? number_format((float) $entry->amount, 2) : '-' }}
                             </td>
@@ -93,7 +111,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="7" class="text-center text-muted py-4">No owner account entries yet.</td>
+                            <td colspan="8" class="text-center text-muted py-4">No owner account entries yet.</td>
                         </tr>
                     @endforelse
                 </tbody>
@@ -114,8 +132,9 @@
 <div class="modal fade" id="accountEntryModal" tabindex="-1" aria-labelledby="accountEntryModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
-            <form action="{{ $accountEntryRoute }}" method="POST">
+            <form action="{{ $accountEntryRoute }}" method="POST" enctype="multipart/form-data">
                 @csrf
+                <input type="hidden" name="redirect_to" value="{{ url()->full() }}">
                 <div class="modal-header">
                     <h5 class="modal-title" id="accountEntryModalLabel">Owner Account Entry</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
@@ -154,6 +173,16 @@
                         <div class="col-lg-12">
                             <label for="description" class="form-label">Description</label>
                             <textarea class="form-control" id="description" name="description" rows="3" placeholder="Short note for this statement entry">{{ old('description') }}</textarea>
+                        </div>
+                        <div class="col-lg-6">
+                            <label for="invoice_attachment" class="form-label">Invoice Attachment</label>
+                            <input type="file" class="form-control" id="invoice_attachment" name="invoice_attachment" accept=".pdf,image/*">
+                            <small class="text-muted">PDF, JPG, PNG or WebP</small>
+                        </div>
+                        <div class="col-lg-6">
+                            <label for="receipt_attachment" class="form-label">Receipt Attachment</label>
+                            <input type="file" class="form-control" id="receipt_attachment" name="receipt_attachment" accept=".pdf,image/*">
+                            <small class="text-muted">Payment proof or receipt</small>
                         </div>
                     </div>
                 </div>

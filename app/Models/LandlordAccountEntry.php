@@ -37,6 +37,8 @@ class LandlordAccountEntry extends BaseModel
         'balance_after',
         'reference',
         'description',
+        'invoice_attachment',
+        'receipt_attachment',
     ];
 
     protected $casts = [
