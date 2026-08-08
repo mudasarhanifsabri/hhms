@@ -55,6 +55,12 @@
                     </td>
                     <td>
                         <button type="button" class="btn btn-sm btn-light" data-bs-toggle="modal" data-bs-target="#editExpense{{ $expense->id }}"><i class="ri-edit-line"></i></button>
+                        @if(! in_array($expense->approval_status, ['approved', 'paid', 'rejected'], true))
+                            <form action="{{ route('admin.accounting.expenses.approve', $expense->id) }}" method="POST" class="d-inline">
+                                @csrf
+                                <button class="btn btn-sm btn-success" title="Approve and post"><i class="ri-check-line"></i></button>
+                            </form>
+                        @endif
                     </td>
                 </tr>
             @empty
@@ -79,8 +85,9 @@
             <div class="col-md-4"><label class="form-label">Paid / Charged To</label><select name="responsibility" class="form-select" required><option value="company">Company</option><option value="owner">Owner</option><option value="tenant_guest">Tenant / Guest</option></select></div>
             <div class="col-md-4"><label class="form-label">Paid From Account</label><select name="paid_from_account_id" class="form-select"><option value="">Select bank/cash</option>@foreach($bankAccounts as $bankAccount)<option value="{{ $bankAccount->id }}">{{ $bankAccount->name }}</option>@endforeach</select></div>
             <div class="col-md-4"><label class="form-label">Approval Status</label><select name="approval_status" class="form-select"><option value="draft">Draft</option><option value="pending">Pending</option><option value="reviewed">Reviewed</option><option value="approved" selected>Approved</option><option value="paid">Paid</option><option value="rejected">Rejected</option></select></div>
-            <div class="col-md-4"><label class="form-label">Net Amount</label><input type="number" step="0.01" name="net_amount" class="form-control" required></div>
+            <div class="col-md-4"><label class="form-label">Amount</label><input type="number" step="0.01" name="net_amount" class="form-control" required><small class="text-muted">Enter bill amount.</small></div>
             <div class="col-md-4"><label class="form-label">VAT %</label><input type="number" step="0.01" name="vat_rate" value="5" class="form-control"></div>
+            <div class="col-md-4 d-flex align-items-end"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" name="vat_included" value="1" id="expenseVatIncluded"><label class="form-check-label" for="expenseVatIncluded">VAT included in amount</label></div></div>
             <div class="col-md-6"><label class="form-label">Payment Method</label><input name="payment_method" class="form-control"></div>
             <div class="col-md-6"><label class="form-label">Transaction Reference</label><input name="transaction_reference" class="form-control"></div>
             <div class="col-12"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" name="owner_billable" value="1" id="ownerBillable"><label class="form-check-label" for="ownerBillable">Add this expense to owner statement</label></div></div>
@@ -117,8 +124,9 @@
                 <div class="col-md-4"><label class="form-label">Paid / Charged To</label><select name="responsibility" class="form-select" required><option value="company" @selected($expense->responsibility === 'company')>Company</option><option value="owner" @selected($expense->responsibility === 'owner')>Owner</option><option value="tenant_guest" @selected($expense->responsibility === 'tenant_guest')>Tenant / Guest</option></select></div>
                 <div class="col-md-4"><label class="form-label">Paid From Account</label><select name="paid_from_account_id" class="form-select"><option value="">Select bank/cash</option>@foreach($bankAccounts as $bankAccount)<option value="{{ $bankAccount->id }}" @selected($expense->paid_from_account_id === $bankAccount->id)>{{ $bankAccount->name }}</option>@endforeach</select></div>
                 <div class="col-md-4"><label class="form-label">Status</label><select name="approval_status" class="form-select"><option value="draft" @selected($expense->approval_status === 'draft')>Draft</option><option value="pending" @selected($expense->approval_status === 'pending')>Pending</option><option value="reviewed" @selected($expense->approval_status === 'reviewed')>Reviewed</option><option value="approved" @selected($expense->approval_status === 'approved')>Approved</option><option value="paid" @selected($expense->approval_status === 'paid')>Paid</option><option value="rejected" @selected($expense->approval_status === 'rejected')>Rejected</option></select></div>
-                <div class="col-md-4"><label class="form-label">Net Amount</label><input type="number" step="0.01" name="net_amount" value="{{ $expense->net_amount }}" class="form-control" required></div>
+                <div class="col-md-4"><label class="form-label">Amount</label><input type="number" step="0.01" name="net_amount" value="{{ $expense->gross_amount ?: $expense->net_amount }}" class="form-control" required><small class="text-muted">Use checkbox if this amount already includes VAT.</small></div>
                 <div class="col-md-4"><label class="form-label">VAT %</label><input type="number" step="0.01" name="vat_rate" value="{{ $expense->vat_rate }}" class="form-control"></div>
+                <div class="col-md-4 d-flex align-items-end"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" name="vat_included" value="1" id="vatIncluded{{ $expense->id }}" checked><label class="form-check-label" for="vatIncluded{{ $expense->id }}">VAT included in amount</label></div></div>
                 <div class="col-md-4"><label class="form-label">Transaction Reference</label><input name="transaction_reference" value="{{ $expense->transaction_reference }}" class="form-control"></div>
                 <div class="col-md-6"><label class="form-label">Payment Method</label><input name="payment_method" value="{{ $expense->payment_method }}" class="form-control"></div>
                 <div class="col-md-6 d-flex align-items-end"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" name="owner_billable" value="1" id="ownerBillable{{ $expense->id }}" @checked($expense->owner_billable)><label class="form-check-label" for="ownerBillable{{ $expense->id }}">Add to owner statement after approval</label></div></div>

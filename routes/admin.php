@@ -42,6 +42,7 @@ Route::post('/accounting/ledger', [AccountingController::class, 'storeEntry'])->
 Route::get('/accounting/expenses', [AccountingController::class, 'expenses'])->name('accounting.expenses');
 Route::post('/accounting/expenses', [AccountingController::class, 'storeExpense'])->name('accounting.expenses.store');
 Route::put('/accounting/expenses/{expense}', [AccountingController::class, 'updateExpense'])->name('accounting.expenses.update');
+Route::post('/accounting/expenses/{expense}/approve', [AccountingController::class, 'approveExpense'])->name('accounting.expenses.approve');
 Route::get('/accounting/expenses/import', [AccountingController::class, 'importExpenses'])->name('accounting.expenses.import');
 Route::post('/accounting/expenses/import/preview', [AccountingController::class, 'previewExpenseImport'])->name('accounting.expenses.import.preview');
 Route::post('/accounting/expenses/import/confirm', [AccountingController::class, 'confirmExpenseImport'])->name('accounting.expenses.import.confirm');

@@ -257,6 +257,7 @@ class AccountingController extends Controller
             'owner_billable' => 'nullable|boolean',
             'net_amount' => 'required|numeric|min:0',
             'vat_rate' => 'nullable|numeric|min:0|max:100',
+            'vat_included' => 'nullable|boolean',
             'payment_method' => 'nullable|string|max:100',
             'transaction_reference' => 'nullable|string|max:255',
             'receipt' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:10240',
@@ -266,10 +267,7 @@ class AccountingController extends Controller
         ]);
 
         $property = ! empty($data['property_id']) ? Property::find($data['property_id']) : null;
-        $vatRate = (float) ($data['vat_rate'] ?? 5);
-        $net = (float) $data['net_amount'];
-        $vat = round($net * ($vatRate / 100), 2);
-        $gross = $net + $vat;
+        $amounts = $this->expenseAmounts((float) $data['net_amount'], (float) ($data['vat_rate'] ?? 5), $request->boolean('vat_included'));
         $receipt = $this->upload($request, 'receipt', 'expense_receipts');
         $invoice = $this->upload($request, 'invoice', 'expense_invoices');
 
@@ -278,9 +276,10 @@ class AccountingController extends Controller
             'expense_no' => $this->nextNumber('EXP', Expense::class, 'expense_no'),
             'landlord_id' => $property?->landlord_id,
             'owner_billable' => $request->boolean('owner_billable'),
-            'vat_rate' => $vatRate,
-            'vat_amount' => $vat,
-            'gross_amount' => $gross,
+            'net_amount' => $amounts['net'],
+            'vat_rate' => $amounts['rate'],
+            'vat_amount' => $amounts['vat'],
+            'gross_amount' => $amounts['gross'],
             'receipt_path' => $receipt,
             'invoice_path' => $invoice,
             'approval_status' => $data['approval_status'] ?? 'approved',
@@ -314,6 +313,7 @@ class AccountingController extends Controller
             'owner_billable' => 'nullable|boolean',
             'net_amount' => 'required|numeric|min:0',
             'vat_rate' => 'nullable|numeric|min:0|max:100',
+            'vat_included' => 'nullable|boolean',
             'payment_method' => 'nullable|string|max:100',
             'transaction_reference' => 'nullable|string|max:255',
             'receipt' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:10240',
@@ -323,9 +323,7 @@ class AccountingController extends Controller
         ]);
 
         $property = ! empty($data['property_id']) ? Property::find($data['property_id']) : null;
-        $vatRate = (float) ($data['vat_rate'] ?? 5);
-        $net = (float) $data['net_amount'];
-        $vat = round($net * ($vatRate / 100), 2);
+        $amounts = $this->expenseAmounts((float) $data['net_amount'], (float) ($data['vat_rate'] ?? 5), $request->boolean('vat_included'));
         $receipt = $this->upload($request, 'receipt', 'expense_receipts');
         $invoice = $this->upload($request, 'invoice', 'expense_invoices');
 
@@ -333,9 +331,10 @@ class AccountingController extends Controller
             ...$data,
             'landlord_id' => $property?->landlord_id,
             'owner_billable' => $request->boolean('owner_billable'),
-            'vat_rate' => $vatRate,
-            'vat_amount' => $vat,
-            'gross_amount' => $net + $vat,
+            'net_amount' => $amounts['net'],
+            'vat_rate' => $amounts['rate'],
+            'vat_amount' => $amounts['vat'],
+            'gross_amount' => $amounts['gross'],
             'receipt_path' => $receipt ?? $expense->receipt_path,
             'invoice_path' => $invoice ?? $expense->invoice_path,
             'needs_review' => in_array($data['approval_status'], ['draft', 'pending'], true) ? $expense->needs_review : false,
@@ -348,6 +347,26 @@ class AccountingController extends Controller
         }
 
         return back()->with('success', 'Expense updated.');
+    }
+
+    public function approveExpense(Expense $expense)
+    {
+        if ($expense->approval_status === 'rejected') {
+            return back()->with('error', 'Rejected expenses cannot be approved.');
+        }
+
+        $expense->update(array_merge(
+            ['approval_status' => 'approved'],
+            Schema::hasColumn('expenses', 'needs_review') ? ['needs_review' => false] : []
+        ));
+
+        if (! $expense->accounting_entry_id) {
+            $entry = $this->postExpenseEntry($expense);
+            $expense->update(['accounting_entry_id' => $entry->id]);
+            $this->postOwnerDebitIfNeeded($expense);
+        }
+
+        return back()->with('success', 'Expense approved and posted.');
     }
 
     public function utilities(Request $request)
@@ -488,23 +507,64 @@ class AccountingController extends Controller
     public function reports(Request $request)
     {
         $month = $this->month($request);
-        $from = $month->copy()->startOfMonth();
-        $to = $month->copy()->endOfMonth();
+        $from = Carbon::parse($request->input('date_from', $month->copy()->startOfMonth()->toDateString()))->startOfDay();
+        $to = Carbon::parse($request->input('date_to', $month->copy()->endOfMonth()->toDateString()))->endOfDay();
         $utilityByType = UtilityBill::selectRaw('utility_accounts.utility_type, sum(utility_bills.total_amount) as total')
             ->join('utility_accounts', 'utility_accounts.id', '=', 'utility_bills.utility_account_id')
             ->whereBetween('bill_month', [$from, $to])
             ->groupBy('utility_accounts.utility_type')
             ->pluck('total', 'utility_type');
-        $expensesByCategory = Expense::whereBetween('expense_date', [$from, $to])
+
+        $expenseBaseQuery = Expense::with(['property.building', 'vendor', 'paidFromAccount'])
+            ->whereBetween('expense_date', [$from, $to])
+            ->where('approval_status', '!=', 'rejected');
+
+        $expenseRows = (clone $expenseBaseQuery)
+            ->latest('expense_date')
+            ->get();
+
+        $expensesByCategory = (clone $expenseBaseQuery)
             ->selectRaw('category, sum(gross_amount) as total')
             ->groupBy('category')
             ->pluck('total', 'category');
+        $expensesByDate = (clone $expenseBaseQuery)
+            ->selectRaw('expense_date, sum(net_amount) as net_total, sum(vat_amount) as vat_total, sum(gross_amount) as gross_total, count(*) as count_total')
+            ->groupBy('expense_date')
+            ->orderBy('expense_date')
+            ->get();
+        $expensesByUnit = $expenseRows
+            ->groupBy(fn (Expense $expense) => $expense->property?->name ?: 'General Company Expense')
+            ->map(fn ($items) => [
+                'count' => $items->count(),
+                'net' => $items->sum('net_amount'),
+                'vat' => $items->sum('vat_amount'),
+                'gross' => $items->sum('gross_amount'),
+            ]);
+        $expenseTotals = [
+            'count' => $expenseRows->count(),
+            'draft' => $expenseRows->where('approval_status', 'draft')->count(),
+            'review' => $expenseRows->where('needs_review', true)->count(),
+            'net' => $expenseRows->sum('net_amount'),
+            'vat' => $expenseRows->sum('vat_amount'),
+            'gross' => $expenseRows->sum('gross_amount'),
+        ];
         $outstandingBills = UtilityBill::with(['account', 'property'])
             ->whereIn('status', ['outstanding', 'overdue'])
             ->orderBy('due_date')
             ->get();
 
-        return view('admin.accounting.reports', compact('month', 'utilityByType', 'expensesByCategory', 'outstandingBills'));
+        return view('admin.accounting.reports', compact(
+            'month',
+            'from',
+            'to',
+            'utilityByType',
+            'expensesByCategory',
+            'expensesByDate',
+            'expensesByUnit',
+            'expenseRows',
+            'expenseTotals',
+            'outstandingBills'
+        ));
     }
 
     public function chartOfAccounts(Request $request)
@@ -847,6 +907,29 @@ class AccountingController extends Controller
             ->where('supplier', $row['supplier'] ?: '')
             ->where('gross_amount', (float) ($row['gross_amount'] ?? 0))
             ->exists();
+    }
+
+    private function expenseAmounts(float $enteredAmount, float $vatRate, bool $vatIncluded): array
+    {
+        $vatRate = max(0, $vatRate);
+        $divider = 1 + ($vatRate / 100);
+
+        if ($vatIncluded && $divider > 0) {
+            $gross = round($enteredAmount, 2);
+            $net = round($gross / $divider, 2);
+            $vat = round($gross - $net, 2);
+        } else {
+            $net = round($enteredAmount, 2);
+            $vat = round($net * ($vatRate / 100), 2);
+            $gross = round($net + $vat, 2);
+        }
+
+        return [
+            'net' => $net,
+            'vat' => $vat,
+            'gross' => $gross,
+            'rate' => $vatRate,
+        ];
     }
 
     private function expenseShouldPost(Expense $expense): bool
