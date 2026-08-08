@@ -7,7 +7,7 @@
     <div class="card-header d-flex justify-content-between align-items-center">
         <h4 class="card-title mb-0">Expense Management</h4>
         <div class="d-flex gap-2">
-            <a href="{{ route('admin.accounting.expenses.import') }}" class="btn btn-soft-primary"><i class="ri-upload-cloud-2-line me-1"></i>Import Expenses</a>
+            <a href="{{ url('/admin/accounting/expenses/import') }}" class="btn btn-soft-primary"><i class="ri-upload-cloud-2-line me-1"></i>Import Expenses</a>
             <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#expenseModal"><i class="ri-add-line me-1"></i>Record Expense</button>
         </div>
     </div>
@@ -61,6 +61,11 @@
                                 <button class="btn btn-sm btn-success" title="Approve and post"><i class="ri-check-line"></i></button>
                             </form>
                         @endif
+                        <form action="{{ url('/admin/accounting/expenses/' . $expense->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Delete this expense? Linked ledger entry and owner statement debit will also be removed.');">
+                            @csrf
+                            @method('DELETE')
+                            <button class="btn btn-sm btn-soft-danger" title="Delete Expense"><i class="ri-delete-bin-line"></i></button>
+                        </form>
                     </td>
                 </tr>
             @empty

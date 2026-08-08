@@ -18,6 +18,7 @@ use App\Models\Vendor;
 use App\Support\MediaStorage;
 use App\Support\PdfRenderer;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
@@ -367,6 +368,36 @@ class AccountingController extends Controller
         }
 
         return back()->with('success', 'Expense approved and posted.');
+    }
+
+    public function destroyExpense(Expense $expense)
+    {
+        $landlordId = $expense->landlord_id;
+        $expenseNo = $expense->expense_no;
+
+        DB::transaction(function () use ($expense, $landlordId, $expenseNo) {
+            AccountingEntry::where('expense_id', $expense->id)->delete();
+
+            if ($landlordId && $expenseNo) {
+                LandlordAccountEntry::where('landlord_id', $landlordId)
+                    ->where('reference', $expenseNo)
+                    ->delete();
+            }
+
+            UtilityBill::where('expense_id', $expense->id)->update([
+                'expense_id' => null,
+                'accounting_entry_id' => null,
+                'status' => 'outstanding',
+            ]);
+
+            $expense->delete();
+        });
+
+        if ($landlordId) {
+            LandlordAccountEntry::recalculateBalancesFor($landlordId);
+        }
+
+        return back()->with('success', 'Expense deleted successfully.');
     }
 
     public function utilities(Request $request)
