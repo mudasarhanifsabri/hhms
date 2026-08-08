@@ -767,16 +767,23 @@ class AccountingController extends Controller
         }
 
         $transactionId = $this->firstImportValue($normalized, ['transaction_id', 'transactionid', 'id', 'reference', 'transaction_reference']);
-        $date = $this->normalizeImportDate($this->firstImportValue($normalized, ['date', 'transaction_date', 'created_at', 'settlement_date']));
+        $date = $this->normalizeImportDate($this->firstImportValue($normalized, [
+            'date',
+            'transaction_date',
+            'transaction_clearing_time',
+            'transaction_authorization_time',
+            'created_at',
+            'settlement_date',
+        ]));
         $supplier = $this->firstImportValue($normalized, ['merchant', 'merchant_name', 'supplier', 'vendor', 'description']);
-        $category = $this->guessExpenseCategory($this->firstImportValue($normalized, ['category', 'expense_category', 'merchant_category']));
-        $debit = $this->importMoney($this->firstImportValue($normalized, ['debit', 'amount', 'billing_amount', 'transaction_amount']));
-        $credit = $this->importMoney($this->firstImportValue($normalized, ['credit']));
+        $category = $this->guessExpenseCategory($this->firstImportValue($normalized, ['category', 'expense_category', 'merchant_category', 'spend_category']));
+        $debit = $this->importMoney($this->firstImportValue($normalized, ['debit', 'amount_debited', 'amount', 'billing_amount', 'transaction_amount']));
+        $credit = $this->importMoney($this->firstImportValue($normalized, ['credit', 'amount_credited']));
         $gross = max(0, $debit ?: -$credit);
         $vat = $this->importMoney($this->firstImportValue($normalized, ['vat', 'vat_amount', 'tax']));
-        $trn = $this->firstImportValue($normalized, ['trn', 'tax_registration_number']);
+        $trn = $this->firstImportValue($normalized, ['trn', 'trn_number', 'tax_registration_number']);
         $invoice = $this->firstImportValue($normalized, ['invoice', 'invoice_number', 'receipt_number']);
-        $notes = $this->firstImportValue($normalized, ['notes', 'note', 'comments', 'memo']);
+        $notes = $this->firstImportValue($normalized, ['notes', 'note', 'comments', 'memo', 'comments_from_the_employee_cardholder']);
 
         return [
             'expense_date' => $date,
@@ -891,7 +898,9 @@ class AccountingController extends Controller
         }
 
         try {
-            return Carbon::parse(str_replace('/', '-', $value))->toDateString();
+            $clean = preg_replace('/\s*\([^)]*\)\s*/', '', $value);
+
+            return Carbon::parse(str_replace('/', '-', $clean))->toDateString();
         } catch (\Throwable) {
             return null;
         }

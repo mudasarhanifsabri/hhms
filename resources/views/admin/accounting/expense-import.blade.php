@@ -82,7 +82,7 @@
             <div class="col-lg-3">
                 <div class="form-check form-switch mb-2">
                     <input class="form-check-input" type="checkbox" name="default_owner_billable" value="1" id="importOwnerBillable">
-                    <label class="form-check-label" for="importOwnerBillable">Owner billable after approval</label>
+                    <label class="form-check-label" for="importOwnerBillable">Deduct from owner statement after approval</label>
                 </div>
                 <button class="btn btn-primary w-100" @disabled($importableRows->isEmpty())>
                     Import {{ $importableRows->count() }} Draft Expense(s)
