@@ -27,7 +27,10 @@ class LandlordController extends Controller
     public function index(Request $request): Response
     {
         $perPage = $request->input('per_page', 10); // Default 10 per page
-        $landlords = User::where('role', 'landlord')->paginate($perPage);
+        $landlords = User::where('role', 'landlord')
+            ->latest()
+            ->paginate($perPage);
+        $this->attachOwnerUnitSummary($landlords->getCollection());
         $totalLandlords = User::where('role', 'landlord')->count();
 
         return response()->view('admin.landlords.index', compact('landlords', 'totalLandlords', 'perPage'));
@@ -36,7 +39,10 @@ class LandlordController extends Controller
     public function showGrid(Request $request): Response
 {
         $perPage = $request->input('per_page', 10); // Default 10 per page
-        $landlords = User::where('role', 'landlord')->paginate($perPage);
+        $landlords = User::where('role', 'landlord')
+            ->latest()
+            ->paginate($perPage);
+        $this->attachOwnerUnitSummary($landlords->getCollection());
         $totalLandlords = User::where('role', 'landlord')->count();
 
         return response()->view('admin.landlords.showgrid', compact('landlords', 'totalLandlords', 'perPage'));
@@ -45,9 +51,9 @@ class LandlordController extends Controller
     public function show($id)
     {
         $landlord = User::where('role', 'landlord')->findOrFail($id);
-        $relatedProperties = Property::where('landlord_id', $landlord->id)->latest()->limit(8)->get();
-        $ownedPropertiesCount = Property::where('landlord_id', $landlord->id)->count();
-        $rentedPropertiesCount = Property::where('landlord_id', $landlord->id)->whereIn('status', ['booked', 'rented'])->count();
+        $relatedProperties = $this->ownerUnitsQuery($landlord->id)->latest()->limit(8)->get();
+        $ownedPropertiesCount = $this->ownerUnitsQuery($landlord->id)->count();
+        $rentedPropertiesCount = $this->ownerUnitsQuery($landlord->id)->whereIn('status', ['booked', 'rented'])->count();
         $profileUser = $landlord;
         $roleLabel = 'Owner / Landlord';
         $editRoute = route('admin.landlord.edit', $landlord->id);
@@ -82,7 +88,7 @@ class LandlordController extends Controller
     public function accountStatement(Request $request, $id)
     {
         $landlord = User::where('role', 'landlord')->findOrFail($id);
-        $relatedProperties = Property::where('landlord_id', $landlord->id)->latest()->get();
+        $relatedProperties = $this->ownerUnitsQuery($landlord->id)->latest()->get();
         $filters = $this->accountStatementFilters($request);
         $perPage = $request->integer('per_page', 25);
         $perPage = in_array($perPage, [10, 25, 50, 100], true) ? $perPage : 25;
@@ -141,7 +147,7 @@ class LandlordController extends Controller
     public function ownedProperties($id)
     {
         $landlord = User::where('role', 'landlord')->findOrFail($id);
-        $relatedProperties = Property::where('landlord_id', $landlord->id)
+        $relatedProperties = $this->ownerUnitsQuery($landlord->id)
             ->latest()
             ->paginate(12);
         $propertiesTitle = 'Owned Units';
@@ -444,9 +450,9 @@ public function storeAccountEntry(Request $request, $id)
 
     $propertyId = $validatedData['property_id'] ?? null;
 
-    if ($propertyId && ! Property::where('id', $propertyId)->where('landlord_id', $landlord->id)->exists()) {
+    if ($propertyId && ! $this->ownerUnitsQuery($landlord->id)->where('id', $propertyId)->exists()) {
         return back()
-            ->withErrors(['property_id' => 'Please select one of this landlord owner properties.']);
+            ->withErrors(['property_id' => 'Please select one of this owner units.']);
     }
 
     LandlordAccountEntry::create([
@@ -501,6 +507,26 @@ private function accountStatementFilters(Request $request): array
         'date_from' => $request->input('date_from'),
         'date_to' => $request->input('date_to'),
     ];
+}
+
+private function ownerUnitsQuery(string $landlordId)
+{
+    return Property::with(['building', 'ownerShares.owner'])
+        ->where(function ($query) use ($landlordId) {
+            $query->where('landlord_id', $landlordId)
+                ->orWhereHas('ownerShares', fn ($shareQuery) => $shareQuery->where('owner_id', $landlordId));
+        });
+}
+
+private function attachOwnerUnitSummary($landlords): void
+{
+    $landlords->each(function (User $landlord) {
+        $units = $this->ownerUnitsQuery($landlord->id)->get();
+        $landlord->setAttribute('owned_units_count', $units->count());
+        $landlord->setAttribute('booked_units_count', $units->whereIn('status', ['booked', 'rented'])->count());
+        $landlord->setAttribute('available_units_count', $units->whereIn('status', ['available', 'vacant'])->count());
+        $landlord->setRelation('owned_units_preview', $units->take(3));
+    });
 }
 
 private function statementPeriod($accountEntries, array $filters): array

@@ -10,6 +10,7 @@ use Illuminate\Support\Str;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Spatie\Permission\Traits\HasRoles;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class User extends Authenticatable
@@ -75,6 +76,23 @@ public function landlord(): BelongsTo
 public function landlordAccountEntries(): HasMany
 {
     return $this->hasMany(LandlordAccountEntry::class, 'landlord_id');
+}
+
+public function properties(): HasMany
+{
+    return $this->hasMany(Property::class, 'landlord_id');
+}
+
+public function ownedPropertyShares(): HasMany
+{
+    return $this->hasMany(PropertyOwnerShare::class, 'owner_id');
+}
+
+public function sharedOwnedProperties(): BelongsToMany
+{
+    return $this->belongsToMany(Property::class, 'property_owner_shares', 'owner_id', 'property_id')
+        ->withPivot(['share_percent', 'is_primary'])
+        ->withTimestamps();
 }
 
 public function agentBookings(): HasMany

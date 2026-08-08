@@ -51,7 +51,7 @@
     $securityUtilities = $asArray($property->security_utilities);
 
     $quickStats = [
-        ['Bedrooms', $formatValue($property->bedrooms), 'solar:bed-broken', 'primary'],
+        ['Unit Type', $property->unit_type_label, 'solar:home-angle-broken', 'primary'],
         ['Bathrooms', $formatValue($property->bathrooms), 'solar:bath-broken', 'primary'],
         ['Area', filled($property->square_foot) ? $property->square_foot . ' sqft' : 'N/A', 'solar:scale-broken', 'secondary'],
         ['Floor', $formatValue($property->floor), 'solar:double-alt-arrow-up-broken', 'secondary'],
@@ -60,10 +60,10 @@
     $detailGroups = [
         'Unit Overview' => [
             ['Status', $property->status_label, 'solar:check-circle-broken', 'success'],
-            ['Unit Type', $formatValue($property->category), 'solar:home-angle-broken', 'primary'],
+            ['Unit Type', $property->unit_type_label, 'solar:home-angle-broken', 'primary'],
             ['Monthly Rent', $monthlyRent, 'solar:wallet-money-broken', 'warning'],
             ['Management Fee', $managementFee, 'solar:percent-circle-broken', 'info'],
-            ['Room No.', $formatValue($property->room_no), 'solar:hashtag-square-broken', 'secondary'],
+            ['Bedroom Count', $formatValue($property->bedrooms), 'solar:bed-broken', 'secondary'],
         ],
         'Layout & Access' => [
             ['Living Rooms', $formatValue($property->living_rooms), 'solar:sofa-2-broken', 'primary'],

@@ -2,7 +2,7 @@
     $unitNo = $property->name;
     $buildingName = $building->building_name ?? $building->name ?? '';
     $community = $property->community ?: trim($buildingName . ' ' . ($building->address ?? ''));
-    $propertyType = $property->bedrooms ? $property->bedrooms . ' Bedroom' : ($property->category ?? 'Unit');
+    $propertyType = $property->unit_type_label;
     $startDate = $document->sent_at ? $document->sent_at->format('d/m/Y') : now()->format('d/m/Y');
     $endDate = $document->expires_at ? $document->expires_at->format('d/m/Y') : now()->addYear()->format('d/m/Y');
     $money = fn ($value) => number_format((float) $value, 2) . ' AED';

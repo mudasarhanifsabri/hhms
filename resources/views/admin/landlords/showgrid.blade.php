@@ -19,7 +19,7 @@
                                   </div>
 
                                   <div class="col-lg-4">
-                                       <h5 class="text-dark fw-medium mb-0">{{ $totalLandlords }} <span class="text-muted"> Landlords</span></h5>
+                                       <h5 class="text-dark fw-medium mb-0">{{ $totalLandlords }} <span class="text-muted"> Owners</span></h5>
                                   </div>
                              </div>
                         </div>
@@ -27,7 +27,7 @@
                              <div class="text-md-end mt-3 mt-md-0">
                                   <button type="button" class="btn btn-outline-primary me-1"><i class="ri-filter-line me-1"></i> Filters</button>
                                   <a href="{{ route('admin.landlord.create') }}" class="btn btn-success me-1">
-                                    <i class="ri-add-line"></i> New Landlord
+                                    <i class="ri-add-line"></i> New Owner
                                 </a>
                              </div>
                         </div><!-- end col-->
@@ -44,11 +44,11 @@
          <div class="card">
               <div class="card-body">
                    <div class="d-flex flex-wrap align-items-center gap-2 border-bottom pb-3">
-                        <img src="{{ \App\Support\MediaStorage::url($landlord->profile_photo) }}" alt="" class="avatar-lg rounded-3 border border-light border-3">
+                        <img src="{{ \App\Support\MediaStorage::url($landlord->profile_photo) ?: asset('assets/images/users/avatar-1.jpg') }}" alt="" class="avatar-lg rounded-3 border border-light border-3">
                         <div class="d-block">
                              <a href="{{ route('admin.landlord.show', $landlord->id) }}" class="text-dark fw-medium fs-16">{{ $landlord->name }}</a>
                              <p class="mb-0">{{ $landlord->email }}</p>
-                             <p class="mb-0 text-primary">{{ $loop->iteration }}</p>
+                             <p class="mb-0 text-primary">{{ $landlord->phone ?? 'Phone not added' }}</p>
                         </div>
                         <div class="ms-auto">
                            <a href="{{ route('admin.landlord.edit', $landlord->id) }}" title="Edit Landlord">
@@ -58,7 +58,11 @@
 </a>
                         </div>
                    </div>
-                   <p class="mt-3 d-flex align-items-center gap-2 mb-2"><iconify-icon icon="solar:home-bold-duotone" class="fs-18 text-primary"></iconify-icon>243 Properties</p>
+                   <p class="mt-3 d-flex align-items-center gap-2 mb-2">
+                    <iconify-icon icon="solar:home-bold-duotone" class="fs-18 text-primary"></iconify-icon>
+                    {{ $landlord->owned_units_count ?? 0 }} Units
+                    <span class="text-muted small">({{ $landlord->available_units_count ?? 0 }} available / {{ $landlord->booked_units_count ?? 0 }} booked)</span>
+                   </p>
                    <p class="d-flex align-items-center gap-2 mt-2"><iconify-icon icon="solar:map-point-wave-bold-duotone" class="fs-18 text-primary"></iconify-icon>{{ $landlord->address ?? 'N/A' }}</p>
               </div>
               <div class="card-footer border-top">

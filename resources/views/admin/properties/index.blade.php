@@ -135,8 +135,8 @@
                             <th>Unit Photo &amp; Name</th>
                             <th>Size</th>
                             <th>Unit Type</th>
+                            <th>Owner</th>
                             <th>Listing</th>
-                            <th>Bedrooms</th>
                             <th>Location</th>
                             <th>Rent</th>
                             <th>Status</th>
@@ -170,19 +170,21 @@
                                     </div>
                                 </td>
                                 <td>{{ $property->square_foot ? $property->square_foot . ' ft' : '-' }}</td>
-                                <td>{{ $property->category ?? '-' }}</td>
+                                <td>{{ $property->unit_type_label }}</td>
+                                <td>
+                                    <div class="fw-medium">{{ $property->landlord?->name ?? '-' }}</div>
+                                    @if($property->ownerShares->count() > 1)
+                                        <small class="text-muted">{{ $property->ownerShares->count() }} shared owners</small>
+                                    @else
+                                        <small class="text-muted">{{ $property->landlord?->phone ?: 'No phone' }}</small>
+                                    @endif
+                                </td>
                                 <td>
                                     @if($property->rent)
                                         <span class="badge bg-success-subtle text-success py-1 px-2 fs-13">Rent</span>
                                     @else
                                         <span class="badge bg-light text-muted py-1 px-2 fs-13">Not Priced</span>
                                     @endif
-                                </td>
-                                <td>
-                                    <p class="mb-0">
-                                        <iconify-icon icon="solar:bed-broken" class="align-middle fs-16"></iconify-icon>
-                                        {{ $property->bedrooms ?? 0 }}
-                                    </p>
                                 </td>
                                 <td>{{ $location ?: '-' }}</td>
                                 <td>

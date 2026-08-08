@@ -17,7 +17,7 @@
                                        </form>
                                   </div>
                                   <div class="col-lg-4">
-                                       <h5 class="text-dark fw-medium mb-0">{{ $totalLandlords }} <span class="text-muted"> Landlords</span></h5>
+                                       <h5 class="text-dark fw-medium mb-0">{{ $totalLandlords }} <span class="text-muted"> Owners</span></h5>
                                   </div>
                              </div>
                         </div>
@@ -26,7 +26,7 @@
 
                                   <button type="button" class="btn btn-outline-primary me-1"><i class="ri-filter-line me-1"></i> Filters</button>
                                   <a href="{{ route('admin.landlord.create') }}" class="btn btn-success me-1">
-                                    <i class="ri-add-line"></i> New Landlord </a>
+                                    <i class="ri-add-line"></i> New Owner </a>
                              </div>
                         </div><!-- end col-->
                    </div>
@@ -40,7 +40,7 @@
          <div class="card">
               <div class="card-header d-flex justify-content-between align-items-center border-bottom">
                    <div>
-                        <h4 class="card-title">All Landlords List</h4>
+                        <h4 class="card-title">All Owners List</h4>
                    </div>
 
                    <div class="d-flex justify-content-start align-items-center mb-3">
@@ -88,10 +88,10 @@
                         <table class="table align-middle text-nowrap table-hover table-centered mb-0">
                              <thead class="bg-light-subtle">
                                   <tr>
-                                       <th>Landlord Photo & Name</th>
+                                       <th>Owner Photo &amp; Name</th>
                                        <th>Email</th>
                                        <th>Contact</th>
-                                       <th>Properties</th>
+                                       <th>Units</th>
                                        <th>DOB</th>
                                        <th>Status</th>
                                        <th>Action</th>
@@ -103,7 +103,7 @@
                                        <td>
                                             <div class="d-flex align-items-center gap-2">
                                                  <div>
-                                                      <img src="{{ \App\Support\MediaStorage::url($landlord->profile_photo) }}" alt="" class="avatar-sm rounded-circle">
+                                                      <img src="{{ \App\Support\MediaStorage::url($landlord->profile_photo) ?: asset('assets/images/users/avatar-1.jpg') }}" alt="" class="avatar-sm rounded-circle">
                                                  </div>
                                                  <div>
                                                       <a href="{{ route('admin.landlord.show', $landlord->id) }}" class="text-dark fw-medium fs-15">{{ $landlord->name }}</a>
@@ -113,7 +113,12 @@
                                        </td>
                                        <td>{{ $landlord->email ?? 'N/A' }}</td>
                                        <td>{{ $landlord->phone ?? 'N/A' }}</td>
-                                       <td>10 Units</td>
+                                       <td>
+                                            <div class="fw-medium">{{ $landlord->owned_units_count ?? 0 }} Units</div>
+                                            <small class="text-muted">
+                                                {{ $landlord->available_units_count ?? 0 }} available / {{ $landlord->booked_units_count ?? 0 }} booked
+                                            </small>
+                                       </td>
                                        <td>{{ $landlord->dob ? \Carbon\Carbon::parse($landlord->dob)->format('d M Y') : 'N/A' }}</td>
                                        <td><span class="badge bg-success-subtle text-success py-1 px-2 fs-13">Active</span></td>
                                        <td>

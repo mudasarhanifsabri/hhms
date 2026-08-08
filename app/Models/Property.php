@@ -28,6 +28,18 @@ class Property extends Model
         'rented' => 'Booked',
     ];
 
+    public const UNIT_TYPES = [
+        'Studio' => 0,
+        '1 BHK' => 1,
+        '2 BHK' => 2,
+        '3 BHK' => 3,
+        '4 BHK' => 4,
+        '5 BHK' => 5,
+        '6 BHK' => 6,
+        'Penthouse' => 4,
+        'Villa' => 4,
+    ];
+
     /**
      * Indicates that the model's ID is not auto-incrementing.
      */
@@ -205,5 +217,14 @@ public function getStatusClassAttribute(): string
         'under_maintenance' => 'bg-warning',
         default => 'bg-secondary',
     };
+}
+
+public function getUnitTypeLabelAttribute(): string
+{
+    if ($this->category) {
+        return $this->category;
+    }
+
+    return (int) ($this->bedrooms ?? 0) === 0 ? 'Studio' : (int) $this->bedrooms . ' BHK';
 }
 }

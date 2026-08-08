@@ -112,8 +112,17 @@
                 </div>
 
                 <div class="col-lg-4">
-                    <label for="category" class="form-label">Category</label>
-                    <input type="text" id="category" name="category" class="form-control" value="{{ old('category', $property->category) }}">
+                    <label for="category" class="form-label">Unit Type</label>
+                    <select class="form-control" id="category" name="category">
+                        <option value="">Select Unit Type</option>
+                        @foreach(\App\Models\Property::UNIT_TYPES as $unitType => $bedroomCount)
+                            <option value="{{ $unitType }}" @selected(old('category', $property->category) === $unitType)>{{ $unitType }}</option>
+                        @endforeach
+                    </select>
+                    <input type="hidden" name="bedrooms" value="{{ old('bedrooms', $property->bedrooms) }}">
+                    <input type="hidden" name="living_rooms" value="{{ old('living_rooms', $property->living_rooms ?? 1) }}">
+                    <input type="hidden" name="kitchens" value="{{ old('kitchens', $property->kitchens ?? 1) }}">
+                    <input type="hidden" name="room_no" value="{{ old('room_no', $property->room_no) }}">
                 </div>
 
                 <div class="col-lg-4">
@@ -134,11 +143,6 @@
                 <div class="col-lg-4">
                     <label for="community" class="form-label">Community</label>
                     <input type="text" id="community" name="community" class="form-control" value="{{ old('community', $property->community) }}">
-                </div>
-
-                <div class="col-lg-4">
-                    <label for="room_no" class="form-label">No. Room</label>
-                    <input type="text" id="room_no" name="room_no" class="form-control" value="{{ old('room_no', $property->room_no) }}">
                 </div>
 
                 <div class="col-lg-4">

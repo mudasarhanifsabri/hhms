@@ -19,7 +19,33 @@ class PropertyController extends Controller
         $status = $request->input('status');
         $search = $request->input('q');
 
-        $properties = Property::with('building')
+        $properties = $this->unitListQuery($status, $search)
+            ->latest()
+            ->paginate(10)
+            ->withQueryString();
+
+        $unitStats = $this->unitStats();
+
+        return view('admin.properties.index', compact('properties', 'unitStats', 'status', 'search'));
+    }
+
+    public function showGrid(Request $request)
+    {
+        $status = $request->input('status');
+        $search = $request->input('q');
+
+        $properties = $this->unitListQuery($status, $search)
+            ->latest()
+            ->paginate(12)
+            ->withQueryString();
+        $unitStats = $this->unitStats();
+
+        return view('admin.properties.showgrid', compact('properties', 'unitStats', 'status', 'search'));
+    }
+
+    private function unitListQuery(?string $status = null, ?string $search = null)
+    {
+        return Property::with(['building', 'landlord', 'ownerShares.owner'])
             ->when($status, function ($query) use ($status) {
                 $statuses = match ($status) {
                     'available' => ['available', 'vacant'],
@@ -34,30 +60,26 @@ class PropertyController extends Controller
                     $query->where('name', 'like', "%{$search}%")
                         ->orWhere('category', 'like', "%{$search}%")
                         ->orWhere('community', 'like', "%{$search}%")
+                        ->orWhereHas('landlord', function ($query) use ($search) {
+                            $query->where('name', 'like', "%{$search}%")
+                                ->orWhere('email', 'like', "%{$search}%");
+                        })
                         ->orWhereHas('building', function ($query) use ($search) {
                             $query->where('building_name', 'like', "%{$search}%")
                                 ->orWhere('address', 'like', "%{$search}%");
                         });
                 });
-            })
-            ->latest()
-            ->paginate(10)
-            ->withQueryString();
+            });
+    }
 
-        $unitStats = [
+    private function unitStats(): array
+    {
+        return [
             'total' => Property::count(),
             'available' => Property::whereIn('status', ['available', 'vacant'])->count(),
             'booked' => Property::whereIn('status', ['booked', 'rented'])->count(),
             'attention' => Property::whereIn('status', ['under_cleaning', 'under_maintenance'])->count(),
         ];
-
-        return view('admin.properties.index', compact('properties', 'unitStats', 'status', 'search'));
-    }
-
-    public function showGrid()
-    {
-        $properties = Property::latest()->paginate(12);
-        return view('admin.properties.showgrid', compact('properties'));
     }
 
     public function create()
@@ -134,6 +156,7 @@ class PropertyController extends Controller
         ]);
 
         unset($validated['utility_accounts']);
+        $this->applyUnitTypeDefaults($validated);
 
         // Handle file uploads using the configured HHMS media disk.
         if ($request->hasFile('dtcm_unit_permit')) {
@@ -226,6 +249,7 @@ class PropertyController extends Controller
         ]);
 
         unset($validated['utility_accounts']);
+        $this->applyUnitTypeDefaults($validated);
 
         $property->update($validated);
         $this->syncOwnerShares($property, $request);
@@ -306,6 +330,18 @@ class PropertyController extends Controller
                 $account->portal_password = $payload['portal_password'];
                 $account->save();
             }
+        }
+    }
+
+    private function applyUnitTypeDefaults(array &$validated): void
+    {
+        $unitType = $validated['category'] ?? null;
+
+        if ($unitType && array_key_exists($unitType, Property::UNIT_TYPES)) {
+            $validated['bedrooms'] = Property::UNIT_TYPES[$unitType];
+            $validated['living_rooms'] = 1;
+            $validated['kitchens'] = 1;
+            $validated['room_no'] = $unitType;
         }
     }
 }
