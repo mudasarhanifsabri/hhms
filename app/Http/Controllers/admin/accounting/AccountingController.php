@@ -18,6 +18,7 @@ use App\Models\Vendor;
 use App\Support\MediaStorage;
 use App\Support\PdfRenderer;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 
@@ -208,7 +209,7 @@ class AccountingController extends Controller
             $vat = (float) ($row['vat_amount'] ?? 0);
             $net = max(0, (float) ($row['net_amount'] ?? ($gross - $vat)));
 
-            Expense::create([
+            Expense::create(array_merge([
                 'expense_no' => $this->nextNumber('EXP', Expense::class, 'expense_no'),
                 'expense_date' => $row['expense_date'] ?: now()->toDateString(),
                 'category' => $data['default_category'] ?: ($row['category'] ?: 'other'),
@@ -224,15 +225,16 @@ class AccountingController extends Controller
                 'gross_amount' => $gross > 0 ? $gross : $net + $vat,
                 'payment_method' => $row['payment_method'] ?: null,
                 'transaction_reference' => $row['transaction_reference'] ?: null,
+                'approval_status' => 'draft',
+                'description' => $row['description'] ?: 'Imported expense draft',
+                'created_by' => auth()->id(),
+            ], $this->expenseImportTrackingPayload([
                 'import_source_type' => $data['source_type'] ?? ($row['source_type'] ?? null),
                 'import_source_file' => $data['source_file'] ?? ($row['source_file'] ?? null),
                 'imported_transaction_id' => $row['imported_transaction_id'] ?: null,
                 'imported_payload' => $row['raw'] ?? $row,
                 'needs_review' => (bool) ($row['needs_review'] ?? false),
-                'approval_status' => 'draft',
-                'description' => $row['description'] ?: 'Imported expense draft',
-                'created_by' => auth()->id(),
-            ]);
+            ])));
             $created++;
         }
 
@@ -830,7 +832,7 @@ class AccountingController extends Controller
 
     private function importDuplicateExists(array $row): bool
     {
-        if (! empty($row['imported_transaction_id'])) {
+        if (! empty($row['imported_transaction_id']) && Schema::hasColumn('expenses', 'imported_transaction_id')) {
             return Expense::where('imported_transaction_id', $row['imported_transaction_id'])->exists();
         }
 
@@ -843,6 +845,13 @@ class AccountingController extends Controller
     private function expenseShouldPost(Expense $expense): bool
     {
         return in_array($expense->approval_status, ['approved', 'paid'], true);
+    }
+
+    private function expenseImportTrackingPayload(array $payload): array
+    {
+        return collect($payload)
+            ->filter(fn ($value, $column) => Schema::hasColumn('expenses', $column))
+            ->all();
     }
 
     private function excelColumnIndex(string $column): int
