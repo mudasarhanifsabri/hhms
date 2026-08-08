@@ -5,15 +5,15 @@
     <div class="col-xl-8">
         <div class="card">
             <div class="card-header d-flex justify-content-between align-items-center">
-                <div><h4 class="card-title mb-1">{{ $inspection->inspection_number }}</h4><p class="text-muted mb-0">{{ $inspection->booking?->booking_reference }} - {{ $inspection->booking?->guest_name }}</p></div>
+                <div><h4 class="card-title mb-1">{{ $inspection->inspection_number }}</h4><p class="text-muted mb-0">{{ $inspection->booking?->booking_reference ?? $inspection->task?->task_display_number ?? 'Unit inspection' }} - {{ $inspection->booking?->guest_name ?? $inspection->submittedBy?->name ?? 'Maintainer' }}</p></div>
                 <a href="{{ route('admin.inspection.pdf', $inspection->id) }}" class="btn btn-primary btn-sm">PDF Report</a>
             </div>
             <div class="card-body">
                 <div class="row g-3">
                     <div class="col-lg-6"><strong>Type:</strong> {{ $inspection->type_label }}</div>
                     <div class="col-lg-6"><strong>Status:</strong> {{ $inspection->status_label }}</div>
-                    <div class="col-lg-6"><strong>Property:</strong> {{ $inspection->booking?->property?->building?->name ?? '-' }}</div>
-                    <div class="col-lg-6"><strong>Unit:</strong> {{ $inspection->booking?->property?->name ?? '-' }}</div>
+                    <div class="col-lg-6"><strong>Property:</strong> {{ $inspection->booking?->property?->building?->name ?? $inspection->property?->building?->name ?? '-' }}</div>
+                    <div class="col-lg-6"><strong>Unit:</strong> {{ $inspection->booking?->property?->name ?? $inspection->property?->name ?? '-' }}</div>
                     <div class="col-lg-6"><strong>Submitted By:</strong> {{ $inspection->submittedBy?->name ?? '-' }}</div>
                     <div class="col-lg-6"><strong>Submitted:</strong> {{ $inspection->submitted_at?->format('d M Y H:i') ?? '-' }}</div>
                     <div class="col-lg-12"><strong>Notes:</strong> {{ $inspection->notes ?: '-' }}</div>

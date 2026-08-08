@@ -42,6 +42,9 @@
             @if(in_array($task->status, ['new', 'open', 'assigned'], true))
                 <a href="{{ route('maintainer.task.accept.form', $task->id) }}" class="pwa-primary-button green">Accept Task</a>
             @endif
+            @if($task->isInspectionTask() && ! in_array($task->status, ['completed', 'closed', 'cancelled'], true))
+                <a href="{{ route('maintainer.task.inspection.form', $task->id) }}" class="pwa-primary-button purple">Start Inspection</a>
+            @endif
             <a href="{{ route('maintainer.task.remark.form', $task->id) }}" class="pwa-secondary-button">Add Remark</a>
             <a href="{{ route('maintainer.task.timeline', $task->id) }}" class="pwa-secondary-button">Timeline</a>
             <a href="{{ route('maintainer.task.cost.form', $task->id) }}" class="pwa-secondary-button">Add Cost</a>

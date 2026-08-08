@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class BookingTask extends BaseModel
 {
@@ -13,6 +14,7 @@ class BookingTask extends BaseModel
     public const TYPES = [
         'cleaning' => 'Cleaning',
         'maintenance' => 'Maintenance',
+        'inspection' => 'Inspection',
         'checkout_inspection' => 'Check Out Inspection',
         'other' => 'Other',
     ];
@@ -101,6 +103,16 @@ class BookingTask extends BaseModel
     public function costItems(): HasMany
     {
         return $this->hasMany(BookingTaskCostItem::class);
+    }
+
+    public function inspection(): HasOne
+    {
+        return $this->hasOne(BookingInspection::class, 'booking_task_id');
+    }
+
+    public function isInspectionTask(): bool
+    {
+        return in_array($this->type, ['inspection', 'checkout_inspection'], true);
     }
 
     public function getTypeLabelAttribute(): string

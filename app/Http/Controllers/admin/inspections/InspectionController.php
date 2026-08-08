@@ -11,7 +11,7 @@ class InspectionController extends Controller
 {
     public function index(Request $request)
     {
-        $inspections = BookingInspection::with(['booking.property.building', 'submittedBy'])
+        $inspections = BookingInspection::with(['booking.property.building', 'property.building', 'submittedBy', 'task'])
             ->when($request->filled('type'), fn ($query) => $query->where('type', $request->input('type')))
             ->when($request->filled('status'), fn ($query) => $query->where('status', $request->input('status')))
             ->when($request->filled('q'), function ($query) use ($request) {
@@ -30,7 +30,7 @@ class InspectionController extends Controller
 
     public function show(BookingInspection $inspection)
     {
-        $inspection->load(['booking.property.building', 'submittedBy', 'items']);
+        $inspection->load(['booking.property.building', 'property.building', 'submittedBy', 'task', 'items']);
         $comparison = $this->comparisonFor($inspection);
 
         return view('admin.inspections.show', compact('inspection', 'comparison'));
@@ -38,7 +38,7 @@ class InspectionController extends Controller
 
     public function pdf(BookingInspection $inspection)
     {
-        $inspection->load(['booking.property.building', 'submittedBy', 'items']);
+        $inspection->load(['booking.property.building', 'property.building', 'submittedBy', 'task', 'items']);
         $comparison = $this->comparisonFor($inspection);
 
         return PdfRenderer::downloadView('admin.inspections.pdf.report', compact('inspection', 'comparison'), $inspection->inspection_number . '.pdf');
@@ -46,6 +46,10 @@ class InspectionController extends Controller
 
     private function comparisonFor(BookingInspection $inspection): array
     {
+        if (! $inspection->booking_id || ! in_array($inspection->type, ['check_in', 'check_out'], true)) {
+            return ['other' => null, 'changed' => collect()];
+        }
+
         $otherType = $inspection->type === 'check_in' ? 'check_out' : 'check_in';
         $other = BookingInspection::with('items')
             ->where('booking_id', $inspection->booking_id)

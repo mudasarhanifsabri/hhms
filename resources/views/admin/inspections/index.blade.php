@@ -48,9 +48,9 @@
                 @forelse($inspections as $inspection)
                     <tr>
                         <td class="fw-semibold">{{ $inspection->inspection_number }}</td>
-                        <td>{{ $inspection->booking?->booking_reference ?? '-' }}</td>
-                        <td>{{ $inspection->booking?->guest_name ?? '-' }}</td>
-                        <td>{{ $inspection->booking?->property?->building?->name ?? '-' }} - {{ $inspection->booking?->property?->name ?? '-' }}</td>
+                        <td>{{ $inspection->booking?->booking_reference ?? $inspection->task?->task_display_number ?? '-' }}</td>
+                        <td>{{ $inspection->booking?->guest_name ?? $inspection->submittedBy?->name ?? '-' }}</td>
+                        <td>{{ $inspection->booking?->property?->building?->name ?? $inspection->property?->building?->name ?? '-' }} - {{ $inspection->booking?->property?->name ?? $inspection->property?->name ?? '-' }}</td>
                         <td>{{ $inspection->type_label }}</td>
                         <td><span class="badge {{ $inspection->status_class }} text-white">{{ $inspection->status_label }}</span></td>
                         <td>{{ $inspection->issue_items }} / {{ $inspection->total_items }}</td>

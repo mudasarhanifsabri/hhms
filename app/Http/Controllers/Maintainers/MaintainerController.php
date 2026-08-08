@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Maintainers;
 
 use App\Http\Controllers\Controller;
 use App\Models\Booking;
+use App\Models\BookingInspection;
 use App\Models\BookingTask;
 use App\Models\BookingTaskCostItem;
 use App\Support\MediaStorage;
@@ -101,6 +102,7 @@ class MaintainerController extends Controller
             'remarks.user',
             'activities.user',
             'costItems',
+            'inspection.items',
         ]);
 
         return view('maintainer.tasks.show', compact('task'));
@@ -202,6 +204,72 @@ class MaintainerController extends Controller
         $task->recalculateCosts();
 
         return redirect()->route('maintainer.task.show', $task->id)->with('success', 'Cost added.');
+    }
+
+    public function inspectionForm(BookingTask $task)
+    {
+        $this->authorizeAssignedTask($task);
+        abort_unless($task->isInspectionTask(), 404);
+
+        $task->load(['booking.property.building', 'property.building', 'inspection.items']);
+        $inspection = $this->ensureInspectionForTask($task);
+
+        return view('maintainer.tasks.inspection', compact('task', 'inspection'));
+    }
+
+    public function submitInspection(Request $request, BookingTask $task)
+    {
+        $this->authorizeAssignedTask($task);
+        abort_unless($task->isInspectionTask(), 404);
+
+        $inspection = $this->ensureInspectionForTask($task);
+        $validatedData = $request->validate([
+            'items' => 'required|array',
+            'items.*.condition' => 'required|in:good,issue,na',
+            'items.*.comment' => 'nullable|string|max:1000',
+            'pictures.*.*' => 'nullable|file|mimes:jpg,jpeg,png,webp|max:5120',
+            'notes' => 'nullable|string|max:3000',
+            'gps_latitude' => 'nullable|numeric',
+            'gps_longitude' => 'nullable|numeric',
+        ]);
+
+        foreach ($validatedData['items'] as $itemId => $payload) {
+            $item = $inspection->items()->whereKey($itemId)->first();
+            if (! $item) {
+                continue;
+            }
+
+            $pictures = (array) $item->pictures;
+            if ($request->hasFile("pictures.$itemId")) {
+                foreach ((array) $request->file("pictures.$itemId") as $file) {
+                    $pictures[] = $this->uploadOptimizedFile($file, 'booking_inspection_pictures');
+                }
+            }
+
+            $item->update([
+                'condition' => $payload['condition'],
+                'comment' => $payload['comment'] ?? null,
+                'pictures' => $pictures,
+            ]);
+        }
+
+        $this->recalculateInspection($inspection);
+        $inspection->update([
+            'notes' => $validatedData['notes'] ?? $inspection->notes,
+            'status' => 'submitted',
+            'submitted_by' => Auth::id(),
+            'submitted_at' => now(),
+        ]);
+
+        $task->update([
+            'status' => 'completed',
+            'progress' => 100,
+            'completed_at' => now(),
+            'completion_notes' => $inspection->inspection_number . ' submitted with ' . $inspection->issue_items . ' issue(s).',
+        ]);
+        $this->recordActivity($task, 'Inspection Submitted', $task->completion_notes, $request);
+
+        return redirect()->route('maintainer.task.index')->with('success', 'Inspection submitted and task completed.');
     }
 
     public function completeForm(BookingTask $task)
@@ -406,6 +474,101 @@ class MaintainerController extends Controller
         $this->recordActivity($task, ucfirst($data['type']) . ' Added', $data['label'] . ' - AED ' . number_format((float) $data['amount'], 2), request());
 
         return $item;
+    }
+
+    private function ensureInspectionForTask(BookingTask $task): BookingInspection
+    {
+        $task->loadMissing(['booking.property', 'property', 'inspection.items']);
+        $property = $task->booking?->property ?: $task->property;
+
+        $inspection = $task->inspection ?: BookingInspection::create([
+            'booking_id' => $task->booking_id,
+            'property_id' => $property?->id,
+            'booking_task_id' => $task->id,
+            'inspection_number' => $this->nextInspectionNumber(),
+            'type' => $task->type === 'checkout_inspection' ? 'check_out' : 'routine',
+            'status' => 'draft',
+            'selected_areas' => array_keys($this->inspectionTemplateForTask($task)),
+        ]);
+
+        if (empty($inspection->selected_areas)) {
+            $inspection->update(['selected_areas' => array_keys($this->inspectionTemplateForTask($task))]);
+        }
+
+        if ($inspection->items()->count() === 0) {
+            $sort = 1;
+            foreach ($this->inspectionTemplateForTask($task) as $area => $items) {
+                foreach ($items as $item) {
+                    $inspection->items()->create([
+                        'area' => $area,
+                        'item' => $item,
+                        'condition' => 'na',
+                        'sort_order' => $sort++,
+                    ]);
+                }
+            }
+            $this->recalculateInspection($inspection);
+        }
+
+        return $inspection->fresh(['items', 'booking.property.building', 'property.building']);
+    }
+
+    private function inspectionTemplateForTask(BookingTask $task): array
+    {
+        $property = $task->booking?->property ?: $task->property;
+        $bedrooms = max(0, (int) ($property?->bedrooms ?? 0));
+        $bathrooms = max(1, (int) ($property?->bathrooms ?? 1));
+        $areas = [
+            'Living Room' => ['Floor/Walls', 'Sofa/Chairs', 'TV/Remote', 'Lights', 'AC/Cooling'],
+            'Kitchen' => ['Refrigerator', 'Microwave', 'Cooker/Oven', 'Sink/Tap', 'Cabinets'],
+        ];
+
+        if ($bedrooms === 0) {
+            $areas['Studio Sleeping Area'] = ['Bed/Mattress', 'Wardrobe', 'Bed Linen', 'Lights', 'AC/Cooling'];
+        } else {
+            for ($i = 1; $i <= $bedrooms; $i++) {
+                $areas['Bedroom ' . $i] = ['Bed/Mattress', 'Wardrobe', 'Bed Linen', 'Lights', 'AC/Cooling'];
+            }
+        }
+
+        for ($i = 1; $i <= $bathrooms; $i++) {
+            $areas['Bathroom ' . $i] = ['Shower', 'Toilet', 'Wash Basin', 'Mirror', 'Water Pressure'];
+        }
+
+        $featureText = strtolower(json_encode([
+            $property?->amenities,
+            $property?->additional_features,
+            $property?->description,
+            $property?->category,
+        ]));
+
+        if (str_contains($featureText, 'balcony')) {
+            $areas['Balcony'] = ['Door/Lock', 'Floor', 'Furniture', 'Railing', 'Lights'];
+        }
+
+        $areas['Extra Items'] = ['WiFi Router', 'Smart Lock/Keys', 'Iron/Hair Dryer', 'Safety Equipment'];
+
+        return $areas;
+    }
+
+    private function recalculateInspection(BookingInspection $inspection): void
+    {
+        $items = $inspection->items;
+        $inspection->update([
+            'total_items' => $items->count(),
+            'good_items' => $items->where('condition', 'good')->count(),
+            'issue_items' => $items->where('condition', 'issue')->count(),
+            'na_items' => $items->where('condition', 'na')->count(),
+        ]);
+    }
+
+    private function nextInspectionNumber(): string
+    {
+        do {
+            $number = 'INSP-' . now()->format('Ymd') . '-' . strtoupper(substr((string) str()->uuid(), 0, 4));
+        } while (BookingInspection::where('inspection_number', $number)->exists());
+
+        return $number;
     }
 
     private function updatePropertyStatusAfterTaskCompletion(BookingTask $task): void

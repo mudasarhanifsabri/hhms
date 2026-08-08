@@ -10,8 +10,9 @@ return new class extends Migration
     {
         Schema::create('booking_inspections', function (Blueprint $table) {
             $table->uuid('id')->primary();
-            $table->uuid('booking_id')->index();
+            $table->uuid('booking_id')->nullable()->index();
             $table->uuid('property_id')->index();
+            $table->uuid('booking_task_id')->nullable()->index();
             $table->uuid('submitted_by')->nullable()->index();
             $table->string('inspection_number')->unique();
             $table->string('type');

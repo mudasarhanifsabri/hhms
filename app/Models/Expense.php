@@ -39,6 +39,11 @@ class Expense extends BaseModel
         'transaction_reference',
         'receipt_path',
         'invoice_path',
+        'import_source_type',
+        'import_source_file',
+        'imported_transaction_id',
+        'imported_payload',
+        'needs_review',
         'approval_status',
         'description',
         'accounting_entry_id',
@@ -52,6 +57,8 @@ class Expense extends BaseModel
         'vat_rate' => 'decimal:2',
         'vat_amount' => 'decimal:2',
         'gross_amount' => 'decimal:2',
+        'imported_payload' => 'array',
+        'needs_review' => 'boolean',
     ];
 
     public function property(): BelongsTo

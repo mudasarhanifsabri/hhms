@@ -41,6 +41,10 @@ Route::get('/accounting/ledger', [AccountingController::class, 'ledger'])->name(
 Route::post('/accounting/ledger', [AccountingController::class, 'storeEntry'])->name('accounting.ledger.store');
 Route::get('/accounting/expenses', [AccountingController::class, 'expenses'])->name('accounting.expenses');
 Route::post('/accounting/expenses', [AccountingController::class, 'storeExpense'])->name('accounting.expenses.store');
+Route::put('/accounting/expenses/{expense}', [AccountingController::class, 'updateExpense'])->name('accounting.expenses.update');
+Route::get('/accounting/expenses/import', [AccountingController::class, 'importExpenses'])->name('accounting.expenses.import');
+Route::post('/accounting/expenses/import/preview', [AccountingController::class, 'previewExpenseImport'])->name('accounting.expenses.import.preview');
+Route::post('/accounting/expenses/import/confirm', [AccountingController::class, 'confirmExpenseImport'])->name('accounting.expenses.import.confirm');
 Route::get('/accounting/utilities', [AccountingController::class, 'utilities'])->name('accounting.utilities');
 Route::post('/accounting/utilities/accounts', [AccountingController::class, 'storeUtilityAccount'])->name('accounting.utilities.accounts.store');
 Route::post('/accounting/utilities/bills', [AccountingController::class, 'storeUtilityBill'])->name('accounting.utilities.bills.store');

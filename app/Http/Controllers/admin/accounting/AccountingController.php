@@ -136,11 +136,109 @@ class AccountingController extends Controller
         $expenses = Expense::with(['property', 'landlord', 'booking', 'vendor', 'paidFromAccount'])
             ->when($request->filled('category'), fn ($query) => $query->where('category', $request->input('category')))
             ->when($request->filled('property_id'), fn ($query) => $query->where('property_id', $request->input('property_id')))
+            ->when($request->filled('approval_status'), fn ($query) => $query->where('approval_status', $request->input('approval_status')))
             ->latest('expense_date')
             ->paginate(20)
             ->withQueryString();
 
         return view('admin.accounting.expenses', $this->sharedData() + compact('expenses'));
+    }
+
+    public function importExpenses()
+    {
+        return view('admin.accounting.expense-import', $this->sharedData() + [
+            'previewRows' => collect(),
+            'sourcePath' => null,
+            'sourceType' => null,
+            'fileName' => null,
+        ]);
+    }
+
+    public function previewExpenseImport(Request $request)
+    {
+        $data = $request->validate([
+            'expense_file' => 'required|file|mimes:csv,txt,xlsx,xls,pdf|max:20480',
+        ]);
+
+        $file = $data['expense_file'];
+        $sourceType = strtolower($file->getClientOriginalExtension());
+        $sourcePath = MediaStorage::store($file, 'expense_imports');
+        $rows = collect($this->parseExpenseImport($file->getRealPath(), $sourceType, $file->getClientOriginalName()))
+            ->map(function (array $row, int $index) use ($sourceType, $sourcePath) {
+                $row['row_key'] = $index + 1;
+                $row['source_type'] = $sourceType;
+                $row['source_file'] = $sourcePath;
+                $row['status'] = $this->importDuplicateExists($row) ? 'duplicate' : ($row['needs_review'] ? 'needs_review' : 'new');
+
+                return $row;
+            });
+
+        return view('admin.accounting.expense-import', $this->sharedData() + [
+            'previewRows' => $rows,
+            'sourcePath' => $sourcePath,
+            'sourceType' => $sourceType,
+            'fileName' => $file->getClientOriginalName(),
+        ]);
+    }
+
+    public function confirmExpenseImport(Request $request)
+    {
+        $data = $request->validate([
+            'rows' => 'required|string',
+            'source_file' => 'nullable|string|max:1000',
+            'source_type' => 'nullable|string|max:20',
+            'default_property_id' => 'nullable|exists:properties,id',
+            'default_category' => 'nullable|string|max:100',
+            'default_paid_from_account_id' => 'nullable|exists:bank_accounts,id',
+            'default_owner_billable' => 'nullable|boolean',
+        ]);
+
+        $rows = json_decode($data['rows'], true) ?: [];
+        $created = 0;
+        $duplicates = 0;
+
+        foreach ($rows as $row) {
+            if (($row['status'] ?? null) === 'duplicate' || $this->importDuplicateExists($row)) {
+                $duplicates++;
+                continue;
+            }
+
+            $property = ! empty($data['default_property_id']) ? Property::find($data['default_property_id']) : null;
+            $gross = (float) ($row['gross_amount'] ?? 0);
+            $vat = (float) ($row['vat_amount'] ?? 0);
+            $net = max(0, (float) ($row['net_amount'] ?? ($gross - $vat)));
+
+            Expense::create([
+                'expense_no' => $this->nextNumber('EXP', Expense::class, 'expense_no'),
+                'expense_date' => $row['expense_date'] ?: now()->toDateString(),
+                'category' => $data['default_category'] ?: ($row['category'] ?: 'other'),
+                'supplier' => $row['supplier'] ?: null,
+                'property_id' => $property?->id,
+                'landlord_id' => $property?->landlord_id,
+                'responsibility' => 'company',
+                'owner_billable' => $request->boolean('default_owner_billable'),
+                'paid_from_account_id' => $data['default_paid_from_account_id'] ?? null,
+                'net_amount' => $net,
+                'vat_rate' => (float) ($row['vat_rate'] ?? 5),
+                'vat_amount' => $vat,
+                'gross_amount' => $gross > 0 ? $gross : $net + $vat,
+                'payment_method' => $row['payment_method'] ?: null,
+                'transaction_reference' => $row['transaction_reference'] ?: null,
+                'import_source_type' => $data['source_type'] ?? ($row['source_type'] ?? null),
+                'import_source_file' => $data['source_file'] ?? ($row['source_file'] ?? null),
+                'imported_transaction_id' => $row['imported_transaction_id'] ?: null,
+                'imported_payload' => $row['raw'] ?? $row,
+                'needs_review' => (bool) ($row['needs_review'] ?? false),
+                'approval_status' => 'draft',
+                'description' => $row['description'] ?: 'Imported expense draft',
+                'created_by' => auth()->id(),
+            ]);
+            $created++;
+        }
+
+        return redirect()
+            ->route('admin.accounting.expenses', ['approval_status' => 'draft'])
+            ->with('success', "{$created} draft expense(s) imported. {$duplicates} duplicate row(s) skipped.");
     }
 
     public function storeExpense(Request $request)
@@ -161,7 +259,7 @@ class AccountingController extends Controller
             'transaction_reference' => 'nullable|string|max:255',
             'receipt' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:10240',
             'invoice' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:10240',
-            'approval_status' => 'nullable|in:pending,approved,paid,rejected',
+            'approval_status' => 'nullable|in:draft,pending,reviewed,approved,paid,rejected',
             'description' => 'nullable|string|max:1000',
         ]);
 
@@ -187,11 +285,67 @@ class AccountingController extends Controller
             'created_by' => auth()->id(),
         ]);
 
-        $entry = $this->postExpenseEntry($expense);
-        $expense->update(['accounting_entry_id' => $entry->id]);
-        $this->postOwnerDebitIfNeeded($expense);
+        if ($this->expenseShouldPost($expense)) {
+            $entry = $this->postExpenseEntry($expense);
+            $expense->update(['accounting_entry_id' => $entry->id]);
+            $this->postOwnerDebitIfNeeded($expense);
+        }
 
-        return back()->with('success', 'Expense recorded and posted to accounting.');
+        $message = $this->expenseShouldPost($expense)
+            ? 'Expense recorded and posted to accounting.'
+            : 'Expense saved as draft/review item. It is not posted yet.';
+
+        return back()->with('success', $message);
+    }
+
+    public function updateExpense(Request $request, Expense $expense)
+    {
+        $data = $request->validate([
+            'expense_date' => 'required|date',
+            'category' => 'required|string|max:100',
+            'vendor_id' => 'nullable|exists:vendors,id',
+            'supplier' => 'nullable|string|max:255',
+            'property_id' => 'nullable|exists:properties,id',
+            'booking_id' => 'nullable|exists:bookings,id',
+            'responsibility' => 'required|in:company,owner,tenant_guest',
+            'paid_from_account_id' => 'nullable|exists:bank_accounts,id',
+            'owner_billable' => 'nullable|boolean',
+            'net_amount' => 'required|numeric|min:0',
+            'vat_rate' => 'nullable|numeric|min:0|max:100',
+            'payment_method' => 'nullable|string|max:100',
+            'transaction_reference' => 'nullable|string|max:255',
+            'receipt' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:10240',
+            'invoice' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:10240',
+            'approval_status' => 'required|in:draft,pending,reviewed,approved,paid,rejected',
+            'description' => 'nullable|string|max:1000',
+        ]);
+
+        $property = ! empty($data['property_id']) ? Property::find($data['property_id']) : null;
+        $vatRate = (float) ($data['vat_rate'] ?? 5);
+        $net = (float) $data['net_amount'];
+        $vat = round($net * ($vatRate / 100), 2);
+        $receipt = $this->upload($request, 'receipt', 'expense_receipts');
+        $invoice = $this->upload($request, 'invoice', 'expense_invoices');
+
+        $expense->update([
+            ...$data,
+            'landlord_id' => $property?->landlord_id,
+            'owner_billable' => $request->boolean('owner_billable'),
+            'vat_rate' => $vatRate,
+            'vat_amount' => $vat,
+            'gross_amount' => $net + $vat,
+            'receipt_path' => $receipt ?? $expense->receipt_path,
+            'invoice_path' => $invoice ?? $expense->invoice_path,
+            'needs_review' => in_array($data['approval_status'], ['draft', 'pending'], true) ? $expense->needs_review : false,
+        ]);
+
+        if ($this->expenseShouldPost($expense) && ! $expense->accounting_entry_id) {
+            $entry = $this->postExpenseEntry($expense);
+            $expense->update(['accounting_entry_id' => $entry->id]);
+            $this->postOwnerDebitIfNeeded($expense);
+        }
+
+        return back()->with('success', 'Expense updated.');
     }
 
     public function utilities(Request $request)
@@ -508,6 +662,259 @@ class AccountingController extends Controller
         $invoice->load('booking.property.building', 'booking.agent');
 
         return PdfRenderer::downloadView('admin.accounting.pdf.booking-invoice', compact('invoice'), $invoice->invoice_number . '.pdf');
+    }
+
+    private function parseExpenseImport(string $path, string $sourceType, string $fileName): array
+    {
+        return match ($sourceType) {
+            'csv', 'txt' => $this->parseCsvExpenses($path),
+            'xlsx' => $this->parseXlsxExpenses($path),
+            default => [$this->reviewOnlyImportRow($fileName, $sourceType)],
+        };
+    }
+
+    private function parseCsvExpenses(string $path): array
+    {
+        $handle = fopen($path, 'rb');
+        if (! $handle) {
+            return [];
+        }
+
+        $headers = fgetcsv($handle) ?: [];
+        $rows = [];
+        while (($line = fgetcsv($handle)) !== false) {
+            $raw = $this->combineImportRow($headers, $line);
+            if ($this->rowIsBlank($raw)) {
+                continue;
+            }
+            $rows[] = $this->normalizeExpenseImportRow($raw);
+        }
+        fclose($handle);
+
+        return $rows;
+    }
+
+    private function parseXlsxExpenses(string $path): array
+    {
+        if (! class_exists(\ZipArchive::class)) {
+            return [$this->reviewOnlyImportRow(basename($path), 'xlsx')];
+        }
+
+        $zip = new \ZipArchive();
+        if ($zip->open($path) !== true) {
+            return [$this->reviewOnlyImportRow(basename($path), 'xlsx')];
+        }
+
+        $sharedStrings = [];
+        $sharedXml = $zip->getFromName('xl/sharedStrings.xml');
+        if ($sharedXml !== false) {
+            $shared = simplexml_load_string($sharedXml);
+            if ($shared) {
+                foreach ($shared->si ?? [] as $item) {
+                    $sharedStrings[] = trim((string) ($item->t ?? $item->r->t ?? ''));
+                }
+            }
+        }
+
+        $sheetXml = $zip->getFromName('xl/worksheets/sheet1.xml');
+        $zip->close();
+        if ($sheetXml === false) {
+            return [];
+        }
+
+        $sheet = simplexml_load_string($sheetXml);
+        if (! $sheet) {
+            return [];
+        }
+        $matrix = [];
+        foreach ($sheet->sheetData->row ?? [] as $row) {
+            $cells = [];
+            foreach ($row->c ?? [] as $cell) {
+                $ref = (string) $cell['r'];
+                $column = preg_replace('/\d+/', '', $ref);
+                $index = $this->excelColumnIndex($column);
+                $value = (string) ($cell->v ?? '');
+                if ((string) $cell['t'] === 's') {
+                    $value = $sharedStrings[(int) $value] ?? '';
+                } elseif ((string) $cell['t'] === 'inlineStr') {
+                    $value = (string) ($cell->is->t ?? '');
+                }
+                $cells[$index] = $value;
+            }
+            ksort($cells);
+            $matrix[] = array_values($cells);
+        }
+
+        $headers = array_shift($matrix) ?: [];
+        $rows = [];
+        foreach ($matrix as $line) {
+            $raw = $this->combineImportRow($headers, $line);
+            if (! $this->rowIsBlank($raw)) {
+                $rows[] = $this->normalizeExpenseImportRow($raw);
+            }
+        }
+
+        return $rows;
+    }
+
+    private function normalizeExpenseImportRow(array $raw): array
+    {
+        $normalized = [];
+        foreach ($raw as $key => $value) {
+            $normalized[$this->normalizeImportKey($key)] = trim((string) $value);
+        }
+
+        $transactionId = $this->firstImportValue($normalized, ['transaction_id', 'transactionid', 'id', 'reference', 'transaction_reference']);
+        $date = $this->normalizeImportDate($this->firstImportValue($normalized, ['date', 'transaction_date', 'created_at', 'settlement_date']));
+        $supplier = $this->firstImportValue($normalized, ['merchant', 'merchant_name', 'supplier', 'vendor', 'description']);
+        $category = $this->guessExpenseCategory($this->firstImportValue($normalized, ['category', 'expense_category', 'merchant_category']));
+        $debit = $this->importMoney($this->firstImportValue($normalized, ['debit', 'amount', 'billing_amount', 'transaction_amount']));
+        $credit = $this->importMoney($this->firstImportValue($normalized, ['credit']));
+        $gross = max(0, $debit ?: -$credit);
+        $vat = $this->importMoney($this->firstImportValue($normalized, ['vat', 'vat_amount', 'tax']));
+        $trn = $this->firstImportValue($normalized, ['trn', 'tax_registration_number']);
+        $invoice = $this->firstImportValue($normalized, ['invoice', 'invoice_number', 'receipt_number']);
+        $notes = $this->firstImportValue($normalized, ['notes', 'note', 'comments', 'memo']);
+
+        return [
+            'expense_date' => $date,
+            'category' => $category,
+            'supplier' => $supplier,
+            'net_amount' => max(0, $gross - $vat),
+            'vat_rate' => 5,
+            'vat_amount' => $vat,
+            'gross_amount' => $gross,
+            'payment_method' => $this->firstImportValue($normalized, ['wallet', 'card', 'payment_method']),
+            'transaction_reference' => $invoice ?: $trn ?: $transactionId,
+            'imported_transaction_id' => $transactionId,
+            'description' => trim(implode(' | ', array_filter([$supplier, $notes, $trn ? 'TRN: ' . $trn : null, $invoice ? 'Invoice: ' . $invoice : null]))),
+            'needs_review' => ! $date || $gross <= 0 || ! $supplier,
+            'raw' => $raw,
+        ];
+    }
+
+    private function reviewOnlyImportRow(string $fileName, string $sourceType): array
+    {
+        return [
+            'expense_date' => now()->toDateString(),
+            'category' => 'other',
+            'supplier' => pathinfo($fileName, PATHINFO_FILENAME),
+            'net_amount' => 0,
+            'vat_rate' => 5,
+            'vat_amount' => 0,
+            'gross_amount' => 0,
+            'payment_method' => null,
+            'transaction_reference' => null,
+            'imported_transaction_id' => null,
+            'description' => strtoupper($sourceType) . ' imported as draft. Enter amount and details after review.',
+            'needs_review' => true,
+            'raw' => ['file' => $fileName, 'type' => $sourceType],
+        ];
+    }
+
+    private function combineImportRow(array $headers, array $line): array
+    {
+        $row = [];
+        foreach ($line as $index => $value) {
+            $header = trim((string) ($headers[$index] ?? 'column_' . ($index + 1)));
+            $row[$header] = $value;
+        }
+
+        return $row;
+    }
+
+    private function rowIsBlank(array $row): bool
+    {
+        return collect($row)->filter(fn ($value) => trim((string) $value) !== '')->isEmpty();
+    }
+
+    private function importDuplicateExists(array $row): bool
+    {
+        if (! empty($row['imported_transaction_id'])) {
+            return Expense::where('imported_transaction_id', $row['imported_transaction_id'])->exists();
+        }
+
+        return Expense::whereDate('expense_date', $row['expense_date'] ?: now()->toDateString())
+            ->where('supplier', $row['supplier'] ?: '')
+            ->where('gross_amount', (float) ($row['gross_amount'] ?? 0))
+            ->exists();
+    }
+
+    private function expenseShouldPost(Expense $expense): bool
+    {
+        return in_array($expense->approval_status, ['approved', 'paid'], true);
+    }
+
+    private function excelColumnIndex(string $column): int
+    {
+        $index = 0;
+        foreach (str_split(strtoupper($column)) as $char) {
+            $index = ($index * 26) + (ord($char) - 64);
+        }
+
+        return $index - 1;
+    }
+
+    private function normalizeImportKey(string $key): string
+    {
+        return trim(preg_replace('/[^a-z0-9]+/', '_', strtolower($key)), '_');
+    }
+
+    private function firstImportValue(array $row, array $keys): ?string
+    {
+        foreach ($keys as $key) {
+            if (filled($row[$key] ?? null)) {
+                return $row[$key];
+            }
+        }
+
+        return null;
+    }
+
+    private function normalizeImportDate(?string $value): ?string
+    {
+        if (blank($value)) {
+            return null;
+        }
+
+        if (is_numeric($value)) {
+            return Carbon::create(1899, 12, 30)->addDays((int) $value)->toDateString();
+        }
+
+        try {
+            return Carbon::parse(str_replace('/', '-', $value))->toDateString();
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    private function importMoney(?string $value): float
+    {
+        if (blank($value)) {
+            return 0;
+        }
+
+        $clean = preg_replace('/[^0-9.\-]/', '', (string) $value);
+
+        return round((float) $clean, 2);
+    }
+
+    private function guessExpenseCategory(?string $value): string
+    {
+        $text = strtolower((string) $value);
+
+        return match (true) {
+            str_contains($text, 'clean') => 'cleaning',
+            str_contains($text, 'maint') || str_contains($text, 'repair') => 'maintenance',
+            str_contains($text, 'dewa') || str_contains($text, 'electric') || str_contains($text, 'water') => 'dewa',
+            str_contains($text, 'gas') => 'gas',
+            str_contains($text, 'internet') || str_contains($text, 'wifi') => 'internet',
+            str_contains($text, 'chiller') || str_contains($text, 'cool') => 'chiller',
+            str_contains($text, 'supply') || str_contains($text, 'guest') => 'supplies',
+            str_contains($text, 'commission') => 'commission',
+            str_contains($text, 'license') || str_contains($text, 'permit') => 'license',
+            default => 'other',
+        };
     }
 
     private function postExpenseEntry(Expense $expense, string $type = 'expense', ?string $utilityBillId = null): AccountingEntry

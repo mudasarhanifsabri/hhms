@@ -55,6 +55,28 @@
             </div>
         </div>
 
+        @if($task->inspection)
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h4 class="card-title mb-0">Inspection Report</h4>
+                    <div class="d-flex gap-2">
+                        <a href="{{ route('admin.inspection.show', $task->inspection->id) }}" class="btn btn-sm btn-primary">View Report</a>
+                        <a href="{{ route('admin.inspection.pdf', $task->inspection->id) }}" class="btn btn-sm btn-outline-light">PDF</a>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-4"><strong>No:</strong> {{ $task->inspection->inspection_number }}</div>
+                        <div class="col-md-4"><strong>Type:</strong> {{ $task->inspection->type_label }}</div>
+                        <div class="col-md-4"><strong>Status:</strong> {{ $task->inspection->status_label }}</div>
+                        <div class="col-md-4"><strong>Total:</strong> {{ $task->inspection->total_items }}</div>
+                        <div class="col-md-4"><strong>Good:</strong> <span class="text-success">{{ $task->inspection->good_items }}</span></div>
+                        <div class="col-md-4"><strong>Issues:</strong> <span class="text-danger">{{ $task->inspection->issue_items }}</span></div>
+                    </div>
+                </div>
+            </div>
+        @endif
+
         <div class="card">
             <div class="card-header"><h4 class="card-title mb-0">Cost Items</h4></div>
             <div class="card-body">

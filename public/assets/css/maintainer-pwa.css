@@ -447,6 +447,29 @@ body.maintainer-pwa-shell [class*="wrapper"] {
     margin: 0 0 10px;
   }
 
+  .pwa-inspection-area {
+    display: grid;
+    gap: 12px;
+  }
+
+  .pwa-inspection-item {
+    background: #ffffff;
+    border: 1px solid #edf0f5;
+    border-radius: 12px;
+    padding: 12px;
+  }
+
+  .pwa-inspection-item > strong {
+    color: #101828;
+    display: block;
+    font-size: 14px;
+    margin-bottom: 10px;
+  }
+
+  .pwa-condition-segment {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
   .pwa-photo-row {
     display: flex;
     gap: 12px;

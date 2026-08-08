@@ -256,11 +256,21 @@
                     </div>
                     <div class="col-lg-4">
                         <label class="form-label">Category <span class="text-danger">*</span></label>
-                        <select name="type" class="form-select" required>
+                        <select name="type" class="form-select" required data-task-type-select>
                             @foreach(\App\Models\BookingTask::TYPES as $key => $label)
                                 <option value="{{ $key }}" @selected(old('type', 'maintenance') === $key)>{{ $label }}</option>
                             @endforeach
                         </select>
+                    </div>
+                    <div class="col-lg-4" data-inspection-type-field hidden>
+                        <label class="form-label">Inspection Type <span class="text-danger">*</span></label>
+                        <select name="inspection_type" class="form-select">
+                            <option value="routine" @selected(old('inspection_type', 'routine') === 'routine')>Routine Inspection</option>
+                            <option value="check_out" @selected(old('inspection_type') === 'check_out')>Check Out Inspection</option>
+                            <option value="maintenance" @selected(old('inspection_type') === 'maintenance')>Maintenance Inspection</option>
+                            <option value="cleaning" @selected(old('inspection_type') === 'cleaning')>Cleaning Inspection</option>
+                        </select>
+                        <small class="text-muted">This creates a mobile checklist for the assigned maintainer.</small>
                     </div>
                     <div class="col-lg-4">
                         <label class="form-label">Priority <span class="text-danger">*</span></label>
@@ -312,4 +322,25 @@
     });
 </script>
 @endif
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        var typeSelect = document.querySelector('[data-task-type-select]');
+        var inspectionField = document.querySelector('[data-inspection-type-field]');
+        if (!typeSelect || !inspectionField) {
+            return;
+        }
+
+        var toggleInspectionField = function () {
+            var isInspection = ['inspection', 'checkout_inspection'].indexOf(typeSelect.value) !== -1;
+            inspectionField.hidden = !isInspection;
+            inspectionField.querySelector('select').disabled = !isInspection;
+            if (typeSelect.value === 'checkout_inspection') {
+                inspectionField.querySelector('select').value = 'check_out';
+            }
+        };
+
+        typeSelect.addEventListener('change', toggleInspectionField);
+        toggleInspectionField();
+    });
+</script>
 @endpush

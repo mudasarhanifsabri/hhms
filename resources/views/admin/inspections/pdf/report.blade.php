@@ -16,8 +16,8 @@
 </head>
 <body>
     <h1>{{ $inspection->type_label }} Inspection Report</h1>
-    <p><strong>{{ $inspection->inspection_number }}</strong> | {{ $inspection->booking?->booking_reference }} | {{ $inspection->booking?->guest_name }}</p>
-    <p>{{ $inspection->booking?->property?->building?->name }} - {{ $inspection->booking?->property?->name }} | Submitted: {{ $inspection->submitted_at?->format('d M Y H:i') ?? '-' }}</p>
+    <p><strong>{{ $inspection->inspection_number }}</strong> | {{ $inspection->booking?->booking_reference ?? $inspection->task?->task_display_number ?? 'Unit inspection' }} | {{ $inspection->booking?->guest_name ?? $inspection->submittedBy?->name ?? '-' }}</p>
+    <p>{{ $inspection->booking?->property?->building?->name ?? $inspection->property?->building?->name }} - {{ $inspection->booking?->property?->name ?? $inspection->property?->name }} | Submitted: {{ $inspection->submitted_at?->format('d M Y H:i') ?? '-' }}</p>
     <table class="summary">
         <tr><td>Total Items: {{ $inspection->total_items }}</td><td class="good">Good: {{ $inspection->good_items }}</td><td class="issue">Issues: {{ $inspection->issue_items }}</td><td>N/A: {{ $inspection->na_items }}</td></tr>
     </table>

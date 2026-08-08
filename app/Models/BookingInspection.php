@@ -13,6 +13,7 @@ class BookingInspection extends BaseModel
     protected $fillable = [
         'booking_id',
         'property_id',
+        'booking_task_id',
         'submitted_by',
         'inspection_number',
         'type',
@@ -46,6 +47,11 @@ class BookingInspection extends BaseModel
         return $this->belongsTo(User::class, 'submitted_by');
     }
 
+    public function task(): BelongsTo
+    {
+        return $this->belongsTo(BookingTask::class, 'booking_task_id');
+    }
+
     public function items(): HasMany
     {
         return $this->hasMany(BookingInspectionItem::class)->orderBy('sort_order');
@@ -53,7 +59,13 @@ class BookingInspection extends BaseModel
 
     public function getTypeLabelAttribute(): string
     {
-        return $this->type === 'check_out' ? 'Check Out' : 'Check In';
+        return match ($this->type) {
+            'check_out' => 'Check Out',
+            'routine' => 'Routine',
+            'maintenance' => 'Maintenance',
+            'cleaning' => 'Cleaning',
+            default => 'Check In',
+        };
     }
 
     public function getStatusLabelAttribute(): string
