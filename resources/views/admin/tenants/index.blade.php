@@ -96,7 +96,7 @@
                                        <td>
                                             <div class="d-flex align-items-center gap-2">
                                                  <div>
-                                                      <img src="{{ \App\Support\MediaStorage::url($tenant->profile_photo) }}" alt="" class="avatar-sm rounded-circle">
+                                                      @if($tenant->profile_photo)<img src="{{ \App\Support\MediaStorage::url($tenant->profile_photo) }}" alt="{{ $tenant->name }}" class="avatar-sm rounded-circle">@else<span class="avatar-sm rounded-circle bg-success-subtle text-success d-inline-flex align-items-center justify-content-center"><iconify-icon icon="solar:user-rounded-bold-duotone" class="fs-22"></iconify-icon></span>@endif
                                                  </div>
                                                  <div>
                                                       <a href="{{ route('admin.tenant.show', $tenant->id) }}" class="text-dark fw-medium fs-15">{{ $tenant->name }}</a>

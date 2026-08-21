@@ -44,7 +44,7 @@
          <div class="card">
               <div class="card-body">
                    <div class="d-flex flex-wrap align-items-center gap-2 border-bottom pb-3">
-                        <img src="{{ \App\Support\MediaStorage::url($landlord->profile_photo) ?: asset('assets/images/users/avatar-1.jpg') }}" alt="" class="avatar-lg rounded-3 border border-light border-3">
+                        @if($landlord->profile_photo)<img src="{{ \App\Support\MediaStorage::url($landlord->profile_photo) }}" alt="{{ $landlord->name }}" class="avatar-lg rounded-3 border border-light border-3">@else<span class="avatar-lg rounded-3 border border-light border-3 bg-primary-subtle text-primary d-inline-flex align-items-center justify-content-center"><iconify-icon icon="solar:user-rounded-bold-duotone" class="fs-32"></iconify-icon></span>@endif
                         <div class="d-block">
                              <a href="{{ route('admin.landlord.show', $landlord->id) }}" class="text-dark fw-medium fs-16">{{ $landlord->name }}</a>
                              <p class="mb-0">{{ $landlord->email }}</p>

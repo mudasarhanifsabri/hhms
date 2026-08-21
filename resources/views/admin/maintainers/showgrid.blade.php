@@ -42,7 +42,7 @@
          <div class="card">
               <div class="card-body">
                    <div class="d-flex flex-wrap align-items-center gap-2 border-bottom pb-3">
-                        <img src="{{ \App\Support\MediaStorage::url($maintainer->profile_photo) }}" alt="" class="avatar-lg rounded-3 border border-light border-3">
+                        @if($maintainer->profile_photo)<img src="{{ \App\Support\MediaStorage::url($maintainer->profile_photo) }}" alt="{{ $maintainer->name }}" class="avatar-lg rounded-3 border border-light border-3">@else<span class="avatar-lg rounded-3 border border-light border-3 bg-warning-subtle text-warning d-inline-flex align-items-center justify-content-center"><iconify-icon icon="solar:settings-bold-duotone" class="fs-32"></iconify-icon></span>@endif
                         <div class="d-block">
                              <a href="{{ route('admin.maintainer.show', $maintainer->id) }}" class="text-dark fw-medium fs-16">{{ $maintainer->name }}</a>
                              <p class="mb-0">{{ $maintainer->email }}</p>

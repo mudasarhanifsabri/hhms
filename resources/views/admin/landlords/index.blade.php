@@ -9,9 +9,10 @@
                         <div class="col-lg-6">
                              <div class="row align-items-center">
                                   <div class="col-lg-6">
-                                       <form class="app-search d-none d-md-block me-auto">
+                                       <form class="app-search me-auto" method="GET" action="{{ route('admin.landlord.index') }}">
                                             <div class="position-relative">
-                                                 <input type="search" class="form-control" placeholder="Search Landlord" autocomplete="off" value="">
+                                                 <input type="search" name="search" class="form-control" placeholder="Search name, email, phone or ID" autocomplete="off" value="{{ $search }}">
+                                                 <input type="hidden" name="status" value="{{ $status }}">
                                                  <iconify-icon icon="solar:magnifer-broken" class="search-widget-icon"></iconify-icon>
                                             </div>
                                        </form>
@@ -24,7 +25,17 @@
                         <div class="col-lg-6">
                              <div class="text-md-end mt-3 mt-md-0">
 
-                                  <button type="button" class="btn btn-outline-primary me-1"><i class="ri-filter-line me-1"></i> Filters</button>
+                                  <form method="GET" action="{{ route('admin.landlord.index') }}" class="d-inline-flex gap-1 me-1">
+                                    <input type="hidden" name="search" value="{{ $search }}">
+                                    <select name="status" class="form-select" onchange="this.form.submit()">
+                                        <option value="">All Status</option>
+                                        <option value="active" @selected($status === 'active')>Active</option>
+                                        <option value="inactive" @selected($status === 'inactive')>Inactive</option>
+                                    </select>
+                                    @if($search !== '' || $status)
+                                        <a href="{{ route('admin.landlord.index') }}" class="btn btn-outline-secondary">Reset</a>
+                                    @endif
+                                  </form>
                                   <a href="{{ route('admin.landlord.create') }}" class="btn btn-success me-1">
                                     <i class="ri-add-line"></i> New Owner </a>
                              </div>
@@ -103,7 +114,11 @@
                                        <td>
                                             <div class="d-flex align-items-center gap-2">
                                                  <div>
-                                                      <img src="{{ \App\Support\MediaStorage::url($landlord->profile_photo) ?: asset('assets/images/users/avatar-1.jpg') }}" alt="" class="avatar-sm rounded-circle">
+                                                      @if($landlord->profile_photo)
+                                                          <img src="{{ \App\Support\MediaStorage::url($landlord->profile_photo) }}" alt="{{ $landlord->name }}" class="avatar-sm rounded-circle">
+                                                      @else
+                                                          <span class="avatar-sm rounded-circle bg-primary-subtle text-primary d-inline-flex align-items-center justify-content-center"><iconify-icon icon="solar:user-rounded-bold-duotone" class="fs-22"></iconify-icon></span>
+                                                      @endif
                                                  </div>
                                                  <div>
                                                       <a href="{{ route('admin.landlord.show', $landlord->id) }}" class="text-dark fw-medium fs-15">{{ $landlord->name }}</a>
@@ -120,7 +135,7 @@
                                             </small>
                                        </td>
                                        <td>{{ $landlord->dob ? \Carbon\Carbon::parse($landlord->dob)->format('d M Y') : 'N/A' }}</td>
-                                       <td><span class="badge bg-success-subtle text-success py-1 px-2 fs-13">Active</span></td>
+                                       <td><span class="badge {{ $landlord->is_active ? 'bg-success-subtle text-success' : 'bg-secondary-subtle text-secondary' }} py-1 px-2 fs-13">{{ $landlord->is_active ? 'Active' : 'Inactive' }}</span></td>
                                        <td>
                                             <div class="d-flex gap-2">
                                                  <a href="{{ route('admin.landlord.show', $landlord->id) }}" class="btn btn-light btn-sm"><iconify-icon icon="solar:eye-broken" class="align-middle fs-18"></iconify-icon></a>

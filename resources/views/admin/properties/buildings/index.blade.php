@@ -93,7 +93,7 @@
                                 <td><input type="checkbox" class="form-check-input" id="customCheck{{ $building->id }}"></td>
                                 <td>
                                     <div class="d-flex align-items-center gap-2">
-                                        <img src="{{ asset('assets/images/properties/default-building.jpg') }}" alt="" class="avatar-md rounded border border-light border-3">
+                                        <span class="avatar-md rounded border border-light border-3 bg-primary-subtle text-primary d-inline-flex align-items-center justify-content-center"><iconify-icon icon="solar:buildings-2-bold-duotone" class="fs-28"></iconify-icon></span>
                                         <a href="#" class="text-dark fw-medium fs-15">{{ $building->building_name }}</a>
                                     </div>
                                 </td>

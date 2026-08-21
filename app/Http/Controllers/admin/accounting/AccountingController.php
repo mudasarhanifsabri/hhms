@@ -135,7 +135,7 @@ class AccountingController extends Controller
 
     public function expenses(Request $request)
     {
-        $expenses = Expense::with(['property', 'landlord', 'booking', 'vendor', 'paidFromAccount'])
+        $expenses = Expense::with(['property.building', 'landlord', 'booking', 'vendor', 'paidFromAccount'])
             ->when($request->filled('category'), fn ($query) => $query->where('category', $request->input('category')))
             ->when($request->filled('property_id'), fn ($query) => $query->where('property_id', $request->input('property_id')))
             ->when($request->filled('approval_status'), fn ($query) => $query->where('approval_status', $request->input('approval_status')))
@@ -302,6 +302,8 @@ class AccountingController extends Controller
 
     public function updateExpense(Request $request, Expense $expense)
     {
+        abort_unless($this->canModifyApprovedExpense($expense), 403, 'Only the super admin can edit an approved expense.');
+
         $data = $request->validate([
             'expense_date' => 'required|date',
             'category' => 'required|string|max:100',
@@ -372,6 +374,8 @@ class AccountingController extends Controller
 
     public function destroyExpense(Expense $expense)
     {
+        abort_unless($this->canModifyApprovedExpense($expense), 403, 'Only the super admin can delete an approved expense.');
+
         $landlordId = $expense->landlord_id;
         $expenseNo = $expense->expense_no;
 
@@ -1144,6 +1148,16 @@ class AccountingController extends Controller
             'utilityTypes' => UtilityAccount::TYPES,
             'responsibilities' => UtilityAccount::RESPONSIBILITIES,
         ];
+    }
+
+    private function canModifyApprovedExpense(Expense $expense): bool
+    {
+        if (! in_array($expense->approval_status, ['approved', 'paid'], true)) {
+            return true;
+        }
+
+        // The existing access model treats the admin role as the super-admin role.
+        return auth()->user()?->role === 'admin';
     }
 
     private function expenseAccountId(?string $category): ?string

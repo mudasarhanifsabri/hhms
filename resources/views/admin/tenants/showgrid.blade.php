@@ -42,7 +42,7 @@
          <div class="card">
               <div class="card-body">
                    <div class="d-flex flex-wrap align-items-center gap-2 border-bottom pb-3">
-                        <img src="{{ \App\Support\MediaStorage::url($tenant->profile_photo) }}" alt="" class="avatar-lg rounded-3 border border-light border-3">
+                        @if($tenant->profile_photo)<img src="{{ \App\Support\MediaStorage::url($tenant->profile_photo) }}" alt="{{ $tenant->name }}" class="avatar-lg rounded-3 border border-light border-3">@else<span class="avatar-lg rounded-3 border border-light border-3 bg-success-subtle text-success d-inline-flex align-items-center justify-content-center"><iconify-icon icon="solar:user-rounded-bold-duotone" class="fs-32"></iconify-icon></span>@endif
                         <div class="d-block">
                              <a href="{{ route('admin.tenant.show', $tenant->id) }}" class="text-dark fw-medium fs-16">{{ $tenant->name }}</a>
                              <p class="mb-0">{{ $tenant->email }}</p>

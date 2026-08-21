@@ -96,7 +96,7 @@
                                        <td>
                                             <div class="d-flex align-items-center gap-2">
                                                  <div>
-                                                      <img src="{{ \App\Support\MediaStorage::url($maintainer->profile_photo) }}" alt="" class="avatar-sm rounded-circle">
+                                                      @if($maintainer->profile_photo)<img src="{{ \App\Support\MediaStorage::url($maintainer->profile_photo) }}" alt="{{ $maintainer->name }}" class="avatar-sm rounded-circle">@else<span class="avatar-sm rounded-circle bg-warning-subtle text-warning d-inline-flex align-items-center justify-content-center"><iconify-icon icon="solar:settings-bold-duotone" class="fs-22"></iconify-icon></span>@endif
                                                  </div>
                                                  <div>
                                                       <a href="{{ route('admin.maintainer.show', $maintainer->id) }}" class="text-dark fw-medium fs-15">{{ $maintainer->name }}</a>

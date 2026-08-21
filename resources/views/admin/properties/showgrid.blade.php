@@ -96,13 +96,13 @@
             $photos = is_array($property->photos)
                 ? $property->photos
                 : ($property->photos ? json_decode($property->photos, true) : []);
-            $firstPhoto = !empty($photos) ? \App\Support\MediaStorage::url($photos[0]) : asset('assets/images/properties/p-1.jpg');
+            $firstPhoto = !empty($photos) ? \App\Support\MediaStorage::url($photos[0]) : null;
             $location = $property->community ?: (optional($property->building)->building_name ?: optional($property->building)->address);
         @endphp
         <div class="col-xl-4 col-md-6">
             <div class="card overflow-hidden h-100">
                 <div class="position-relative">
-                    <img src="{{ $firstPhoto }}" alt="{{ $property->name }}" class="img-fluid w-100" style="height: 190px; object-fit: cover;">
+                    @if($firstPhoto)<img src="{{ $firstPhoto }}" alt="{{ $property->name }}" class="img-fluid w-100" style="height: 190px; object-fit: cover;">@else<div class="bg-primary-subtle text-primary d-flex align-items-center justify-content-center" style="height:190px"><iconify-icon icon="solar:home-bold-duotone" style="font-size:72px"></iconify-icon></div>@endif
                     <span class="position-absolute top-0 end-0 p-2">
                         <span class="badge {{ $property->status_class }} text-white fs-13">{{ $property->status_label }}</span>
                     </span>

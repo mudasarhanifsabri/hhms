@@ -149,7 +149,7 @@
                                 $photos = is_array($property->photos)
                                     ? $property->photos
                                     : ($property->photos ? json_decode($property->photos, true) : []);
-                                $firstPhoto = !empty($photos) ? \App\Support\MediaStorage::url($photos[0]) : asset('assets/images/properties/p-1.jpg');
+                                $firstPhoto = !empty($photos) ? \App\Support\MediaStorage::url($photos[0]) : null;
                                 $location = $property->community
                                     ?: (optional($property->building)->address ?: optional($property->building)->building_name);
                             @endphp
@@ -162,7 +162,7 @@
                                 </td>
                                 <td>
                                     <div class="d-flex align-items-center gap-2">
-                                        <img src="{{ $firstPhoto }}" alt="{{ $property->name }}" class="avatar-md rounded border border-light border-3" />
+                                        @if($firstPhoto)<img src="{{ $firstPhoto }}" alt="{{ $property->name }}" class="avatar-md rounded border border-light border-3" />@else<span class="avatar-md rounded border border-light border-3 bg-primary-subtle text-primary d-inline-flex align-items-center justify-content-center"><iconify-icon icon="solar:home-bold-duotone" class="fs-28"></iconify-icon></span>@endif
                                         <div class="d-flex flex-column">
                                             <a href="{{ route('admin.property.show', $property->id) }}" class="text-dark fw-medium fs-15">{{ $property->name }}</a>
                                             <small class="text-muted">{{ optional($property->building)->building_name ?? 'No Building' }}</small>

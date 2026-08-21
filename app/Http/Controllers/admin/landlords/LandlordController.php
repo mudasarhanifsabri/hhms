@@ -26,26 +26,56 @@ class LandlordController extends Controller
 {
     public function index(Request $request): Response
     {
-        $perPage = $request->input('per_page', 10); // Default 10 per page
+        $perPage = in_array($request->integer('per_page', 10), [5, 10, 25, 50, 100], true)
+            ? $request->integer('per_page', 10)
+            : 10;
+        $search = trim((string) $request->input('search'));
+        $status = $request->input('status');
         $landlords = User::where('role', 'landlord')
+            ->when($search !== '', function ($query) use ($search) {
+                $query->where(function ($query) use ($search) {
+                    $query->where('name', 'like', "%{$search}%")
+                        ->orWhere('email', 'like', "%{$search}%")
+                        ->orWhere('phone', 'like', "%{$search}%")
+                        ->orWhere('eid_passport_no', 'like', "%{$search}%");
+                });
+            })
+            ->when(in_array($status, ['active', 'inactive'], true),
+                fn ($query) => $query->where('is_active', $status === 'active'))
             ->latest()
-            ->paginate($perPage);
+            ->paginate($perPage)
+            ->withQueryString();
         $this->attachOwnerUnitSummary($landlords->getCollection());
         $totalLandlords = User::where('role', 'landlord')->count();
 
-        return response()->view('admin.landlords.index', compact('landlords', 'totalLandlords', 'perPage'));
+        return response()->view('admin.landlords.index', compact('landlords', 'totalLandlords', 'perPage', 'search', 'status'));
     }
 
     public function showGrid(Request $request): Response
 {
-        $perPage = $request->input('per_page', 10); // Default 10 per page
+        $perPage = in_array($request->integer('per_page', 10), [5, 10, 25, 50, 100], true)
+            ? $request->integer('per_page', 10)
+            : 10;
+        $search = trim((string) $request->input('search'));
+        $status = $request->input('status');
         $landlords = User::where('role', 'landlord')
+            ->when($search !== '', function ($query) use ($search) {
+                $query->where(function ($query) use ($search) {
+                    $query->where('name', 'like', "%{$search}%")
+                        ->orWhere('email', 'like', "%{$search}%")
+                        ->orWhere('phone', 'like', "%{$search}%")
+                        ->orWhere('eid_passport_no', 'like', "%{$search}%");
+                });
+            })
+            ->when(in_array($status, ['active', 'inactive'], true),
+                fn ($query) => $query->where('is_active', $status === 'active'))
             ->latest()
-            ->paginate($perPage);
+            ->paginate($perPage)
+            ->withQueryString();
         $this->attachOwnerUnitSummary($landlords->getCollection());
         $totalLandlords = User::where('role', 'landlord')->count();
 
-        return response()->view('admin.landlords.showgrid', compact('landlords', 'totalLandlords', 'perPage'));
+        return response()->view('admin.landlords.showgrid', compact('landlords', 'totalLandlords', 'perPage', 'search', 'status'));
 }
 
     public function show($id)
