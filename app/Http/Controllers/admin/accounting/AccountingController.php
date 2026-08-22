@@ -276,7 +276,7 @@ class AccountingController extends Controller
             ...$data,
             'expense_no' => $this->nextNumber('EXP', Expense::class, 'expense_no'),
             'landlord_id' => $property?->landlord_id,
-            'owner_billable' => $request->boolean('owner_billable'),
+            'owner_billable' => $request->boolean('owner_billable') || $data['responsibility'] === 'owner',
             'net_amount' => $amounts['net'],
             'vat_rate' => $amounts['rate'],
             'vat_amount' => $amounts['vat'],
@@ -290,7 +290,7 @@ class AccountingController extends Controller
         if ($this->expenseShouldPost($expense)) {
             $entry = $this->postExpenseEntry($expense);
             $expense->update(['accounting_entry_id' => $entry->id]);
-            $this->postOwnerDebitIfNeeded($expense);
+            $this->syncOwnerDebit($expense);
         }
 
         $message = $this->expenseShouldPost($expense)
@@ -333,7 +333,7 @@ class AccountingController extends Controller
         $expense->update([
             ...$data,
             'landlord_id' => $property?->landlord_id,
-            'owner_billable' => $request->boolean('owner_billable'),
+            'owner_billable' => $request->boolean('owner_billable') || $data['responsibility'] === 'owner',
             'net_amount' => $amounts['net'],
             'vat_rate' => $amounts['rate'],
             'vat_amount' => $amounts['vat'],
@@ -343,11 +343,14 @@ class AccountingController extends Controller
             'needs_review' => in_array($data['approval_status'], ['draft', 'pending'], true) ? $expense->needs_review : false,
         ]);
 
-        if ($this->expenseShouldPost($expense) && ! $expense->accounting_entry_id) {
-            $entry = $this->postExpenseEntry($expense);
-            $expense->update(['accounting_entry_id' => $entry->id]);
-            $this->postOwnerDebitIfNeeded($expense);
+        if ($this->expenseShouldPost($expense)) {
+            if (! $expense->accounting_entry_id) {
+                $entry = $this->postExpenseEntry($expense);
+                $expense->update(['accounting_entry_id' => $entry->id]);
+            }
         }
+
+        $this->syncOwnerDebit($expense);
 
         return back()->with('success', 'Expense updated.');
     }
@@ -366,8 +369,9 @@ class AccountingController extends Controller
         if (! $expense->accounting_entry_id) {
             $entry = $this->postExpenseEntry($expense);
             $expense->update(['accounting_entry_id' => $entry->id]);
-            $this->postOwnerDebitIfNeeded($expense);
         }
+
+        $this->syncOwnerDebit($expense);
 
         return back()->with('success', 'Expense approved and posted.');
     }
@@ -533,7 +537,7 @@ class AccountingController extends Controller
             $entry = $this->postExpenseEntry($expense, 'utility', $bill->id);
             $expense->update(['accounting_entry_id' => $entry->id]);
             $bill->update(['expense_id' => $expense->id, 'accounting_entry_id' => $entry->id]);
-            $this->postOwnerDebitIfNeeded($expense);
+            $this->syncOwnerDebit($expense);
         }
 
         return back()->with('success', 'Utility payment saved.');
@@ -1083,13 +1087,22 @@ class AccountingController extends Controller
         ]);
     }
 
-    private function postOwnerDebitIfNeeded(Expense $expense): void
+    private function syncOwnerDebit(Expense $expense): void
     {
-        if (! $expense->owner_billable || ! $expense->landlord_id) {
+        $existingEntries = LandlordAccountEntry::where('reference', $expense->expense_no)->get();
+        $affectedLandlordIds = $existingEntries->pluck('landlord_id')->filter()->unique();
+        $shouldPost = $this->expenseShouldPost($expense) && $expense->owner_billable && $expense->landlord_id;
+
+        if (! $shouldPost) {
+            LandlordAccountEntry::where('reference', $expense->expense_no)->delete();
+            $affectedLandlordIds->each(fn (string $landlordId) => LandlordAccountEntry::recalculateBalancesFor($landlordId));
+
             return;
         }
 
-        LandlordAccountEntry::create([
+        $entry = LandlordAccountEntry::updateOrCreate([
+            'reference' => $expense->expense_no,
+        ], [
             'landlord_id' => $expense->landlord_id,
             'property_id' => $expense->property_id,
             'entry_date' => $expense->expense_date,
@@ -1104,10 +1117,17 @@ class AccountingController extends Controller
             },
             'direction' => 'debit',
             'amount' => $expense->gross_amount,
-            'reference' => $expense->expense_no,
             'description' => $expense->description ?: ucfirst($expense->category) . ' expense',
         ]);
-        LandlordAccountEntry::recalculateBalancesFor($expense->landlord_id);
+
+        LandlordAccountEntry::where('reference', $expense->expense_no)
+            ->where('id', '!=', $entry->id)
+            ->delete();
+
+        $affectedLandlordIds
+            ->push($expense->landlord_id)
+            ->unique()
+            ->each(fn (string $landlordId) => LandlordAccountEntry::recalculateBalancesFor($landlordId));
     }
 
     private function upload(Request $request, string $field, string $folder): ?string

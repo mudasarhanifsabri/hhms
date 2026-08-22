@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\ApplicationSetting;
 use App\Models\Building;
+use App\Models\Expense;
 use App\Models\LandlordAccountEntry;
 use App\Models\Property;
 use App\Models\PropertyOwnerDocument;
@@ -16,6 +17,43 @@ use Tests\TestCase;
 class AdminPagesTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_approved_owner_expense_is_added_to_owner_statement(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $landlord = User::factory()->create(['role' => 'landlord']);
+        $building = Building::create([
+            'building_name' => 'Statement Building',
+            'address' => 'Test Address',
+        ]);
+        $property = Property::create([
+            'landlord_id' => $landlord->id,
+            'building_id' => $building->id,
+            'name' => 'Unit 101',
+            'status' => 'vacant',
+        ]);
+
+        $this->actingAs($admin)->post(route('admin.accounting.expenses.store'), [
+            'expense_date' => now()->toDateString(),
+            'category' => 'maintenance',
+            'property_id' => $property->id,
+            'responsibility' => 'owner',
+            'net_amount' => 100,
+            'vat_rate' => 5,
+            'approval_status' => 'approved',
+            'description' => 'Owner maintenance charge',
+        ])->assertSessionHasNoErrors();
+
+        $expense = Expense::latest()->firstOrFail();
+        $this->assertTrue($expense->owner_billable);
+        $this->assertDatabaseHas('landlord_account_entries', [
+            'landlord_id' => $landlord->id,
+            'property_id' => $property->id,
+            'reference' => $expense->expense_no,
+            'direction' => 'debit',
+            'amount' => 105,
+        ]);
+    }
 
     #[DataProvider('mainAdminPageRoutes')]
     public function test_main_admin_pages_render(string $route): void
