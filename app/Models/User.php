@@ -88,6 +88,11 @@ public function ownedPropertyShares(): HasMany
     return $this->hasMany(PropertyOwnerShare::class, 'owner_id');
 }
 
+public function unitDocuments(): HasMany
+{
+    return $this->hasMany(UnitDocument::class, 'owner_id');
+}
+
 public function sharedOwnedProperties(): BelongsToMany
 {
     return $this->belongsToMany(Property::class, 'property_owner_shares', 'owner_id', 'property_id')

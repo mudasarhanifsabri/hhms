@@ -9,6 +9,7 @@ use App\Http\Controllers\admin\agents\AgentController;
 use App\Http\Controllers\admin\maintainers\MaintainerController;
 use App\Http\Controllers\admin\properties\PropertyController;
 use App\Http\Controllers\admin\properties\PropertyOwnerDocumentController;
+use App\Http\Controllers\admin\properties\UnitDocumentController;
 use App\Http\Controllers\admin\properties\BuildingController;
 use App\Http\Controllers\admin\bookings\BookingController;
 use App\Http\Controllers\admin\tasks\TaskController;
@@ -125,6 +126,10 @@ Route::post('/properties/draft', [PropertyController::class, 'saveDraft'])->name
 Route::post('/properties/store', [PropertyController::class, 'store'])->name('property.store');
 Route::get('/properties/{property}/owner-documents', [PropertyOwnerDocumentController::class, 'index'])->name('property.owner-documents.index');
 Route::post('/properties/{property}/owner-documents', [PropertyOwnerDocumentController::class, 'store'])->name('property.owner-documents.store');
+Route::get('/properties/{property}/document-wallet', [UnitDocumentController::class, 'index'])->name('property.document-wallet.index');
+Route::post('/properties/{property}/document-wallet', [UnitDocumentController::class, 'store'])->name('property.document-wallet.store');
+Route::put('/properties/{property}/document-wallet/{document}', [UnitDocumentController::class, 'update'])->name('property.document-wallet.update');
+Route::delete('/properties/{property}/document-wallet/{document}', [UnitDocumentController::class, 'destroy'])->name('property.document-wallet.destroy');
 Route::get('/properties/{property}', [PropertyController::class, 'show'])->name('property.show');
 Route::get('/properties/{property}/edit', [PropertyController::class, 'edit'])->name('property.edit');
 Route::put('/properties/{property}', [PropertyController::class, 'update'])->name('property.update');

@@ -163,9 +163,14 @@ public function smartlock()
     return $this->belongsTo(Smartlock::class, 'smartlock_id');
 }
 
-    public function ownerDocuments(): HasMany
+public function ownerDocuments(): HasMany
 {
     return $this->hasMany(PropertyOwnerDocument::class);
+}
+
+public function unitDocuments(): HasMany
+{
+    return $this->hasMany(UnitDocument::class);
 }
 
 public function bookings(): HasMany

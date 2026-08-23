@@ -51,8 +51,14 @@
 </div>
 
 <section class="portal-card mt-3" id="documents">
-    <h4>Documents & Signing</h4>
+    <h4>Unit Document Wallet</h4>
     <div class="portal-list">
+        @foreach($unitDocuments as $document)
+            <div class="portal-list-item">
+                <div><strong>{{ $document->title }}</strong><p>{{ $document->property?->building?->building_name }} - {{ $document->property?->name }} · {{ $document->expires_at ? 'Expires '.$document->expires_at->format('d M Y') : 'No expiry' }}</p></div>
+                <div class="d-flex align-items-center gap-2"><span class="badge {{ $document->expiry_status === 'expired' ? 'bg-danger' : ($document->expiry_status === 'expiring' ? 'bg-warning' : 'bg-success') }}">{{ str($document->expiry_status)->headline() }}</span><a href="{{ \App\Support\MediaStorage::url($document->file_path) }}" target="_blank" class="btn btn-sm btn-dark">Open</a></div>
+            </div>
+        @endforeach
         @forelse($documents as $document)
             <div class="portal-list-item">
                 <div>
@@ -65,7 +71,9 @@
                 </div>
             </div>
         @empty
+            @if($unitDocuments->isEmpty())
             <p class="text-muted mb-0">No owner documents yet.</p>
+            @endif
         @endforelse
     </div>
 </section>

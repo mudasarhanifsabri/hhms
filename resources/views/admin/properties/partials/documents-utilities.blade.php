@@ -11,21 +11,7 @@
                         <i class="bi bi-file-earmark-arrow-up me-2"></i>Documents
                     </legend>
                     <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">DTCM Unit Permit</label>
-                            <input type="file" name="dtcm_unit_permit" class="form-control">
-                            @if(isset($property) && $property->dtcm_unit_permit)
-                                <a href="{{ asset("storage/{$property->dtcm_unit_permit}") }}" target="_blank" class="d-block mt-1">View current file</a>
-                            @endif
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">Title Deed</label>
-                            <input type="file" name="title_deed" class="form-control">
-
-                            @if(isset($property) && $property->title_deed)
-                                <a href="{{ asset("storage/{$property->title_deed}") }}" target="_blank" class="d-block mt-1">View current file</a>
-                            @endif
-                        </div>
+                        <div class="col-12 mb-3"><div class="alert alert-info mb-0"><i class="ri-folder-shield-2-line me-1"></i>Upload DTCM Permits, Title Deeds, Insurance, and other files from the Unit Document Wallet after saving the unit.</div></div>
                         <div class="col-md-6 mb-3">
                             <label class="form-label">Permit No.</label>
                             <input type="text" name="dtcm_permit_no" class="form-control"

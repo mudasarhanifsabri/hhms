@@ -91,10 +91,10 @@
     $documents = [
         ['Video', $property->video, 'solar:videocamera-record-broken', 'primary'],
         ['Floor Plan', $property->floor_plan, 'solar:ruler-cross-pen-broken', 'info'],
-        ['DTCM Permit', $property->dtcm_unit_permit, 'solar:document-text-broken', 'dark'],
-        ['Title Deed', $property->title_deed, 'solar:document-add-broken', 'secondary'],
     ];
 @endphp
+
+@include('admin.properties.partials.unit-tabs')
 
 <div class="row">
     <div class="col-12">
@@ -113,8 +113,8 @@
                 <a href="{{ route('admin.property.edit', $property->id) }}" class="btn btn-primary">
                     <i class="ri-edit-line me-1"></i>Edit Unit
                 </a>
-                <a href="{{ route('admin.property.owner-documents.index', $property->id) }}" class="btn btn-dark">
-                    <i class="ri-file-sign-line me-1"></i>Owner Documents
+                <a href="{{ Route::has('admin.property.document-wallet.index') ? route('admin.property.document-wallet.index', $property->id) : route('admin.property.owner-documents.index', $property->id) }}" class="btn btn-dark">
+                    <i class="ri-folder-shield-2-line me-1"></i>Document Wallet
                 </a>
             </div>
         </div>
@@ -326,9 +326,9 @@
         <div class="card">
             <div class="card-header bg-light-subtle">
                 <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
-                    <h4 class="card-title mb-0">Media & Documents</h4>
-                    <a href="{{ route('admin.property.owner-documents.index', $property->id) }}" class="btn btn-soft-dark btn-sm">
-                        <i class="ri-file-sign-line me-1"></i>Signed Documents
+                    <h4 class="card-title mb-0">Unit Media</h4>
+                    <a href="{{ Route::has('admin.property.document-wallet.index') ? route('admin.property.document-wallet.index', $property->id) : route('admin.property.owner-documents.index', $property->id) }}" class="btn btn-soft-dark btn-sm">
+                        <i class="ri-folder-shield-2-line me-1"></i>Document Wallet
                     </a>
                 </div>
             </div>

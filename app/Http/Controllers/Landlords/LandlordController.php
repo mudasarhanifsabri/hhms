@@ -10,6 +10,7 @@ use App\Models\PropertyOwnerDocument;
 use App\Models\Expense;
 use App\Models\UtilityBill;
 use App\Models\BookingTask;
+use App\Models\UnitDocument;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -39,9 +40,13 @@ class LandlordController extends Controller
             ->latest()
             ->take(12)
             ->get();
+        $unitDocuments = UnitDocument::with(['property.building', 'owner'])
+            ->whereIn('property_id', $propertyIds)
+            ->latest()
+            ->get();
         $balance = (float) ($entries->first()?->balance_after ?? LandlordAccountEntry::where('landlord_id', Auth::id())->latest('entry_date')->value('balance_after') ?? 0);
 
-        return view('landlord.dashboard.index', compact('properties', 'bookings', 'entries', 'documents', 'balance'));
+        return view('landlord.dashboard.index', compact('properties', 'bookings', 'entries', 'documents', 'unitDocuments', 'balance'));
     }
 
     public function app(Request $request)
@@ -77,6 +82,10 @@ class LandlordController extends Controller
             ->whereIn('property_id', $propertyIds)
             ->latest()
             ->get();
+        $unitDocuments = UnitDocument::with(['property.building', 'owner'])
+            ->whereIn('property_id', $propertyIds)
+            ->latest()
+            ->get();
         $notifications = $owner->notifications()->latest()->limit(30)->get();
         $payouts = $entries->where('type', 'payout');
         $credits = (float) $entries->where('direction', 'credit')->sum('amount');
@@ -93,7 +102,7 @@ class LandlordController extends Controller
 
         return view('landlord.app.index', compact(
             'owner', 'properties', 'bookings', 'entries', 'expenses', 'utilityBills',
-            'tasks', 'documents', 'notifications', 'payouts', 'credits', 'debits',
+            'tasks', 'documents', 'unitDocuments', 'notifications', 'payouts', 'credits', 'debits',
             'balance', 'monthlyRevenue', 'monthlyExpenses', 'managementFees', 'occupancy'
         ));
     }
