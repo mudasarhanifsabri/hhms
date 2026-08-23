@@ -68,6 +68,8 @@ Route::post('/landlords/{id}/account-entries', [LandlordController::class, 'stor
 Route::get('/landlords/{id}/account-statement', [LandlordController::class, 'accountStatement'])->name('landlord.account-statement');
 Route::get('/landlords/{id}/account-statement/pdf', [LandlordController::class, 'accountStatementPdf'])->name('landlord.account-statement.pdf');
 Route::get('/landlords/{id}/owned-properties', [LandlordController::class, 'ownedProperties'])->name('landlord.owned-properties');
+Route::get('/landlords/{id}/security', [LandlordController::class, 'security'])->name('landlord.security');
+Route::post('/landlords/{id}/security/reset-password', [LandlordController::class, 'resetTemporaryPassword'])->name('landlord.security.reset-password');
 Route::post('/landlords/{id}/send-welcome-email', [LandlordController::class, 'sendWelcomeEmail'])->name('landlord.sendWelcomeEmail');
 Route::get('/landlords/{id}', [LandlordController::class, 'show'])->name('landlord.show');
 Route::delete('/landlords/{id}', [LandlordController::class, 'destroy'])->name('landlord.destroy');

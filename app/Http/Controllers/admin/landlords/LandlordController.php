@@ -195,6 +195,36 @@ class LandlordController extends Controller
         ));
     }
 
+    public function security($id)
+    {
+        $landlord = User::where('role', 'landlord')->findOrFail($id);
+
+        return view('admin.landlords.security', [
+            'landlord' => $landlord,
+            'detailsRoute' => route('admin.landlord.show', $landlord->id),
+            'accountStatementRoute' => route('admin.landlord.account-statement', $landlord->id),
+            'ownedPropertiesRoute' => route('admin.landlord.owned-properties', $landlord->id),
+            'securityRoute' => route('admin.landlord.security', $landlord->id),
+        ]);
+    }
+
+    public function resetTemporaryPassword(Request $request, $id)
+    {
+        $validated = $request->validate(['email_credentials' => ['nullable', 'boolean']]);
+        $landlord = User::where('role', 'landlord')->findOrFail($id);
+        $temporaryPassword = Str::password(12);
+
+        $landlord->forceFill(['password' => Hash::make($temporaryPassword)])->save();
+
+        if ((bool) ($validated['email_credentials'] ?? false)) {
+            $this->sendWelcomeEmailAfterResponse($landlord, $temporaryPassword);
+        }
+
+        return redirect()->route('admin.landlord.security', $landlord->id)
+            ->with('temporary_password', $temporaryPassword)
+            ->with('success', 'A new temporary password was generated. It will only be shown once.');
+    }
+
 
 
  public function create()
