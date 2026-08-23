@@ -16,11 +16,13 @@
                     <i class="ri-home-4-line me-1"></i>Owned Properties
                 </a>
             </li>
-            <li class="nav-item">
-                <a class="nav-link {{ request()->routeIs('admin.landlord.security*') ? 'active' : '' }}" href="{{ $securityRoute ?? route('admin.landlord.security', $landlord->id) }}">
-                    <i class="ri-shield-keyhole-line me-1"></i>Security
-                </a>
-            </li>
+            @if (Route::has('admin.landlord.security'))
+                <li class="nav-item">
+                    <a class="nav-link {{ request()->routeIs('admin.landlord.security*') ? 'active' : '' }}" href="{{ ($securityRoute ?? null) ?: route('admin.landlord.security', $landlord->id) }}">
+                        <i class="ri-shield-keyhole-line me-1"></i>Security
+                    </a>
+                </li>
+            @endif
         </ul>
     </div>
 </div>
