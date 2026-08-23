@@ -35,8 +35,8 @@ class AccountingController extends Controller
         $expenses = AccountingEntry::whereBetween('entry_date', [$from, $to])->sum('debit');
         $todayIncome = AccountingEntry::whereDate('entry_date', today())->sum('credit');
         $todayExpenses = AccountingEntry::whereDate('entry_date', today())->sum('debit');
-        $cashBalance = BankAccount::where('type', 'cash')->sum('current_balance');
-        $bankBalance = BankAccount::where('type', 'bank')->sum('current_balance');
+        $cashBalance = $this->bankBalanceTotal('cash');
+        $bankBalance = $this->bankBalanceTotal('bank');
         $accountsReceivable = BookingInvoice::where('status', 'unpaid')->sum('total_amount');
         $accountsPayable = Expense::whereIn('approval_status', ['pending', 'approved'])->sum('gross_amount');
         $ownerPayables = LandlordAccountEntry::selectRaw("sum(case when direction = 'credit' then amount else -amount end) as balance")->value('balance') ?? 0;
@@ -283,7 +283,7 @@ class AccountingController extends Controller
             'gross_amount' => $amounts['gross'],
             'receipt_path' => $receipt,
             'invoice_path' => $invoice,
-            'approval_status' => $data['approval_status'] ?? 'approved',
+            'approval_status' => $data['approval_status'] ?? 'pending',
             'created_by' => auth()->id(),
         ]);
 
@@ -342,6 +342,30 @@ class AccountingController extends Controller
             'invoice_path' => $invoice ?? $expense->invoice_path,
             'needs_review' => in_array($data['approval_status'], ['draft', 'pending'], true) ? $expense->needs_review : false,
         ]);
+
+        if ($expense->accounting_entry_id) {
+            $expense->accountingEntry()->update([
+                'entry_date' => $expense->expense_date,
+                'type' => 'expense',
+                'category' => $expense->category,
+                'accounting_account_id' => $this->expenseAccountId($expense->category),
+                'description' => $expense->description,
+                'property_id' => $expense->property_id,
+                'landlord_id' => $expense->landlord_id,
+                'booking_id' => $expense->booking_id,
+                'paid_from_account_id' => $expense->paid_from_account_id,
+                'vendor_id' => $expense->vendor_id,
+                'debit' => $expense->gross_amount,
+                'credit' => 0,
+                'vat_rate' => $expense->vat_rate,
+                'vat_amount' => $expense->vat_amount,
+                'net_amount' => $expense->net_amount,
+                'gross_amount' => $expense->gross_amount,
+                'payment_method' => $expense->payment_method,
+                'transaction_reference' => $expense->transaction_reference,
+                'approval_status' => $expense->approval_status === 'paid' ? 'posted' : $expense->approval_status,
+            ]);
+        }
 
         if ($this->expenseShouldPost($expense)) {
             if (! $expense->accounting_entry_id) {
@@ -592,6 +616,68 @@ class AccountingController extends Controller
             ->orderBy('due_date')
             ->get();
 
+        $postedStatuses = ['posted', 'approved', 'paid'];
+        $profitAndLoss = AccountingEntry::query()
+            ->join('accounting_accounts', 'accounting_accounts.id', '=', 'accounting_entries.accounting_account_id')
+            ->whereBetween('accounting_entries.entry_date', [$from, $to])
+            ->whereIn('accounting_entries.approval_status', $postedStatuses)
+            ->whereIn('accounting_accounts.type', ['income', 'expense'])
+            ->selectRaw('accounting_accounts.code, accounting_accounts.name, accounting_accounts.type, SUM(accounting_entries.debit) as debit_total, SUM(accounting_entries.credit) as credit_total')
+            ->groupBy('accounting_accounts.code', 'accounting_accounts.name', 'accounting_accounts.type')
+            ->orderBy('accounting_accounts.code')
+            ->get();
+        $incomeAccounts = $profitAndLoss->where('type', 'income')->map(fn ($row) => [
+            'code' => $row->code,
+            'name' => $row->name,
+            'amount' => (float) $row->credit_total - (float) $row->debit_total,
+        ]);
+        $expenseAccounts = $profitAndLoss->where('type', 'expense')->map(fn ($row) => [
+            'code' => $row->code,
+            'name' => $row->name,
+            'amount' => (float) $row->debit_total - (float) $row->credit_total,
+        ]);
+        $profitLossTotals = [
+            'income' => $incomeAccounts->sum('amount'),
+            'expense' => $expenseAccounts->sum('amount'),
+        ];
+        $profitLossTotals['net_profit'] = $profitLossTotals['income'] - $profitLossTotals['expense'];
+
+        $balanceSheetRows = AccountingEntry::query()
+            ->join('accounting_accounts', 'accounting_accounts.id', '=', 'accounting_entries.accounting_account_id')
+            ->whereDate('accounting_entries.entry_date', '<=', $to)
+            ->whereIn('accounting_entries.approval_status', $postedStatuses)
+            ->whereIn('accounting_accounts.type', ['asset', 'liability', 'equity'])
+            ->selectRaw('accounting_accounts.code, accounting_accounts.name, accounting_accounts.type, SUM(accounting_entries.debit) as debit_total, SUM(accounting_entries.credit) as credit_total')
+            ->groupBy('accounting_accounts.code', 'accounting_accounts.name', 'accounting_accounts.type')
+            ->orderBy('accounting_accounts.code')
+            ->get()
+            ->groupBy('type');
+
+        $cashFlow = AccountingEntry::query()
+            ->whereBetween('entry_date', [$from, $to])
+            ->whereIn('approval_status', $postedStatuses)
+            ->whereNotNull('paid_from_account_id')
+            ->selectRaw('SUM(credit) as inflow, SUM(debit) as outflow')
+            ->first();
+        $cashFlowSummary = [
+            'opening' => $this->bankBalanceAsOf($from->copy()->subDay()),
+            'inflow' => (float) ($cashFlow->inflow ?? 0),
+            'outflow' => (float) ($cashFlow->outflow ?? 0),
+        ];
+        $cashFlowSummary['closing'] = $cashFlowSummary['opening'] + $cashFlowSummary['inflow'] - $cashFlowSummary['outflow'];
+
+        $receivableAgeing = $this->ageingBuckets(
+            BookingInvoice::where('status', 'unpaid')->get(['issue_date', 'total_amount']),
+            'issue_date',
+            'total_amount'
+        );
+        $payableAgeing = $this->ageingBuckets(
+            Expense::whereIn('approval_status', ['pending', 'approved'])->get(['expense_date', 'gross_amount']),
+            'expense_date',
+            'gross_amount'
+        );
+        $expenseCategories = Expense::CATEGORIES;
+
         return view('admin.accounting.reports', compact(
             'month',
             'from',
@@ -603,6 +689,14 @@ class AccountingController extends Controller
             'expenseRows',
             'expenseTotals',
             'outstandingBills'
+            , 'incomeAccounts'
+            , 'expenseAccounts'
+            , 'profitLossTotals'
+            , 'balanceSheetRows'
+            , 'cashFlowSummary'
+            , 'receivableAgeing'
+            , 'payableAgeing'
+            , 'expenseCategories'
         ));
     }
 
@@ -640,6 +734,15 @@ class AccountingController extends Controller
     public function bankAccounts()
     {
         $bankAccounts = BankAccount::with('accountingAccount')->orderBy('type')->orderBy('name')->get();
+        $movements = AccountingEntry::whereIn('approval_status', ['posted', 'approved', 'paid'])
+            ->whereNotNull('paid_from_account_id')
+            ->selectRaw('paid_from_account_id, SUM(credit - debit) as movement')
+            ->groupBy('paid_from_account_id')
+            ->pluck('movement', 'paid_from_account_id');
+        $bankAccounts->each(fn (BankAccount $account) => $account->setAttribute(
+            'current_balance',
+            (float) $account->opening_balance + (float) ($movements[$account->id] ?? 0)
+        ));
 
         return view('admin.accounting.bank-accounts', compact('bankAccounts') + $this->sharedData());
     }
@@ -1178,6 +1281,50 @@ class AccountingController extends Controller
 
         // The existing access model treats the admin role as the super-admin role.
         return auth()->user()?->role === 'admin';
+    }
+
+    private function bankBalanceTotal(?string $type = null, ?Carbon $asOf = null): float
+    {
+        $accounts = BankAccount::query()
+            ->when($type, fn ($query) => $query->where('type', $type))
+            ->get(['id', 'opening_balance']);
+        $movements = AccountingEntry::query()
+            ->whereIn('approval_status', ['posted', 'approved', 'paid'])
+            ->whereIn('paid_from_account_id', $accounts->pluck('id'))
+            ->when($asOf, fn ($query) => $query->whereDate('entry_date', '<=', $asOf))
+            ->selectRaw('paid_from_account_id, SUM(credit - debit) as movement')
+            ->groupBy('paid_from_account_id')
+            ->pluck('movement', 'paid_from_account_id');
+
+        return (float) $accounts->sum(
+            fn (BankAccount $account) => (float) $account->opening_balance + (float) ($movements[$account->id] ?? 0)
+        );
+    }
+
+    private function bankBalanceAsOf(Carbon $date): float
+    {
+        return $this->bankBalanceTotal(null, $date);
+    }
+
+    private function ageingBuckets($records, string $dateColumn, string $amountColumn): array
+    {
+        $buckets = ['current' => 0.0, '31_60' => 0.0, '61_90' => 0.0, 'over_90' => 0.0];
+
+        foreach ($records as $record) {
+            $date = Carbon::parse($record->{$dateColumn});
+            $days = max(0, $date->diffInDays(today(), false));
+            $bucket = match (true) {
+                $days <= 30 => 'current',
+                $days <= 60 => '31_60',
+                $days <= 90 => '61_90',
+                default => 'over_90',
+            };
+            $buckets[$bucket] += (float) $record->{$amountColumn};
+        }
+
+        $buckets['total'] = array_sum($buckets);
+
+        return $buckets;
     }
 
     private function expenseAccountId(?string $category): ?string

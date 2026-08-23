@@ -7,6 +7,8 @@ use App\Models\Booking;
 use App\Models\BookingHistory;
 use App\Models\BookingInvoice;
 use App\Models\BookingTask;
+use App\Models\AccountingAccount;
+use App\Models\AccountingEntry;
 use App\Models\LandlordAccountEntry;
 use App\Models\Property;
 use App\Models\User;
@@ -15,6 +17,7 @@ use App\Support\PdfRenderer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use Illuminate\Support\Facades\DB;
 
 class BookingController extends Controller
 {
@@ -273,18 +276,56 @@ class BookingController extends Controller
             'payment_proof' => 'required|file|mimes:pdf,jpg,jpeg,png|max:10240',
         ]);
 
-        $booking->update([
-            'payment_proof' => $this->uploadFile($request, 'payment_proof', 'booking_payment_proofs'),
-            'invoice_status' => 'paid',
-            'status' => 'confirmed',
-        ]);
+        DB::transaction(function () use ($request, $booking) {
+            $booking->update([
+                'payment_proof' => $this->uploadFile($request, 'payment_proof', 'booking_payment_proofs'),
+                'invoice_status' => 'paid',
+                'status' => 'confirmed',
+            ]);
 
-        $booking->histories()->create([
-            'title' => 'Invoice Paid',
-            'description' => 'Payment proof was attached to invoice ' . $booking->invoice_number . '.',
-        ]);
+            $booking->invoices()->where('status', 'unpaid')->get()->each(function (BookingInvoice $invoice) use ($booking) {
+                $invoice->update(['status' => 'paid']);
+
+                AccountingEntry::firstOrCreate([
+                    'booking_id' => $booking->id,
+                    'transaction_reference' => $invoice->invoice_number,
+                    'type' => 'income',
+                ], [
+                    'entry_no' => $this->nextAccountingEntryNumber(),
+                    'entry_date' => now()->toDateString(),
+                    'category' => 'rental_income',
+                    'accounting_account_id' => AccountingAccount::where('code', '4010')->value('id'),
+                    'description' => 'Booking invoice payment ' . $invoice->invoice_number,
+                    'property_id' => $booking->property_id,
+                    'landlord_id' => $booking->property?->landlord_id,
+                    'credit' => $invoice->total_amount,
+                    'debit' => 0,
+                    'vat_rate' => $invoice->vat_rate,
+                    'vat_amount' => $invoice->vat_amount,
+                    'net_amount' => max(0, (float) $invoice->total_amount - (float) $invoice->vat_amount),
+                    'gross_amount' => $invoice->total_amount,
+                    'status' => 'posted',
+                    'approval_status' => 'posted',
+                    'created_by' => auth()->id(),
+                ]);
+            });
+
+            $booking->histories()->create([
+                'title' => 'Invoice Paid',
+                'description' => 'Payment proof was attached to invoice ' . $booking->invoice_number . '.',
+            ]);
+        });
 
         return back()->with('success', 'Payment proof attached and invoice marked paid.');
+    }
+
+    private function nextAccountingEntryNumber(): string
+    {
+        do {
+            $number = 'JE-' . now()->format('Ymd') . '-' . Str::upper(Str::random(5));
+        } while (AccountingEntry::where('entry_no', $number)->exists());
+
+        return $number;
     }
 
     public function checkIn(Request $request, Booking $booking)
