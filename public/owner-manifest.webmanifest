@@ -1,0 +1,20 @@
+{
+  "name": "Pattern Vacation Homes Owner App",
+  "short_name": "Pattern Owner",
+  "description": "Owner properties, bookings, finance, utilities, maintenance and documents.",
+  "start_url": "/landlord/app",
+  "scope": "/landlord/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f4f7fb",
+  "theme_color": "#03294f",
+  "icons": [
+    {"src":"/assets/images/pwa-icon-192.png","sizes":"192x192","type":"image/png","purpose":"any maskable"},
+    {"src":"/assets/images/pwa-icon-512.png","sizes":"512x512","type":"image/png","purpose":"any maskable"}
+  ],
+  "shortcuts": [
+    {"name":"Dashboard","url":"/landlord/app#home"},
+    {"name":"Properties","url":"/landlord/app#properties"},
+    {"name":"Finance","url":"/landlord/app#finance"}
+  ]
+}

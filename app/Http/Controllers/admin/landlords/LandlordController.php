@@ -241,6 +241,8 @@ public function store(Request $request)
             ?? $this->uploadFile($request, 'camera_capture', 'id_documents');
         $idDocumentBackPath = $this->uploadFile($request, 'id_document_back', 'id_documents');
 
+        $temporaryPassword = Str::password(12);
+
         // Create the landlord user
         $landlord = User::create([
             'name' => $validatedData['name'],
@@ -265,16 +267,14 @@ public function store(Request $request)
             'swift_code' => $validatedData['swift_code'] ?? null,
             'iban' => $validatedData['iban'] ?? null,
             'bank_branch' => $validatedData['bank_branch'] ?? null,
-            'password' => Hash::make(Str::random(8)),
+            'password' => Hash::make($temporaryPassword),
             'role' => 'landlord',
             'profile_photo' => $profilePhotoPath,
             'id_document' => $idDocumentPath,
             'id_document_back' => $idDocumentBackPath,
         ]);
 
-        if ($request->boolean('send_welcome_email')) {
-            $this->sendWelcomeEmailAfterResponse($landlord);
-        }
+        $this->sendWelcomeEmailAfterResponse($landlord, $temporaryPassword);
 
         return redirect()->route('admin.landlord.index')
             ->with('success', 'Landlord created successfully!');
@@ -294,8 +294,10 @@ public function store(Request $request)
 public function sendWelcomeEmail($id)
 {
     $landlord = User::where('role', 'landlord')->findOrFail($id);
+    $temporaryPassword = Str::password(12);
+    $landlord->forceFill(['password' => Hash::make($temporaryPassword)])->save();
 
-    $this->sendWelcomeEmailAfterResponse($landlord);
+    $this->sendWelcomeEmailAfterResponse($landlord, $temporaryPassword);
 
     return back()->with('success', 'Welcome email is being sent again.');
 }
@@ -580,11 +582,11 @@ private function statementPeriod($accountEntries, array $filters): array
     ];
 }
 
-private function sendWelcomeEmailAfterResponse(User $landlord): void
+private function sendWelcomeEmailAfterResponse(User $landlord, string $temporaryPassword): void
 {
-    app()->terminating(function () use ($landlord) {
+    app()->terminating(function () use ($landlord, $temporaryPassword) {
         try {
-            Notification::send($landlord, new LandlordCreated($landlord));
+            Notification::send($landlord, new LandlordCreated($landlord, $temporaryPassword));
         } catch (Throwable $mailException) {
             Log::warning('Landlord welcome email failed.', [
                 'landlord_id' => $landlord->id,

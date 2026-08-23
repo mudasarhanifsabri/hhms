@@ -11,7 +11,10 @@ class LandlordCreated extends Notification
 {
     use Queueable;
 
-    public function __construct(private readonly User $landlord)
+    public function __construct(
+        private readonly User $landlord,
+        private readonly string $temporaryPassword,
+    )
     {
     }
 
@@ -26,7 +29,11 @@ class LandlordCreated extends Notification
             ->subject('Welcome to ' . config('app.name'))
             ->greeting('Hello ' . $this->landlord->name . ',')
             ->line('Your owner account has been created successfully.')
-            ->line('You can use your registered email address to access the owner portal once login details are shared by the admin.')
+            ->line('Username: ' . $this->landlord->email)
+            ->line('Temporary password: ' . $this->temporaryPassword)
+            ->line('For your security, please change this temporary password after your first login.')
+            ->action('Open Owner Mobile App', route('landlord.app'))
+            ->line('Desktop Owner Portal: ' . route('landlord.dashboard'))
             ->line('Thank you.');
     }
 }

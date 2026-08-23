@@ -5,6 +5,9 @@
 ])
 
 @section('content')
+<div class="d-flex justify-content-end mb-3">
+    <a href="{{ route('landlord.app') }}" class="btn btn-primary"><i class="ri-smartphone-line me-1"></i> Open Mobile Owner App</a>
+</div>
 <div class="portal-stat-grid">
     <div class="portal-card portal-stat"><div><span>Properties</span><strong>{{ $properties->count() }}</strong></div><i class="ri-community-line fs-28 text-primary"></i></div>
     <div class="portal-card portal-stat"><div><span>Bookings</span><strong>{{ $bookings->count() }}</strong></div><i class="ri-calendar-check-line fs-28 text-success"></i></div>
