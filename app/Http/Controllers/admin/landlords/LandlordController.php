@@ -550,12 +550,22 @@ private function ownerUnitsQuery(string $landlordId)
 
 private function attachOwnerUnitSummary($landlords): void
 {
+    $balances = LandlordAccountEntry::query()
+        ->whereIn('landlord_id', $landlords->pluck('id'))
+        ->selectRaw("landlord_id, SUM(CASE WHEN direction = 'credit' THEN amount ELSE -amount END) as account_balance")
+        ->groupBy('landlord_id')
+        ->pluck('account_balance', 'landlord_id');
+
     $landlords->each(function (User $landlord) {
         $units = $this->ownerUnitsQuery($landlord->id)->get();
         $landlord->setAttribute('owned_units_count', $units->count());
         $landlord->setAttribute('booked_units_count', $units->whereIn('status', ['booked', 'rented'])->count());
         $landlord->setAttribute('available_units_count', $units->whereIn('status', ['available', 'vacant'])->count());
         $landlord->setRelation('owned_units_preview', $units->take(3));
+    });
+
+    $landlords->each(function (User $landlord) use ($balances) {
+        $landlord->setAttribute('account_balance', (float) ($balances[$landlord->id] ?? 0));
     });
 }
 

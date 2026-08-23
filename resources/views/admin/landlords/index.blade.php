@@ -103,7 +103,7 @@
                                        <th>Email</th>
                                        <th>Contact</th>
                                        <th>Units</th>
-                                       <th>DOB</th>
+                                       <th>Account Balance</th>
                                        <th>Status</th>
                                        <th>Action</th>
                                   </tr>
@@ -134,7 +134,11 @@
                                                 {{ $landlord->available_units_count ?? 0 }} available / {{ $landlord->booked_units_count ?? 0 }} booked
                                             </small>
                                        </td>
-                                       <td>{{ $landlord->dob ? \Carbon\Carbon::parse($landlord->dob)->format('d M Y') : 'N/A' }}</td>
+                                       <td>
+                                            <a href="{{ route('admin.landlord.account-statement', $landlord->id) }}" class="fw-semibold {{ ($landlord->account_balance ?? 0) < 0 ? 'text-danger' : 'text-success' }}">
+                                                AED {{ number_format((float) ($landlord->account_balance ?? 0), 2) }}
+                                            </a>
+                                       </td>
                                        <td><span class="badge {{ $landlord->is_active ? 'bg-success-subtle text-success' : 'bg-secondary-subtle text-secondary' }} py-1 px-2 fs-13">{{ $landlord->is_active ? 'Active' : 'Inactive' }}</span></td>
                                        <td>
                                             <div class="d-flex gap-2">

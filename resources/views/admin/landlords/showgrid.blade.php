@@ -63,6 +63,10 @@
                     {{ $landlord->owned_units_count ?? 0 }} Units
                     <span class="text-muted small">({{ $landlord->available_units_count ?? 0 }} available / {{ $landlord->booked_units_count ?? 0 }} booked)</span>
                    </p>
+                   <p class="d-flex align-items-center gap-2 mb-2">
+                    <iconify-icon icon="solar:wallet-money-bold-duotone" class="fs-18 text-primary"></iconify-icon>
+                    <a href="{{ route('admin.landlord.account-statement', $landlord->id) }}" class="fw-semibold {{ ($landlord->account_balance ?? 0) < 0 ? 'text-danger' : 'text-success' }}">AED {{ number_format((float) ($landlord->account_balance ?? 0), 2) }}</a>
+                   </p>
                    <p class="d-flex align-items-center gap-2 mt-2"><iconify-icon icon="solar:map-point-wave-bold-duotone" class="fs-18 text-primary"></iconify-icon>{{ $landlord->address ?? 'N/A' }}</p>
               </div>
               <div class="card-footer border-top">
