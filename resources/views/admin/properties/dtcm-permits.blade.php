@@ -27,7 +27,7 @@
     <div class="table-responsive"><table class="table table-hover align-middle mb-0"><thead class="bg-light-subtle"><tr><th>Unit / Building</th><th>Owner</th><th>Permit Number</th><th>Issue Date</th><th>Expiry Date</th><th>Days Remaining</th><th>Status</th><th>Reminder</th><th>Actions</th></tr></thead><tbody>
     @forelse($properties as $property)
         @php
-            $permit=$property->dtcmPermit;
+            $permit=$property->dtcmDocuments->first();
             $days=$permit?->expires_at ? today()->diffInDays($permit->expires_at,false) : null;
             $permitStatus=!$permit?'missing':(!$permit->expires_at?'no_expiry':($days<0?'expired':($days<=7?'urgent':($days<=30?'expiring':'valid'))));
             $badge=match($permitStatus){'valid'=>'bg-success','expiring'=>'bg-info','urgent'=>'bg-warning text-dark','expired'=>'bg-danger',default=>'bg-secondary'};

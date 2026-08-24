@@ -51,26 +51,26 @@ class PropertyController extends Controller
         $ownerId = $request->input('owner_id');
         $today = today();
 
-        $query = Property::with(['building', 'landlord', 'dtcmPermit'])
+        $query = Property::with(['building', 'landlord', 'dtcmDocuments'])
             ->when($search, fn ($query) => $query->where(fn ($query) => $query
                 ->where('name', 'like', "%{$search}%")
                 ->orWhereHas('building', fn ($building) => $building->where('building_name', 'like', "%{$search}%"))
-                ->orWhereHas('dtcmPermit', fn ($document) => $document->where('reference_no', 'like', "%{$search}%"))))
+                ->orWhereHas('dtcmDocuments', fn ($document) => $document->where('reference_no', 'like', "%{$search}%"))))
             ->when($buildingId, fn ($query) => $query->where('building_id', $buildingId))
             ->when($ownerId, fn ($query) => $query->where(fn ($query) => $query->where('landlord_id', $ownerId)
                 ->orWhereHas('ownerShares', fn ($share) => $share->where('owner_id', $ownerId))))
-            ->when($status === 'missing', fn ($query) => $query->whereDoesntHave('dtcmPermit'))
-            ->when($status === 'expired', fn ($query) => $query->whereHas('dtcmPermit', fn ($document) => $document->whereDate('expires_at', '<', $today)))
-            ->when($status === 'urgent', fn ($query) => $query->whereHas('dtcmPermit', fn ($document) => $document->whereBetween('expires_at', [$today, $today->copy()->addDays(7)])))
-            ->when($status === 'expiring', fn ($query) => $query->whereHas('dtcmPermit', fn ($document) => $document->whereBetween('expires_at', [$today->copy()->addDays(8), $today->copy()->addDays(30)])))
-            ->when($status === 'valid', fn ($query) => $query->whereHas('dtcmPermit', fn ($document) => $document->whereDate('expires_at', '>', $today->copy()->addDays(30))));
+            ->when($status === 'missing', fn ($query) => $query->whereDoesntHave('dtcmDocuments'))
+            ->when($status === 'expired', fn ($query) => $query->whereHas('dtcmDocuments', fn ($document) => $document->whereDate('expires_at', '<', $today)))
+            ->when($status === 'urgent', fn ($query) => $query->whereHas('dtcmDocuments', fn ($document) => $document->whereBetween('expires_at', [$today, $today->copy()->addDays(7)])))
+            ->when($status === 'expiring', fn ($query) => $query->whereHas('dtcmDocuments', fn ($document) => $document->whereBetween('expires_at', [$today->copy()->addDays(8), $today->copy()->addDays(30)])))
+            ->when($status === 'valid', fn ($query) => $query->whereHas('dtcmDocuments', fn ($document) => $document->whereDate('expires_at', '>', $today->copy()->addDays(30))));
 
         $properties = $query->latest()->paginate(25)->withQueryString();
         $stats = [
-            'total' => Property::whereHas('dtcmPermit')->count(),
-            'urgent' => Property::whereHas('dtcmPermit', fn ($q) => $q->whereBetween('expires_at', [$today, $today->copy()->addDays(7)]))->count(),
-            'expired' => Property::whereHas('dtcmPermit', fn ($q) => $q->whereDate('expires_at', '<', $today))->count(),
-            'missing' => Property::whereDoesntHave('dtcmPermit')->count(),
+            'total' => Property::whereHas('dtcmDocuments')->count(),
+            'urgent' => Property::whereHas('dtcmDocuments', fn ($q) => $q->whereBetween('expires_at', [$today, $today->copy()->addDays(7)]))->count(),
+            'expired' => Property::whereHas('dtcmDocuments', fn ($q) => $q->whereDate('expires_at', '<', $today))->count(),
+            'missing' => Property::whereDoesntHave('dtcmDocuments')->count(),
         ];
 
         return view('admin.properties.dtcm-permits', [

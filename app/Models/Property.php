@@ -176,7 +176,10 @@ public function unitDocuments(): HasMany
 
 public function dtcmDocuments(): HasMany
 {
-    return $this->hasMany(UnitDocument::class)->where('type', 'dtcm_permit');
+    return $this->hasMany(UnitDocument::class)
+        ->where('type', 'dtcm_permit')
+        ->latest('created_at')
+        ->latest('id');
 }
 
 public function dtcmPermit(): HasOne
