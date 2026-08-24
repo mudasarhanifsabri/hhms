@@ -43,6 +43,44 @@ class PropertyController extends Controller
         return view('admin.properties.showgrid', compact('properties', 'unitStats', 'status', 'search'));
     }
 
+    public function dtcmPermits(Request $request)
+    {
+        $status = $request->string('status')->toString();
+        $search = trim($request->string('q')->toString());
+        $buildingId = $request->input('building_id');
+        $ownerId = $request->input('owner_id');
+        $today = today();
+
+        $query = Property::with(['building', 'landlord', 'dtcmPermit'])
+            ->when($search, fn ($query) => $query->where(fn ($query) => $query
+                ->where('name', 'like', "%{$search}%")
+                ->orWhereHas('building', fn ($building) => $building->where('building_name', 'like', "%{$search}%"))
+                ->orWhereHas('dtcmPermit', fn ($document) => $document->where('reference_no', 'like', "%{$search}%"))))
+            ->when($buildingId, fn ($query) => $query->where('building_id', $buildingId))
+            ->when($ownerId, fn ($query) => $query->where(fn ($query) => $query->where('landlord_id', $ownerId)
+                ->orWhereHas('ownerShares', fn ($share) => $share->where('owner_id', $ownerId))))
+            ->when($status === 'missing', fn ($query) => $query->whereDoesntHave('dtcmPermit'))
+            ->when($status === 'expired', fn ($query) => $query->whereHas('dtcmPermit', fn ($document) => $document->whereDate('expires_at', '<', $today)))
+            ->when($status === 'urgent', fn ($query) => $query->whereHas('dtcmPermit', fn ($document) => $document->whereBetween('expires_at', [$today, $today->copy()->addDays(7)])))
+            ->when($status === 'expiring', fn ($query) => $query->whereHas('dtcmPermit', fn ($document) => $document->whereBetween('expires_at', [$today->copy()->addDays(8), $today->copy()->addDays(30)])))
+            ->when($status === 'valid', fn ($query) => $query->whereHas('dtcmPermit', fn ($document) => $document->whereDate('expires_at', '>', $today->copy()->addDays(30))));
+
+        $properties = $query->latest()->paginate(25)->withQueryString();
+        $stats = [
+            'total' => Property::whereHas('dtcmPermit')->count(),
+            'urgent' => Property::whereHas('dtcmPermit', fn ($q) => $q->whereBetween('expires_at', [$today, $today->copy()->addDays(7)]))->count(),
+            'expired' => Property::whereHas('dtcmPermit', fn ($q) => $q->whereDate('expires_at', '<', $today))->count(),
+            'missing' => Property::whereDoesntHave('dtcmPermit')->count(),
+        ];
+
+        return view('admin.properties.dtcm-permits', [
+            'properties' => $properties, 'stats' => $stats, 'status' => $status,
+            'search' => $search, 'buildingId' => $buildingId, 'ownerId' => $ownerId,
+            'buildings' => Building::orderBy('building_name')->get(),
+            'owners' => User::where('role', 'landlord')->orderBy('name')->get(),
+        ]);
+    }
+
     private function unitListQuery(?string $status = null, ?string $search = null)
     {
         return Property::with(['building', 'landlord', 'ownerShares.owner'])
@@ -269,22 +307,24 @@ class PropertyController extends Controller
         $ownerIds = $request->input('owner_ids', []);
         $shares = $request->input('owner_shares', []);
         $sync = [];
+        $primaryOwnerId = (string) $property->landlord_id;
 
         foreach ($ownerIds as $index => $ownerId) {
             if (! $ownerId) {
                 continue;
             }
 
+            $ownerId = (string) $ownerId;
             $sync[$ownerId] = [
                 'share_percent' => isset($shares[$index]) && $shares[$index] !== null && $shares[$index] !== ''
                     ? (float) $shares[$index]
                     : 0,
-                'is_primary' => $ownerId === $property->landlord_id,
+                'is_primary' => $ownerId === $primaryOwnerId,
             ];
         }
 
-        if (! array_key_exists($property->landlord_id, $sync)) {
-            $sync[$property->landlord_id] = [
+        if (! array_key_exists($primaryOwnerId, $sync)) {
+            $sync[$primaryOwnerId] = [
                 'share_percent' => empty($sync) ? 100 : 0,
                 'is_primary' => true,
             ];
@@ -335,6 +375,11 @@ class PropertyController extends Controller
 
     private function applyUnitTypeDefaults(array &$validated): void
     {
+        // These database columns are non-nullable. Laravel converts empty form
+        // inputs to null, so normalize them before create/update.
+        $validated['utilities_cap'] = (float) ($validated['utilities_cap'] ?? 0);
+        $validated['management_fee_percent'] = (float) ($validated['management_fee_percent'] ?? 0);
+
         $unitType = $validated['category'] ?? null;
 
         if ($unitType && array_key_exists($unitType, Property::UNIT_TYPES)) {

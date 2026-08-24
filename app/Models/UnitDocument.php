@@ -18,10 +18,10 @@ class UnitDocument extends BaseModel
 
     protected $fillable = [
         'property_id', 'owner_id', 'type', 'custom_title', 'reference_no',
-        'issue_date', 'expires_at', 'file_path', 'notes', 'source',
+        'issue_date', 'expires_at', 'file_path', 'notes', 'source', 'expiry_reminder_sent_for',
     ];
 
-    protected $casts = ['issue_date' => 'date', 'expires_at' => 'date'];
+    protected $casts = ['issue_date' => 'date', 'expires_at' => 'date', 'expiry_reminder_sent_for' => 'date'];
 
     public function property(): BelongsTo
     {

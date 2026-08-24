@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Support\Str;
 
@@ -171,6 +172,18 @@ public function ownerDocuments(): HasMany
 public function unitDocuments(): HasMany
 {
     return $this->hasMany(UnitDocument::class);
+}
+
+public function dtcmDocuments(): HasMany
+{
+    return $this->hasMany(UnitDocument::class)->where('type', 'dtcm_permit');
+}
+
+public function dtcmPermit(): HasOne
+{
+    return $this->hasOne(UnitDocument::class)
+        ->where('type', 'dtcm_permit')
+        ->latestOfMany();
 }
 
 public function bookings(): HasMany

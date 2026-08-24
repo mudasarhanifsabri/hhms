@@ -39,6 +39,7 @@
                         <li class="sub-nav-item"><a class="sub-nav-link" href="{{ route('admin.property.index') }}">Unit List</a></li>
                         <li class="sub-nav-item"><a class="sub-nav-link" href="{{ route('admin.property.grid') }}">Unit Grid</a></li>
                         <li class="sub-nav-item"><a class="sub-nav-link" href="{{ route('admin.property.create') }}">Add Unit</a></li>
+                        @if(Route::has('admin.property.dtcm-permits'))<li class="sub-nav-item"><a class="sub-nav-link" href="{{ route('admin.property.dtcm-permits') }}">DTCM Permits</a></li>@endif
                         <li class="sub-nav-item"><a class="sub-nav-link" href="{{ route('admin.building.index') }}">Buildings</a></li>
                     </ul>
                 </div>

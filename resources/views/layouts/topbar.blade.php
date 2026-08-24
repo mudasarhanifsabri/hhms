@@ -12,6 +12,19 @@
                     </div>
 
                     <div class="d-flex align-items-center gap-1">
+                        @if(auth()->user()?->role === 'admin')
+                        @php($adminNotifications = auth()->user()->notifications()->latest()->limit(8)->get())
+                        <div class="dropdown topbar-item">
+                            <button type="button" class="topbar-button position-relative" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Notifications">
+                                <i class="ri-notification-3-line fs-24"></i>
+                                @if(auth()->user()->unreadNotifications()->exists())<span class="position-absolute top-0 end-0 badge rounded-pill bg-danger">{{ min(99,auth()->user()->unreadNotifications()->count()) }}</span>@endif
+                            </button>
+                            <div class="dropdown-menu dropdown-menu-end p-0" style="width:360px;max-width:90vw">
+                                <div class="p-3 border-bottom"><h6 class="mb-0">Notifications</h6></div>
+                                <div class="p-2">@forelse($adminNotifications as $notification)<a href="{{ data_get($notification->data,'url','#!') }}" class="dropdown-item text-wrap border-bottom py-2"><strong class="d-block">{{ data_get($notification->data,'title','System notification') }}</strong><small class="text-muted">{{ data_get($notification->data,'message') }}</small></a>@empty<div class="text-muted text-center p-3">No notifications</div>@endforelse</div>
+                            </div>
+                        </div>
+                        @endif
                         <div class="topbar-item">
                             <button type="button" class="topbar-button" id="light-dark-mode" aria-label="Toggle color mode">
                                 <i class="ri-moon-line fs-24 light-mode"></i>
