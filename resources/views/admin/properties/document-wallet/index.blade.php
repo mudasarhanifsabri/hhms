@@ -32,8 +32,8 @@
                     <div class="col-12"><label class="form-label">Custom Document Name</label><input name="custom_title" class="form-control" value="{{ old('custom_title') }}" placeholder="Required when type is Custom"></div>
                     <div class="col-12"><label class="form-label">Related Owner</label><select name="owner_id" class="form-select"><option value="">All unit owners</option>@foreach($owners as $owner)<option value="{{ $owner->id }}" @selected(old('owner_id')===$owner->id)>{{ $owner->name }}</option>@endforeach</select></div>
                     <div class="col-12"><label class="form-label">Reference / Document No.</label><input name="reference_no" class="form-control" value="{{ old('reference_no') }}"></div>
-                    <div class="col-6"><label class="form-label">Issue Date</label><input type="date" name="issue_date" class="form-control" value="{{ old('issue_date') }}"></div>
-                    <div class="col-6"><label class="form-label">Expiry Date</label><input type="date" name="expires_at" class="form-control" value="{{ old('expires_at') }}"></div>
+                    <div class="col-6"><label class="form-label">Issue Date</label><input type="date" name="issue_date" class="form-control" value="{{ old('issue_date') }}" data-wallet-issue-date></div>
+                    <div class="col-6"><label class="form-label">Expiry Date</label><input type="date" name="expires_at" class="form-control" value="{{ old('expires_at') }}" data-wallet-expiry-date><small class="text-muted">Defaults to one year after issue.</small></div>
                     <div class="col-12"><label class="form-label">File</label><input type="file" name="document" class="form-control" accept=".pdf,.jpg,.jpeg,.png,.webp" required><small class="text-muted">PDF or image, maximum 20 MB.</small></div>
                     <div class="col-12"><label class="form-label">Notes</label><textarea name="notes" class="form-control" rows="3">{{ old('notes') }}</textarea></div>
                     <div class="col-12"><button class="btn btn-primary w-100"><i class="ri-upload-cloud-line me-1"></i>Add to Wallet</button></div>
@@ -47,7 +47,7 @@
             <div class="card-body p-0"><div class="table-responsive"><table class="table align-middle mb-0"><thead class="bg-light-subtle"><tr><th>Document</th><th>Owner</th><th>Expiry</th><th>Status</th><th>Actions</th></tr></thead><tbody>
             @forelse($documents as $document)
                 <tr><td><strong>{{ $document->title }}</strong><div class="text-muted small">{{ $document->reference_no ?: 'No reference number' }}</div></td><td>{{ $document->owner?->name ?? 'All owners' }}</td><td>{{ $document->expires_at?->format('d M Y') ?? 'No expiry' }}</td><td><span class="badge {{ $expiryBadge($document->expiry_status) }}">{{ str($document->expiry_status)->headline() }}</span></td><td><div class="d-flex gap-1"><a href="{{ \App\Support\MediaStorage::url($document->file_path) }}" target="_blank" class="btn btn-sm btn-dark">Open</a><button class="btn btn-sm btn-soft-primary" data-bs-toggle="collapse" data-bs-target="#edit-{{ $document->id }}">Edit</button><form method="POST" action="{{ route('admin.property.document-wallet.destroy', [$property,$document]) }}" onsubmit="return confirm('Remove this document from the wallet?')">@csrf @method('DELETE')<button class="btn btn-sm btn-soft-danger">Delete</button></form></div></td></tr>
-                <tr class="collapse" id="edit-{{ $document->id }}"><td colspan="5"><form method="POST" action="{{ route('admin.property.document-wallet.update', [$property,$document]) }}" enctype="multipart/form-data" class="row g-2 p-2">@csrf @method('PUT')<div class="col-md-3"><select name="type" class="form-select">@foreach($types as $value=>$label)<option value="{{ $value }}" @selected($document->type===$value)>{{ $label }}</option>@endforeach</select></div><div class="col-md-3"><input name="custom_title" class="form-control" value="{{ $document->custom_title }}" placeholder="Custom title"></div><div class="col-md-3"><select name="owner_id" class="form-select"><option value="">All owners</option>@foreach($owners as $owner)<option value="{{ $owner->id }}" @selected($document->owner_id===$owner->id)>{{ $owner->name }}</option>@endforeach</select></div><div class="col-md-3"><input name="reference_no" class="form-control" value="{{ $document->reference_no }}" placeholder="Reference no."></div><div class="col-md-3"><input type="date" name="issue_date" class="form-control" value="{{ $document->issue_date?->format('Y-m-d') }}"></div><div class="col-md-3"><input type="date" name="expires_at" class="form-control" value="{{ $document->expires_at?->format('Y-m-d') }}"></div><div class="col-md-3"><input type="file" name="document" class="form-control"></div><div class="col-md-3"><button class="btn btn-primary w-100">Save Changes</button></div><div class="col-12"><textarea name="notes" class="form-control" rows="2" placeholder="Notes">{{ $document->notes }}</textarea></div></form></td></tr>
+                <tr class="collapse" id="edit-{{ $document->id }}"><td colspan="5"><form method="POST" action="{{ route('admin.property.document-wallet.update', [$property,$document]) }}" enctype="multipart/form-data" class="row g-2 p-2">@csrf @method('PUT')<div class="col-md-3"><select name="type" class="form-select">@foreach($types as $value=>$label)<option value="{{ $value }}" @selected($document->type===$value)>{{ $label }}</option>@endforeach</select></div><div class="col-md-3"><input name="custom_title" class="form-control" value="{{ $document->custom_title }}" placeholder="Custom title"></div><div class="col-md-3"><select name="owner_id" class="form-select"><option value="">All owners</option>@foreach($owners as $owner)<option value="{{ $owner->id }}" @selected($document->owner_id===$owner->id)>{{ $owner->name }}</option>@endforeach</select></div><div class="col-md-3"><input name="reference_no" class="form-control" value="{{ $document->reference_no }}" placeholder="Reference no."></div><div class="col-md-3"><input type="date" name="issue_date" class="form-control" value="{{ $document->issue_date?->format('Y-m-d') }}" data-wallet-issue-date></div><div class="col-md-3"><input type="date" name="expires_at" class="form-control" value="{{ $document->expires_at?->format('Y-m-d') }}" data-wallet-expiry-date></div><div class="col-md-3"><input type="file" name="document" class="form-control"></div><div class="col-md-3"><button class="btn btn-primary w-100">Save Changes</button></div><div class="col-12"><textarea name="notes" class="form-control" rows="2" placeholder="Notes">{{ $document->notes }}</textarea></div></form></td></tr>
             @empty<tr><td colspan="5" class="text-center text-muted py-5">No uploaded unit documents yet.</td></tr>@endforelse
             </tbody></table></div></div>
         </div>
@@ -59,3 +59,17 @@
     </div>
 </div>
 @endsection
+
+@push('scripts')
+<script>
+document.addEventListener('change', function (event) {
+    if (!event.target.matches('[data-wallet-issue-date]') || !event.target.value) return;
+    const form = event.target.closest('form');
+    const expiry = form?.querySelector('[data-wallet-expiry-date]');
+    if (!expiry) return;
+    const [year, month, day] = event.target.value.split('-').map(Number);
+    const nextYear = new Date(Date.UTC(year + 1, month - 1, day));
+    expiry.value = nextYear.toISOString().slice(0, 10);
+});
+</script>
+@endpush

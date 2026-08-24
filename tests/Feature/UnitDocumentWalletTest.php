@@ -48,6 +48,22 @@ class UnitDocumentWalletTest extends TestCase
         ])->assertSessionHasErrors('custom_title');
     }
 
+    public function test_expiry_defaults_to_one_year_after_issue_date(): void
+    {
+        Storage::fake('public');
+        $admin = User::factory()->create(['role' => 'admin']);
+        $owner = User::factory()->create(['role' => 'landlord']);
+        $property = Property::create(['landlord_id' => $owner->id, 'name' => 'Unit 505', 'status' => 'vacant']);
+
+        $this->actingAs($admin)->post(route('admin.property.document-wallet.store', $property), [
+            'type' => 'dtcm_permit',
+            'issue_date' => '2026-08-24',
+            'document' => UploadedFile::fake()->create('permit.pdf', 50, 'application/pdf'),
+        ])->assertRedirect()->assertSessionHasNoErrors();
+
+        $this->assertSame('2027-08-24', UnitDocument::firstOrFail()->expires_at->toDateString());
+    }
+
     public function test_owner_sees_unit_wallet_in_desktop_and_mobile_portals(): void
     {
         $owner = User::factory()->create(['role' => 'landlord']);

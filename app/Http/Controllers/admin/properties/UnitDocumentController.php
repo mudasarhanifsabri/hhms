@@ -8,6 +8,7 @@ use App\Models\UnitDocument;
 use App\Support\MediaStorage;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Carbon;
 use Illuminate\Validation\Rule;
 
 class UnitDocumentController extends Controller
@@ -28,6 +29,7 @@ class UnitDocumentController extends Controller
     public function store(Request $request, Property $property)
     {
         $data = $this->validated($request, true);
+        $this->applyDefaultExpiry($data);
         $this->ensureOwnerBelongsToUnit($property, $data['owner_id'] ?? null);
         $data['file_path'] = MediaStorage::store($request->file('document'), 'unit-documents');
         $property->unitDocuments()->create($data);
@@ -39,6 +41,7 @@ class UnitDocumentController extends Controller
     {
         abort_unless($document->property_id === $property->id, 404);
         $data = $this->validated($request, false);
+        $this->applyDefaultExpiry($data);
         $this->ensureOwnerBelongsToUnit($property, $data['owner_id'] ?? null);
         if ($request->hasFile('document')) {
             if ($document->source !== 'legacy_property') {
@@ -81,5 +84,12 @@ class UnitDocumentController extends Controller
     {
         if (! $ownerId) return;
         abort_unless($property->landlord_id === $ownerId || $property->ownerShares()->where('owner_id', $ownerId)->exists(), 422);
+    }
+
+    private function applyDefaultExpiry(array &$data): void
+    {
+        if (! empty($data['issue_date']) && empty($data['expires_at'])) {
+            $data['expires_at'] = Carbon::parse($data['issue_date'])->addYear()->toDateString();
+        }
     }
 }
