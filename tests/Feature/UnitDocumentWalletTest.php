@@ -61,7 +61,7 @@ class UnitDocumentWalletTest extends TestCase
             'document' => UploadedFile::fake()->create('permit.pdf', 50, 'application/pdf'),
         ])->assertRedirect()->assertSessionHasNoErrors();
 
-        $this->assertSame('2027-08-24', UnitDocument::firstOrFail()->expires_at->toDateString());
+        $this->assertSame('2027-08-23', UnitDocument::firstOrFail()->expires_at->toDateString());
     }
 
     public function test_owner_sees_unit_wallet_in_desktop_and_mobile_portals(): void

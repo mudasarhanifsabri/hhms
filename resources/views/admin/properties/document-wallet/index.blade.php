@@ -33,7 +33,7 @@
                     <div class="col-12"><label class="form-label">Related Owner</label><select name="owner_id" class="form-select"><option value="">All unit owners</option>@foreach($owners as $owner)<option value="{{ $owner->id }}" @selected(old('owner_id')===$owner->id)>{{ $owner->name }}</option>@endforeach</select></div>
                     <div class="col-12"><label class="form-label">Reference / Document No.</label><input name="reference_no" class="form-control" value="{{ old('reference_no') }}"></div>
                     <div class="col-6"><label class="form-label">Issue Date</label><input type="date" name="issue_date" class="form-control" value="{{ old('issue_date') }}" data-wallet-issue-date></div>
-                    <div class="col-6"><label class="form-label">Expiry Date</label><input type="date" name="expires_at" class="form-control" value="{{ old('expires_at') }}" data-wallet-expiry-date><small class="text-muted">Defaults to one year after issue.</small></div>
+                    <div class="col-6"><label class="form-label">Expiry Date</label><input type="date" name="expires_at" class="form-control" value="{{ old('expires_at') }}" data-wallet-expiry-date><small class="text-muted">Defaults to one year minus one day after issue.</small></div>
                     <div class="col-12"><label class="form-label">File</label><input type="file" name="document" class="form-control" accept=".pdf,.jpg,.jpeg,.png,.webp" required><small class="text-muted">PDF or image, maximum 20 MB.</small></div>
                     <div class="col-12"><label class="form-label">Notes</label><textarea name="notes" class="form-control" rows="3">{{ old('notes') }}</textarea></div>
                     <div class="col-12"><button class="btn btn-primary w-100"><i class="ri-upload-cloud-line me-1"></i>Add to Wallet</button></div>
@@ -69,6 +69,7 @@ document.addEventListener('change', function (event) {
     if (!expiry) return;
     const [year, month, day] = event.target.value.split('-').map(Number);
     const nextYear = new Date(Date.UTC(year + 1, month - 1, day));
+    nextYear.setUTCDate(nextYear.getUTCDate() - 1);
     expiry.value = nextYear.toISOString().slice(0, 10);
 });
 </script>

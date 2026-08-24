@@ -10,6 +10,8 @@ use App\Notifications\DtcmPermitExpiring;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Http\UploadedFile;
 use Tests\TestCase;
 
 class DtcmPermitMonitoringTest extends TestCase
@@ -28,6 +30,23 @@ class DtcmPermitMonitoringTest extends TestCase
 
         $this->actingAs($admin)->get(route('admin.property.dtcm-permits', ['status' => 'urgent']))
             ->assertOk()->assertSee('DTCM-URGENT')->assertDontSee('DTCM-VALID');
+    }
+
+    public function test_dtcm_permit_added_through_wallet_appears_in_all_permits_list(): void
+    {
+        Storage::fake('public');
+        $admin = User::factory()->create(['role' => 'admin']);
+        $owner = User::factory()->create(['role' => 'landlord']);
+        $property = Property::create(['landlord_id' => $owner->id, 'name' => 'Unit 707', 'status' => 'vacant']);
+
+        $this->actingAs($admin)->post(route('admin.property.document-wallet.store', $property), [
+            'type' => 'dtcm_permit', 'reference_no' => 'DTCM-WALLET-707',
+            'issue_date' => today()->toDateString(),
+            'document' => UploadedFile::fake()->create('dtcm.pdf', 50, 'application/pdf'),
+        ])->assertRedirect(route('admin.property.dtcm-permits'))->assertSessionHasNoErrors();
+
+        $this->actingAs($admin)->get(route('admin.property.dtcm-permits'))
+            ->assertOk()->assertSee('DTCM-WALLET-707')->assertSee('Unit 707');
     }
 
     public function test_seven_day_reminder_is_sent_once_per_expiry_date(): void

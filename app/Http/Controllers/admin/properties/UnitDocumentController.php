@@ -34,6 +34,11 @@ class UnitDocumentController extends Controller
         $data['file_path'] = MediaStorage::store($request->file('document'), 'unit-documents');
         $property->unitDocuments()->create($data);
 
+        if ($data['type'] === 'dtcm_permit') {
+            return redirect()->route('admin.property.dtcm-permits')
+                ->with('success', 'DTCM Permit added and is now visible in the permit list.');
+        }
+
         return back()->with('success', 'Document added to the Unit Document Wallet.');
     }
 
@@ -51,6 +56,11 @@ class UnitDocumentController extends Controller
             $data['source'] = 'uploaded';
         }
         $document->update($data);
+
+        if ($data['type'] === 'dtcm_permit') {
+            return redirect()->route('admin.property.dtcm-permits')
+                ->with('success', 'DTCM Permit updated in the permit list.');
+        }
 
         return back()->with('success', 'Document updated.');
     }
@@ -89,7 +99,7 @@ class UnitDocumentController extends Controller
     private function applyDefaultExpiry(array &$data): void
     {
         if (! empty($data['issue_date']) && empty($data['expires_at'])) {
-            $data['expires_at'] = Carbon::parse($data['issue_date'])->addYear()->toDateString();
+            $data['expires_at'] = Carbon::parse($data['issue_date'])->addYear()->subDay()->toDateString();
         }
     }
 }
