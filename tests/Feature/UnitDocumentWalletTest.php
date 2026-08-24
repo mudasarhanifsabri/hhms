@@ -74,4 +74,47 @@ class UnitDocumentWalletTest extends TestCase
         $this->actingAs($owner)->get(route('landlord.dashboard'))->assertOk()->assertSee('Unit Document Wallet')->assertSee('Title Deed');
         $this->actingAs($owner)->get(route('landlord.app'))->assertOk()->assertSee('Document Wallet')->assertSee('Title Deed');
     }
+
+    public function test_management_contract_dates_sync_to_noc_and_management_letter(): void
+    {
+        Storage::fake('public');
+        $admin = User::factory()->create(['role' => 'admin']);
+        $owner = User::factory()->create(['role' => 'landlord']);
+        $property = Property::create(['landlord_id' => $owner->id, 'name' => 'Unit 606', 'status' => 'vacant']);
+        $noc = $property->unitDocuments()->create(['type' => 'noc', 'file_path' => 'noc.pdf']);
+        $letter = $property->unitDocuments()->create(['type' => 'management_letter', 'file_path' => 'letter.pdf']);
+
+        $this->actingAs($admin)->post(route('admin.property.document-wallet.store', $property), [
+            'type' => 'management_contract',
+            'issue_date' => '2026-08-24',
+            'expires_at' => '2027-08-23',
+            'document' => UploadedFile::fake()->create('contract.pdf', 50, 'application/pdf'),
+        ])->assertRedirect()->assertSessionHasNoErrors();
+
+        foreach ([$noc->fresh(), $letter->fresh()] as $document) {
+            $this->assertSame('2026-08-24', $document->issue_date->toDateString());
+            $this->assertSame('2027-08-23', $document->expires_at->toDateString());
+        }
+    }
+
+    public function test_management_contract_update_resyncs_existing_document_dates(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $owner = User::factory()->create(['role' => 'landlord']);
+        $property = Property::create(['landlord_id' => $owner->id, 'name' => 'Unit 808', 'status' => 'vacant']);
+        $noc = $property->unitDocuments()->create(['type' => 'noc', 'issue_date' => '2020-01-01', 'expires_at' => '2020-12-31', 'file_path' => 'noc.pdf']);
+        $letter = $property->unitDocuments()->create(['type' => 'management_letter', 'issue_date' => '2020-01-01', 'expires_at' => '2020-12-31', 'file_path' => 'letter.pdf']);
+        $contract = $property->unitDocuments()->create(['type' => 'management_contract', 'issue_date' => '2021-01-01', 'expires_at' => '2021-12-31', 'file_path' => 'contract.pdf']);
+
+        $this->actingAs($admin)->put(route('admin.property.document-wallet.update', [$property, $contract]), [
+            'type' => 'management_contract',
+            'issue_date' => '2026-09-01',
+            'expires_at' => '2027-08-31',
+        ])->assertRedirect()->assertSessionHasNoErrors();
+
+        foreach ([$noc->fresh(), $letter->fresh()] as $document) {
+            $this->assertSame('2026-09-01', $document->issue_date->toDateString());
+            $this->assertSame('2027-08-31', $document->expires_at->toDateString());
+        }
+    }
 }

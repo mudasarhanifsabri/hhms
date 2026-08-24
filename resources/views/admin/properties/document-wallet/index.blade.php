@@ -26,6 +26,7 @@
         <div class="card sticky-xl-top" style="top:90px">
             <div class="card-header"><h4 class="card-title mb-0">Add Unit Document</h4></div>
             <div class="card-body">
+                <div class="alert alert-info py-2 small"><i class="ri-calendar-check-line me-1"></i>Management Contract dates automatically synchronize to the latest NOC and Management Letter for this unit.</div>
                 <form method="POST" action="{{ route('admin.property.document-wallet.store', $property) }}" enctype="multipart/form-data" class="row g-3">
                     @csrf
                     <div class="col-12"><label class="form-label">Document Type</label><select name="type" class="form-select" required>@foreach($types as $value=>$label)<option value="{{ $value }}" @selected(old('type')===$value)>{{ $label }}</option>@endforeach</select></div>

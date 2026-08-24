@@ -32,7 +32,8 @@ class UnitDocumentController extends Controller
         $this->applyDefaultExpiry($data);
         $this->ensureOwnerBelongsToUnit($property, $data['owner_id'] ?? null);
         $data['file_path'] = MediaStorage::store($request->file('document'), 'unit-documents');
-        $property->unitDocuments()->create($data);
+        $document = $property->unitDocuments()->create($data);
+        $this->syncManagementDocumentDates($property, $document);
 
         if ($data['type'] === 'dtcm_permit') {
             return redirect()->route('admin.property.dtcm-permits')
@@ -56,6 +57,7 @@ class UnitDocumentController extends Controller
             $data['source'] = 'uploaded';
         }
         $document->update($data);
+        $this->syncManagementDocumentDates($property, $document);
 
         if ($data['type'] === 'dtcm_permit') {
             return redirect()->route('admin.property.dtcm-permits')
@@ -100,6 +102,25 @@ class UnitDocumentController extends Controller
     {
         if (! empty($data['issue_date']) && empty($data['expires_at'])) {
             $data['expires_at'] = Carbon::parse($data['issue_date'])->addYear()->subDay()->toDateString();
+        }
+    }
+
+    private function syncManagementDocumentDates(Property $property, UnitDocument $document): void
+    {
+        if ($document->type !== 'management_contract') {
+            return;
+        }
+
+        foreach (['noc', 'management_letter'] as $type) {
+            $relatedDocument = $property->unitDocuments()
+                ->where('type', $type)
+                ->latest()
+                ->first();
+
+            $relatedDocument?->update([
+                'issue_date' => $document->issue_date,
+                'expires_at' => $document->expires_at,
+            ]);
         }
     }
 }
