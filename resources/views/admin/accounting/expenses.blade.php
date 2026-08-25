@@ -7,15 +7,17 @@
     <div class="card-header d-flex justify-content-between align-items-center">
         <h4 class="card-title mb-0">Expense Management</h4>
         <div class="d-flex gap-2">
+            <a href="{{ url('/admin/accounting/expenses/report/pdf').(request()->getQueryString() ? '?'.request()->getQueryString() : '') }}" class="btn btn-soft-danger"><i class="ri-file-pdf-2-line me-1"></i>PDF</a>
+            <a href="{{ url('/admin/accounting/expenses/report/csv').(request()->getQueryString() ? '?'.request()->getQueryString() : '') }}" class="btn btn-soft-success"><i class="ri-file-excel-2-line me-1"></i>CSV</a>
             <a href="{{ url('/admin/accounting/expenses/import') }}" class="btn btn-soft-primary"><i class="ri-upload-cloud-2-line me-1"></i>Import Expenses</a>
             <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#expenseModal"><i class="ri-add-line me-1"></i>Record Expense</button>
         </div>
     </div>
     <div class="card-body border-bottom">
         <form class="row g-2">
-            <div class="col-md-3"><select name="category" class="form-select"><option value="">All Categories</option>@foreach($expenseCategories as $key => $label)<option value="{{ $key }}" @selected(request('category')===$key)>{{ $label }}</option>@endforeach</select></div>
-            <div class="col-md-3"><select name="property_id" class="form-select"><option value="">All Units</option>@foreach($properties as $property)<option value="{{ $property->id }}" @selected(request('property_id')===$property->id)>{{ $property->name }} — {{ $property->building?->building_name ?? $property->building?->name ?? 'No Building' }}</option>@endforeach</select></div>
-            <div class="col-md-3">
+            <div class="col-md-2"><select name="category" class="form-select"><option value="">All Categories</option>@foreach($expenseCategories as $key => $label)<option value="{{ $key }}" @selected(request('category')===$key)>{{ $label }}</option>@endforeach</select></div>
+            <div class="col-md-2"><select name="property_id" class="form-select"><option value="">All Units</option>@foreach($properties as $property)<option value="{{ $property->id }}" @selected(request('property_id')===$property->id)>{{ $property->name }} — {{ $property->building?->building_name ?? $property->building?->name ?? 'No Building' }}</option>@endforeach</select></div>
+            <div class="col-md-2">
                 <select name="approval_status" class="form-select">
                     <option value="">All Status</option>
                     @foreach(['draft' => 'Draft', 'pending' => 'Pending', 'reviewed' => 'Reviewed', 'approved' => 'Approved', 'paid' => 'Paid', 'rejected' => 'Rejected'] as $key => $label)
@@ -23,6 +25,8 @@
                     @endforeach
                 </select>
             </div>
+            <div class="col-md-2"><input type="date" name="date_from" value="{{ request('date_from') }}" class="form-control" title="From date"></div>
+            <div class="col-md-2"><input type="date" name="date_to" value="{{ request('date_to') }}" class="form-control" title="To date"></div>
             <div class="col-md-2"><button class="btn btn-soft-primary w-100">Filter</button></div>
         </form>
     </div>

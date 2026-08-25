@@ -6,7 +6,7 @@
 <div class="card">
     <div class="card-header d-flex justify-content-between align-items-center">
         <h4 class="card-title mb-0">Bank & Cash Management</h4>
-        <div class="d-flex gap-2"><a class="btn btn-outline-dark" href="{{ route('admin.accounting.bank-statements') }}"><i class="ri-file-list-3-line me-1"></i>All Statements</a><button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#transferModal"><i class="ri-arrow-left-right-line me-1"></i>Transfer</button><button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#bankModal"><i class="ri-add-line me-1"></i>Add Bank/Cash</button></div>
+        <div class="d-flex gap-2"><a class="btn btn-outline-dark" href="{{ url('/admin/accounting/bank-accounts/statements') }}"><i class="ri-file-list-3-line me-1"></i>All Statements</a><button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#transferModal"><i class="ri-arrow-left-right-line me-1"></i>Transfer</button><button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#bankModal"><i class="ri-add-line me-1"></i>Add Bank/Cash</button></div>
     </div>
     <div class="table-responsive">
         <table class="table table-hover align-middle mb-0">
@@ -21,7 +21,7 @@
                     <td>{{ $bankAccount->iban ?? '-' }}</td>
                     <td>AED {{ number_format((float) $bankAccount->opening_balance, 2) }}</td>
                     <td>AED {{ number_format((float) $bankAccount->current_balance, 2) }}</td>
-                    <td><span class="badge {{ $bankAccount->is_active ? 'bg-success' : 'bg-secondary' }}">{{ $bankAccount->is_active ? 'Active' : 'Inactive' }}</span></td><td><div class="d-flex gap-1"><a class="btn btn-sm btn-dark" href="{{ route('admin.accounting.bank-account.statement',$bankAccount) }}">Statement</a><button class="btn btn-sm btn-soft-primary" data-bs-toggle="modal" data-bs-target="#editBank-{{ $bankAccount->id }}">Edit</button></div></td>
+                    <td><span class="badge {{ $bankAccount->is_active ? 'bg-success' : 'bg-secondary' }}">{{ $bankAccount->is_active ? 'Active' : 'Inactive' }}</span></td><td><div class="d-flex gap-1"><a class="btn btn-sm btn-dark" href="{{ url('/admin/accounting/bank-accounts/'.$bankAccount->id.'/statement') }}">Statement</a><button class="btn btn-sm btn-soft-primary" data-bs-toggle="modal" data-bs-target="#editBank-{{ $bankAccount->id }}">Edit</button></div></td>
                 </tr>
             @empty
                 <tr><td colspan="9" class="text-center text-muted py-4">No bank or cash accounts yet.</td></tr>

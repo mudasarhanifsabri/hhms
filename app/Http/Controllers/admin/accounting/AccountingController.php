@@ -137,15 +137,90 @@ class AccountingController extends Controller
 
     public function expenses(Request $request)
     {
-        $expenses = Expense::with(['property.building', 'landlord', 'booking', 'vendor', 'paidFromAccount'])
-            ->when($request->filled('category'), fn ($query) => $query->where('category', $request->input('category')))
-            ->when($request->filled('property_id'), fn ($query) => $query->where('property_id', $request->input('property_id')))
-            ->when($request->filled('approval_status'), fn ($query) => $query->where('approval_status', $request->input('approval_status')))
+        $expenses = $this->filteredExpenses($request)
             ->latest('expense_date')
             ->paginate(20)
             ->withQueryString();
 
         return view('admin.accounting.expenses', $this->sharedData() + compact('expenses'));
+    }
+
+    public function expenseReportPdf(Request $request)
+    {
+        $this->validateExpenseReportFilters($request);
+        $expenses = $this->filteredExpenses($request)->orderBy('expense_date')->orderBy('expense_no')->get();
+        $filters = $this->expenseReportFilters($request);
+
+        return PdfRenderer::downloadView(
+            'admin.accounting.pdf.expense-report',
+            compact('expenses', 'filters'),
+            'expense-report-' . now()->format('Y-m-d') . '.pdf',
+            ['format' => 'A4-L']
+        );
+    }
+
+    public function expenseReportCsv(Request $request)
+    {
+        $this->validateExpenseReportFilters($request);
+        $expenses = $this->filteredExpenses($request)->orderBy('expense_date')->orderBy('expense_no')->get();
+
+        return response()->streamDownload(function () use ($expenses) {
+            $output = fopen('php://output', 'wb');
+            fwrite($output, "\xEF\xBB\xBF");
+            fputcsv($output, ['Date', 'Expense No.', 'Category', 'Unit', 'Building', 'Vendor', 'Charged To', 'Paid From', 'Status', 'Net (AED)', 'VAT (AED)', 'Total (AED)', 'Description']);
+
+            foreach ($expenses as $expense) {
+                fputcsv($output, [
+                    $expense->expense_date?->format('Y-m-d'),
+                    $expense->expense_no,
+                    Expense::CATEGORIES[$expense->category] ?? ucfirst($expense->category),
+                    $expense->property?->name,
+                    $expense->property?->building?->building_name ?? $expense->property?->building?->name,
+                    $expense->vendor?->name ?? $expense->supplier,
+                    ucfirst(str_replace('_', ' ', $expense->responsibility)),
+                    $expense->paidFromAccount?->name,
+                    ucfirst($expense->approval_status),
+                    number_format((float) $expense->net_amount, 2, '.', ''),
+                    number_format((float) $expense->vat_amount, 2, '.', ''),
+                    number_format((float) $expense->gross_amount, 2, '.', ''),
+                    $expense->description,
+                ]);
+            }
+
+            fclose($output);
+        }, 'expense-report-' . now()->format('Y-m-d') . '.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
+    }
+
+    private function filteredExpenses(Request $request)
+    {
+        return Expense::with(['property.building', 'landlord', 'booking', 'vendor', 'paidFromAccount'])
+            ->when($request->filled('category'), fn ($query) => $query->where('category', $request->input('category')))
+            ->when($request->filled('property_id'), fn ($query) => $query->where('property_id', $request->input('property_id')))
+            ->when($request->filled('approval_status'), fn ($query) => $query->where('approval_status', $request->input('approval_status')))
+            ->when($request->filled('date_from'), fn ($query) => $query->whereDate('expense_date', '>=', $request->input('date_from')))
+            ->when($request->filled('date_to'), fn ($query) => $query->whereDate('expense_date', '<=', $request->input('date_to')));
+    }
+
+    private function validateExpenseReportFilters(Request $request): void
+    {
+        $request->validate([
+            'category' => 'nullable|in:' . implode(',', array_keys(Expense::CATEGORIES)),
+            'property_id' => 'nullable|uuid|exists:properties,id',
+            'approval_status' => 'nullable|in:draft,pending,reviewed,approved,paid,rejected',
+            'date_from' => 'nullable|date',
+            'date_to' => 'nullable|date|after_or_equal:date_from',
+        ]);
+    }
+
+    private function expenseReportFilters(Request $request): array
+    {
+        return [
+            'category' => $request->filled('category') ? (Expense::CATEGORIES[$request->input('category')] ?? $request->input('category')) : 'All categories',
+            'unit' => $request->filled('property_id') ? Property::with('building')->find($request->input('property_id')) : null,
+            'status' => $request->filled('approval_status') ? ucfirst($request->input('approval_status')) : 'All statuses',
+            'date_from' => $request->filled('date_from') ? Carbon::parse($request->input('date_from')) : null,
+            'date_to' => $request->filled('date_to') ? Carbon::parse($request->input('date_to')) : null,
+        ];
     }
 
     public function importExpenses()
