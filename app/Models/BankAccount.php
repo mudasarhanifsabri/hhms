@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class BankAccount extends BaseModel
 {
@@ -29,5 +30,10 @@ class BankAccount extends BaseModel
     public function accountingAccount(): BelongsTo
     {
         return $this->belongsTo(AccountingAccount::class);
+    }
+
+    public function entries(): HasMany
+    {
+        return $this->hasMany(AccountingEntry::class, 'paid_from_account_id');
     }
 }

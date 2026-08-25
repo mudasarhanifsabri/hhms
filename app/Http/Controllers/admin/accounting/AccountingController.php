@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\AccountingAccount;
 use App\Models\AccountingEntry;
 use App\Models\BankAccount;
+use App\Models\BankTransfer;
 use App\Models\Booking;
 use App\Models\BookingInvoice;
 use App\Models\Expense;
@@ -22,6 +23,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 class AccountingController extends Controller
 {
@@ -773,6 +775,79 @@ class AccountingController extends Controller
         return back()->with('success', 'Bank or cash account added.');
     }
 
+    public function updateBankAccount(Request $request, BankAccount $bankAccount)
+    {
+        $data = $request->validate([
+            'accounting_account_id' => 'nullable|exists:accounting_accounts,id', 'name' => 'required|string|max:255',
+            'type' => 'required|in:bank,cash,credit_card,wallet', 'bank_name' => 'nullable|string|max:255',
+            'iban' => 'nullable|string|max:255', 'account_number' => 'nullable|string|max:255',
+            'currency' => 'required|string|max:10', 'opening_balance' => 'required|numeric',
+            'is_active' => 'nullable|boolean', 'notes' => 'nullable|string|max:1000',
+        ]);
+        $bankAccount->update([...$data, 'is_active' => $request->boolean('is_active')]);
+        $this->refreshBankAccountBalance($bankAccount);
+        return back()->with('success', 'Bank or cash account updated.');
+    }
+
+    public function transferBetweenAccounts(Request $request)
+    {
+        $data = $request->validate([
+            'transfer_date' => 'required|date', 'from_account_id' => 'required|exists:bank_accounts,id|different:to_account_id',
+            'to_account_id' => 'required|exists:bank_accounts,id', 'amount' => 'required|numeric|min:0.01',
+            'reference' => 'nullable|string|max:255', 'description' => 'nullable|string|max:1000',
+        ]);
+        $transfer = DB::transaction(function () use ($data) {
+            $accounts = BankAccount::whereIn('id', [$data['from_account_id'], $data['to_account_id']])->lockForUpdate()->get()->keyBy(fn ($a) => (string) $a->id);
+            $from = $accounts[(string) $data['from_account_id']]; $to = $accounts[(string) $data['to_account_id']]; $amount = (float) $data['amount'];
+            if (! $from->is_active || ! $to->is_active) throw ValidationException::withMessages(['from_account_id' => 'Both transfer accounts must be active.']);
+            if (strtoupper($from->currency) !== strtoupper($to->currency)) throw ValidationException::withMessages(['to_account_id' => 'Transfers require accounts with the same currency.']);
+            if ($this->bankAccountBalance($from) < $amount) throw ValidationException::withMessages(['amount' => 'The source account has insufficient available balance.']);
+            $transfer = BankTransfer::create([...$data, 'transfer_no' => $this->nextNumber('TRF', BankTransfer::class, 'transfer_no'), 'currency' => strtoupper($from->currency), 'created_by' => auth()->id()]);
+            $common = ['entry_date' => $data['transfer_date'], 'type' => 'transfer', 'category' => 'account_transfer', 'bank_transfer_id' => $transfer->id,
+                'vat_rate' => 0, 'vat_amount' => 0, 'net_amount' => $amount, 'gross_amount' => $amount, 'payment_method' => 'internal_transfer',
+                'transaction_reference' => $transfer->transfer_no, 'status' => 'posted', 'approval_status' => 'posted', 'created_by' => auth()->id()];
+            AccountingEntry::create([...$common, 'entry_no' => $this->nextNumber('JE', AccountingEntry::class, 'entry_no'), 'description' => "Transfer to {$to->name}",
+                'accounting_account_id' => $from->accounting_account_id, 'paid_from_account_id' => $from->id, 'debit' => $amount, 'credit' => 0]);
+            AccountingEntry::create([...$common, 'entry_no' => $this->nextNumber('JE', AccountingEntry::class, 'entry_no'), 'description' => "Transfer from {$from->name}",
+                'accounting_account_id' => $to->accounting_account_id, 'paid_from_account_id' => $to->id, 'debit' => 0, 'credit' => $amount]);
+            $this->refreshBankAccountBalance($from); $this->refreshBankAccountBalance($to);
+            return $transfer;
+        });
+        return redirect()->route('admin.accounting.bank-account.statement', $transfer->from_account_id)->with('success', "Transfer {$transfer->transfer_no} posted with balanced ledger entries.");
+    }
+
+    public function bankStatements(Request $request)
+    {
+        return $this->renderBankStatement($request, $request->filled('account_id') ? BankAccount::findOrFail($request->input('account_id')) : null);
+    }
+
+    public function bankAccountStatement(Request $request, BankAccount $bankAccount)
+    {
+        return $this->renderBankStatement($request, $bankAccount);
+    }
+
+    private function renderBankStatement(Request $request, ?BankAccount $account)
+    {
+        $entries = AccountingEntry::with(['paidFromAccount', 'bankTransfer.fromAccount', 'bankTransfer.toAccount', 'creator'])
+            ->whereIn('approval_status', ['posted', 'approved', 'paid'])->whereNotNull('paid_from_account_id')
+            ->when($account, fn ($q) => $q->where('paid_from_account_id', $account->id))
+            ->when($request->filled('date_from'), fn ($q) => $q->whereDate('entry_date', '>=', $request->input('date_from')))
+            ->when($request->filled('date_to'), fn ($q) => $q->whereDate('entry_date', '<=', $request->input('date_to')))
+            ->orderBy('entry_date')->orderBy('created_at')->get();
+        $balances = BankAccount::all()->mapWithKeys(fn ($item) => [(string) $item->id => (float) $item->opening_balance])->all();
+        if ($request->filled('date_from')) {
+            $priorMovements = AccountingEntry::whereIn('approval_status', ['posted', 'approved', 'paid'])
+                ->whereNotNull('paid_from_account_id')->whereDate('entry_date', '<', $request->input('date_from'))
+                ->when($account, fn ($q) => $q->where('paid_from_account_id', $account->id))
+                ->selectRaw('paid_from_account_id, SUM(credit - debit) as movement')->groupBy('paid_from_account_id')->pluck('movement', 'paid_from_account_id');
+            foreach ($priorMovements as $accountId => $movement) $balances[(string) $accountId] = ($balances[(string) $accountId] ?? 0) + (float) $movement;
+        }
+        $runningBalances = [];
+        foreach ($entries as $entry) { $id = (string) $entry->paid_from_account_id; $balances[$id] = ($balances[$id] ?? 0) + (float) $entry->credit - (float) $entry->debit; $runningBalances[$entry->id] = $balances[$id]; }
+        return view('admin.accounting.bank-statements', ['selectedAccount' => $account, 'entries' => $entries, 'runningBalances' => $runningBalances,
+            'bankAccounts' => BankAccount::orderBy('name')->get()] + $this->sharedData());
+    }
+
     public function vendors()
     {
         $vendors = Vendor::withCount('expenses')->orderBy('name')->get();
@@ -1304,6 +1379,18 @@ class AccountingController extends Controller
     private function bankBalanceAsOf(Carbon $date): float
     {
         return $this->bankBalanceTotal(null, $date);
+    }
+
+    private function bankAccountBalance(BankAccount $account): float
+    {
+        $movement = AccountingEntry::where('paid_from_account_id', $account->id)->whereIn('approval_status', ['posted', 'approved', 'paid'])
+            ->selectRaw('COALESCE(SUM(credit - debit),0) as movement')->value('movement');
+        return (float) $account->opening_balance + (float) $movement;
+    }
+
+    private function refreshBankAccountBalance(BankAccount $account): void
+    {
+        $account->forceFill(['current_balance' => $this->bankAccountBalance($account)])->save();
     }
 
     private function ageingBuckets($records, string $dateColumn, string $amountColumn): array

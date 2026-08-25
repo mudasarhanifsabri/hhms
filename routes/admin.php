@@ -36,6 +36,10 @@ Route::get('/accounting/chart-of-accounts', [AccountingController::class, 'chart
 Route::post('/accounting/chart-of-accounts', [AccountingController::class, 'storeAccount'])->name('accounting.chart-of-accounts.store');
 Route::get('/accounting/bank-accounts', [AccountingController::class, 'bankAccounts'])->name('accounting.bank-accounts');
 Route::post('/accounting/bank-accounts', [AccountingController::class, 'storeBankAccount'])->name('accounting.bank-accounts.store');
+Route::get('/accounting/bank-accounts/statements', [AccountingController::class, 'bankStatements'])->name('accounting.bank-statements');
+Route::post('/accounting/bank-accounts/transfers', [AccountingController::class, 'transferBetweenAccounts'])->name('accounting.bank-accounts.transfer');
+Route::put('/accounting/bank-accounts/{bankAccount}', [AccountingController::class, 'updateBankAccount'])->name('accounting.bank-accounts.update');
+Route::get('/accounting/bank-accounts/{bankAccount}/statement', [AccountingController::class, 'bankAccountStatement'])->name('accounting.bank-account.statement');
 Route::get('/accounting/vendors', [AccountingController::class, 'vendors'])->name('accounting.vendors');
 Route::post('/accounting/vendors', [AccountingController::class, 'storeVendor'])->name('accounting.vendors.store');
 Route::get('/accounting/ledger', [AccountingController::class, 'ledger'])->name('accounting.ledger');

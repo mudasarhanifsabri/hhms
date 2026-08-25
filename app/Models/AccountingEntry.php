@@ -13,6 +13,7 @@ class AccountingEntry extends BaseModel
         'vat' => 'VAT',
         'owner' => 'Owner Ledger',
         'adjustment' => 'Adjustment',
+        'transfer' => 'Account Transfer',
     ];
 
     protected $fillable = [
@@ -29,6 +30,7 @@ class AccountingEntry extends BaseModel
         'vendor_id',
         'expense_id',
         'utility_bill_id',
+        'bank_transfer_id',
         'debit',
         'credit',
         'vat_rate',
@@ -86,5 +88,10 @@ class AccountingEntry extends BaseModel
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function bankTransfer(): BelongsTo
+    {
+        return $this->belongsTo(BankTransfer::class);
     }
 }
