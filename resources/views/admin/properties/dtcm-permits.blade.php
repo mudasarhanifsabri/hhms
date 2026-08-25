@@ -5,7 +5,11 @@
 @section('content')
 <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
     <div><h4 class="mb-1">DTCM Permit List</h4><p class="text-muted mb-0">Compliance and expiry monitoring across all units.</p></div>
-    <a href="{{ route('admin.property.index') }}" class="btn btn-light"><i class="ri-arrow-left-line me-1"></i>Units</a>
+    <div class="d-flex gap-2">
+        <a href="{{ url('/admin/properties/dtcm-permits/report/excel').(request()->getQueryString() ? '?'.request()->getQueryString() : '') }}" class="btn btn-soft-success"><i class="ri-file-excel-2-line me-1"></i>Excel</a>
+        <a href="{{ url('/admin/properties/dtcm-permits/report/pdf').(request()->getQueryString() ? '?'.request()->getQueryString() : '') }}" class="btn btn-soft-danger"><i class="ri-file-pdf-2-line me-1"></i>PDF</a>
+        <a href="{{ route('admin.property.index') }}" class="btn btn-light"><i class="ri-arrow-left-line me-1"></i>Units</a>
+    </div>
 </div>
 
 <div class="row g-3 mb-3">
