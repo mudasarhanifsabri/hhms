@@ -67,7 +67,7 @@
                         <th class="text-end">Credit</th>
                         <th class="text-end">Debit</th>
                         <th class="text-end">Balance</th>
-                        <th class="text-end">View</th>
+                        <th class="text-end">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -97,9 +97,16 @@
                             </td>
                             <td class="text-end fw-semibold">{{ number_format((float) $entry->balance_after, 2) }}</td>
                             <td class="text-end">
-                                <button type="button" class="btn btn-sm {{ $hasAttachments ? 'btn-soft-primary' : 'btn-light' }}" data-bs-toggle="modal" data-bs-target="#statementAttachments{{ $entry->id }}">
-                                    <i class="ri-eye-line me-1"></i>View
-                                </button>
+                                <div class="d-inline-flex gap-1">
+                                    <button type="button" class="btn btn-sm {{ $hasAttachments ? 'btn-soft-primary' : 'btn-light' }}" data-bs-toggle="modal" data-bs-target="#statementAttachments{{ $entry->id }}">
+                                        <i class="ri-eye-line me-1"></i>View
+                                    </button>
+                                    <form method="POST" action="{{ url('/admin/accounting/owner-statements/entries/'.$entry->id) }}" onsubmit="return confirm('Delete this owner statement entry? The owner balance will be recalculated.');">
+                                        @csrf
+                                        @method('DELETE')
+                                        <button type="submit" class="btn btn-sm btn-soft-danger" title="Delete statement entry"><i class="ri-delete-bin-line"></i></button>
+                                    </form>
+                                </div>
                             </td>
                         </tr>
                     @empty

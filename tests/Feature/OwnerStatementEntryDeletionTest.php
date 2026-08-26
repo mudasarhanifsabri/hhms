@@ -48,4 +48,16 @@ class OwnerStatementEntryDeletionTest extends TestCase
         $this->actingAs($owner)->delete(route('admin.accounting.owner-statements.entries.destroy', $entry))->assertForbidden();
         $this->assertDatabaseHas('landlord_account_entries', ['id' => $entry->id]);
     }
+
+    public function test_delete_option_is_visible_in_owner_account_statement_tab(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $owner = User::factory()->create(['role' => 'landlord']);
+        $entry = LandlordAccountEntry::create(['landlord_id' => $owner->id, 'entry_date' => '2026-08-01', 'type' => 'adjustment_credit', 'direction' => 'credit', 'amount' => 100]);
+
+        $this->actingAs($admin)->get(route('admin.landlord.account-statement', $owner->id))
+            ->assertOk()
+            ->assertSee(url('/admin/accounting/owner-statements/entries/' . $entry->id), false)
+            ->assertSee('Delete statement entry');
+    }
 }
