@@ -34,6 +34,7 @@ class SoftwareUpdateController extends Controller
         $commands = [
             'Current branch' => ['git', 'branch', '--show-current'],
             'Before commit' => ['git', 'log', '-1', '--pretty=%h - %s'],
+            'Backup local code changes' => ['git', 'stash', 'push', '-m', 'HHMS automatic backup before software update'],
             'Fetch GitHub' => ['git', 'fetch', 'origin'],
             'Pull latest code' => ['git', 'pull', '--ff-only'],
             'Check PHP version' => [PHP_BINARY, '-r', 'if (PHP_VERSION_ID < 80300) { fwrite(STDERR, "HHMS requires PHP 8.3 or newer. Current PHP: " . PHP_VERSION . PHP_EOL); exit(1); } echo "PHP " . PHP_VERSION . PHP_EOL;'],
