@@ -14,7 +14,7 @@
                 <h5 class="mb-2">{{ $label }}</h5>
                 <div class="table-responsive border rounded">
                     <table class="table table-sm table-hover align-middle mb-0">
-                        <thead class="bg-light-subtle"><tr><th>Code</th><th>Account Name</th><th>Parent</th><th>Bank/Cash</th><th>Status</th></tr></thead>
+                        <thead class="bg-light-subtle"><tr><th>Code</th><th>Account Name</th><th>Parent</th><th>Bank/Cash</th><th class="text-end">Live Balance</th><th>Status</th><th>Action</th></tr></thead>
                         <tbody>
                         @forelse($accounts->get($type, collect()) as $account)
                             <tr>
@@ -22,10 +22,12 @@
                                 <td>{{ $account->name }}</td>
                                 <td>{{ $account->parent_code ?? '-' }}</td>
                                 <td>{{ $account->is_bank_cash ? 'Yes' : 'No' }}</td>
+                                <td class="text-end fw-semibold">AED {{ number_format((float)$account->live_balance, 2) }}</td>
                                 <td><span class="badge {{ $account->is_active ? 'bg-success' : 'bg-secondary' }}">{{ $account->is_active ? 'Active' : 'Inactive' }}</span></td>
+                                <td><a href="{{ url('/admin/accounting/chart-of-accounts/'.$account->id.'/statement') }}" class="btn btn-sm {{ $account->code === '1060' ? 'btn-primary' : 'btn-light' }}">Statement</a></td>
                             </tr>
                         @empty
-                            <tr><td colspan="5" class="text-muted text-center py-3">No {{ strtolower($label) }} accounts.</td></tr>
+                            <tr><td colspan="7" class="text-muted text-center py-3">No {{ strtolower($label) }} accounts.</td></tr>
                         @endforelse
                         </tbody>
                     </table>

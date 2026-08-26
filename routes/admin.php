@@ -34,6 +34,7 @@ Route::post('/document-ocr', [DocumentOcrController::class, 'scan'])->name('docu
 Route::get('/accounting', [AccountingController::class, 'dashboard'])->name('accounting.dashboard');
 Route::get('/accounting/chart-of-accounts', [AccountingController::class, 'chartOfAccounts'])->name('accounting.chart-of-accounts');
 Route::post('/accounting/chart-of-accounts', [AccountingController::class, 'storeAccount'])->name('accounting.chart-of-accounts.store');
+Route::get('/accounting/chart-of-accounts/{account}/statement', [AccountingController::class, 'chartAccountStatement'])->name('accounting.chart-of-accounts.statement');
 Route::get('/accounting/bank-accounts', [AccountingController::class, 'bankAccounts'])->name('accounting.bank-accounts');
 Route::post('/accounting/bank-accounts', [AccountingController::class, 'storeBankAccount'])->name('accounting.bank-accounts.store');
 Route::get('/accounting/bank-accounts/statements', [AccountingController::class, 'bankStatements'])->name('accounting.bank-statements');

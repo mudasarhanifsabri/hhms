@@ -793,13 +793,51 @@ class AccountingController extends Controller
 
     public function chartOfAccounts(Request $request)
     {
-        $accounts = AccountingAccount::query()
+        $accountRows = AccountingAccount::query()
             ->when($request->filled('type'), fn ($query) => $query->where('type', $request->input('type')))
             ->orderBy('code')
-            ->get()
-            ->groupBy('type');
+            ->get();
+        $movements = AccountingEntry::whereIn('approval_status', ['posted', 'approved', 'paid'])
+            ->whereNotNull('accounting_account_id')
+            ->selectRaw('accounting_account_id, SUM(debit) AS debit_total, SUM(credit) AS credit_total')
+            ->groupBy('accounting_account_id')->get()->keyBy('accounting_account_id');
+        $dynamicReceivable = $this->totalAccountsReceivable();
+        $accountRows->each(function (AccountingAccount $account) use ($movements, $dynamicReceivable) {
+            $movement = $movements->get($account->id);
+            $balance = in_array($account->type, ['asset', 'expense'], true)
+                ? (float) ($movement?->debit_total ?? 0) - (float) ($movement?->credit_total ?? 0)
+                : (float) ($movement?->credit_total ?? 0) - (float) ($movement?->debit_total ?? 0);
+            $account->setAttribute('live_balance', $account->code === '1060' ? $dynamicReceivable : $balance);
+        });
+        $accounts = $accountRows->groupBy('type');
 
         return view('admin.accounting.chart-of-accounts', compact('accounts') + $this->sharedData());
+    }
+
+    public function chartAccountStatement(Request $request, AccountingAccount $account)
+    {
+        $from = $request->filled('date_from') ? Carbon::parse($request->input('date_from'))->startOfDay() : null;
+        $to = $request->filled('date_to') ? Carbon::parse($request->input('date_to'))->endOfDay() : today()->endOfDay();
+
+        if ($account->code === '1060') {
+            $allRows = $this->accountsReceivableStatementRows();
+        } else {
+            $allRows = AccountingEntry::where('accounting_account_id', $account->id)
+                ->whereIn('approval_status', ['posted', 'approved', 'paid'])->get()
+                ->map(fn (AccountingEntry $entry) => (object) [
+                    'date' => $entry->entry_date, 'source_type' => ucfirst($entry->type), 'party' => $entry->description ?: '-',
+                    'reference' => $entry->entry_no, 'description' => $entry->description,
+                    'debit' => (float) $entry->debit, 'credit' => (float) $entry->credit, 'url' => null,
+                ]);
+        }
+
+        $allRows = $allRows->sortBy(fn ($row) => Carbon::parse($row->date)->timestamp)->values();
+        $openingBalance = $from ? $allRows->filter(fn ($row) => Carbon::parse($row->date)->lt($from))->sum(fn ($row) => $row->debit - $row->credit) : 0;
+        $rows = $allRows->filter(fn ($row) => (! $from || Carbon::parse($row->date)->gte($from)) && Carbon::parse($row->date)->lte($to))->values();
+        $running = $openingBalance;
+        $rows->each(function ($row) use (&$running) { $running += $row->debit - $row->credit; $row->balance = $running; });
+
+        return view('admin.accounting.chart-account-statement', compact('account', 'rows', 'from', 'to', 'openingBalance', 'running'));
     }
 
     public function storeAccount(Request $request)
@@ -1528,6 +1566,42 @@ class AccountingController extends Controller
             ->groupBy('landlord_id')
             ->pluck('balance', 'landlord_id')
             ->map(fn ($balance) => (float) $balance);
+    }
+
+    private function totalAccountsReceivable(): float
+    {
+        $ownerReceivable = $this->ownerAccountBalances()->filter(fn ($balance) => $balance < 0)->sum(fn ($balance) => abs($balance));
+
+        return (float) BookingInvoice::where('status', 'unpaid')->sum('total_amount') + $ownerReceivable;
+    }
+
+    private function accountsReceivableStatementRows()
+    {
+        $bookingRows = BookingInvoice::with('booking.property')->get()->flatMap(function (BookingInvoice $invoice) {
+            $charge = (object) [
+                'date' => $invoice->issue_date, 'source_type' => 'Guest Invoice',
+                'party' => $invoice->booking?->guest_name ?? 'Booking customer', 'reference' => $invoice->invoice_number,
+                'description' => trim(($invoice->booking?->booking_reference ?? '') . ' ' . ($invoice->booking?->property?->name ?? '')),
+                'debit' => (float) $invoice->total_amount, 'credit' => 0.0,
+                'url' => $invoice->booking ? route('admin.booking.show', $invoice->booking) : null,
+            ];
+            if ($invoice->status !== 'paid') return [$charge];
+            $payment = clone $charge; $payment->date = $invoice->updated_at; $payment->source_type = 'Guest Payment';
+            $payment->description = 'Invoice marked paid'; $payment->debit = 0.0; $payment->credit = (float) $invoice->total_amount;
+            return [$charge, $payment];
+        });
+        $ownerIds = $this->ownerAccountBalances()->filter(fn ($balance) => $balance < 0)->keys();
+        $ownerRows = LandlordAccountEntry::with(['landlord', 'property'])->whereIn('landlord_id', $ownerIds)->get()
+            ->map(fn (LandlordAccountEntry $entry) => (object) [
+                'date' => $entry->entry_date, 'source_type' => 'Owner Ledger',
+                'party' => $entry->landlord?->name ?? 'Owner', 'reference' => $entry->reference,
+                'description' => trim($entry->type_label . ' - ' . ($entry->description ?: $entry->property?->name)),
+                'debit' => $entry->direction === 'debit' ? (float) $entry->amount : 0.0,
+                'credit' => $entry->direction === 'credit' ? (float) $entry->amount : 0.0,
+                'url' => route('admin.landlord.account-statement', $entry->landlord_id),
+            ]);
+
+        return $bookingRows->concat($ownerRows);
     }
 
     private function ownerReceivableRows()

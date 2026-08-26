@@ -92,5 +92,13 @@ class AccountingReportsTest extends TestCase
         $this->actingAs($admin)->get(route('admin.accounting.reports'))
             ->assertOk()->assertSee('Owner Owing Balance')->assertSee('Owner / Landlord')->assertSee('AED 20,850.00')
             ->assertSee(route('admin.landlord.account-statement', $owner->id), false);
+
+        $receivableAccount = AccountingAccount::where('code', '1060')->firstOrFail();
+        $this->actingAs($admin)->get(route('admin.accounting.chart-of-accounts'))
+            ->assertOk()->assertSee('Accounts Receivable')->assertSee('AED 20,850.00')
+            ->assertSee(url('/admin/accounting/chart-of-accounts/'.$receivableAccount->id.'/statement'), false);
+        $this->actingAs($admin)->get(route('admin.accounting.chart-of-accounts.statement', $receivableAccount))
+            ->assertOk()->assertSee('1060 - Accounts Receivable')->assertSee('Owner Owing Balance')
+            ->assertSee('Owner Loan / Advance')->assertSee('AED 20,850.00');
     }
 }
