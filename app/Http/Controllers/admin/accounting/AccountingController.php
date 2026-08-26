@@ -1001,6 +1001,24 @@ class AccountingController extends Controller
         return PdfRenderer::downloadView('admin.accounting.pdf.owner-statement', compact('owner', 'from', 'to', 'entries'), 'owner-statement-' . Str::slug($owner->name) . '.pdf');
     }
 
+    public function destroyOwnerStatementEntry(LandlordAccountEntry $entry)
+    {
+        $landlordId = $entry->landlord_id;
+
+        DB::transaction(function () use ($entry, $landlordId) {
+            if (filled($entry->reference)) {
+                Expense::where('expense_no', $entry->reference)
+                    ->where('landlord_id', $landlordId)
+                    ->update(['owner_billable' => false]);
+            }
+
+            $entry->delete();
+            LandlordAccountEntry::recalculateBalancesFor($landlordId);
+        });
+
+        return back()->with('success', 'Owner statement entry deleted and balances recalculated.');
+    }
+
     public function bookingInvoices(Request $request)
     {
         $invoices = BookingInvoice::with('booking.property')

@@ -62,6 +62,7 @@ Route::get('/accounting/reports', [AccountingController::class, 'reports'])->nam
 Route::get('/accounting/vat', [AccountingController::class, 'vatReport'])->name('accounting.vat');
 Route::get('/accounting/owner-statements', [AccountingController::class, 'ownerStatements'])->name('accounting.owner-statements');
 Route::get('/accounting/owner-statements/pdf', [AccountingController::class, 'ownerStatementPdf'])->name('accounting.owner-statements.pdf');
+Route::delete('/accounting/owner-statements/entries/{entry}', [AccountingController::class, 'destroyOwnerStatementEntry'])->name('accounting.owner-statements.entries.destroy');
 Route::get('/accounting/booking-invoices', [AccountingController::class, 'bookingInvoices'])->name('accounting.booking-invoices');
 Route::get('/accounting/booking-invoices/{invoice}/pdf', [AccountingController::class, 'bookingInvoicePdf'])->name('accounting.booking-invoices.pdf');
 

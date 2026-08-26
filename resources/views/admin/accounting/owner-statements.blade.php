@@ -32,8 +32,8 @@
                 </div>
                 <div class="table-responsive">
                     <table class="table table-sm mb-0">
-                        <thead><tr><th>Date</th><th>Type</th><th>Description</th><th>Reference</th><th>Debit</th><th>Credit</th></tr></thead>
-                        <tbody>@foreach($propertyEntries as $entry)<tr><td>{{ $entry->entry_date?->format('d M Y') }}</td><td>{{ $entry->type_label }}</td><td>{{ $entry->description }}</td><td>{{ $entry->reference }}</td><td>{{ $entry->direction === 'debit' ? 'AED '.number_format((float)$entry->amount, 2) : '-' }}</td><td>{{ $entry->direction === 'credit' ? 'AED '.number_format((float)$entry->amount, 2) : '-' }}</td></tr>@endforeach</tbody>
+                        <thead><tr><th>Date</th><th>Type</th><th>Description</th><th>Reference</th><th>Debit</th><th>Credit</th><th class="text-end">Action</th></tr></thead>
+                        <tbody>@foreach($propertyEntries as $entry)<tr><td>{{ $entry->entry_date?->format('d M Y') }}</td><td>{{ $entry->type_label }}</td><td>{{ $entry->description }}</td><td>{{ $entry->reference }}</td><td>{{ $entry->direction === 'debit' ? 'AED '.number_format((float)$entry->amount, 2) : '-' }}</td><td>{{ $entry->direction === 'credit' ? 'AED '.number_format((float)$entry->amount, 2) : '-' }}</td><td class="text-end"><form method="POST" action="{{ url('/admin/accounting/owner-statements/entries/'.$entry->id) }}" class="d-inline" onsubmit="return confirm('Delete this owner statement entry? The owner balance will be recalculated.');">@csrf @method('DELETE')<button type="submit" class="btn btn-sm btn-soft-danger" title="Delete statement entry"><i class="ri-delete-bin-line"></i></button></form></td></tr>@endforeach</tbody>
                     </table>
                 </div>
             </div>
