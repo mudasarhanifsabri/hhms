@@ -11,6 +11,7 @@ class LandlordAccountEntry extends BaseModel
 
     public const CREDIT_TYPES = [
         'rent_income' => 'Rent Income',
+        'loan_repayment' => 'Owner Loan Repayment',
         'adjustment_credit' => 'Credit Adjustment',
     ];
 
@@ -23,6 +24,7 @@ class LandlordAccountEntry extends BaseModel
         'cleaning' => 'Cleaning',
         'maintenance' => 'Maintenance',
         'furnishing' => 'Furnishing / Setup Cost',
+        'owner_loan' => 'Owner Loan / Advance',
         'payout' => 'Owner Payout Transfer',
         'adjustment_debit' => 'Debit Adjustment',
         'other_expense' => 'Other Expense',

@@ -748,6 +748,10 @@ class AccountingController extends Controller
             'issue_date',
             'total_amount'
         );
+        $receivableRows = BookingInvoice::with('booking.property')
+            ->where('status', 'unpaid')
+            ->orderBy('issue_date')
+            ->get();
         $payableAgeing = $this->ageingBuckets(
             Expense::whereIn('approval_status', ['pending', 'approved'])->get(['expense_date', 'gross_amount']),
             'expense_date',
@@ -772,6 +776,7 @@ class AccountingController extends Controller
             , 'balanceSheetRows'
             , 'cashFlowSummary'
             , 'receivableAgeing'
+            , 'receivableRows'
             , 'payableAgeing'
             , 'expenseCategories'
         ));

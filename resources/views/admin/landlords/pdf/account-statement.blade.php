@@ -61,9 +61,9 @@
                 <table class="summary">
                     <tr><th colspan="2">Account Summary</th></tr>
                     <tr><td>Opening Balance</td><td>AED 0.00</td></tr>
-                    <tr><td>Billed Amount</td><td>AED {{ number_format($accountTotals['credit'], 2) }}</td></tr>
-                    <tr><td>Amount Paid</td><td>AED {{ number_format($accountTotals['debit'], 2) }}</td></tr>
-                    <tr class="line"><td>Balance Due</td><td>AED {{ number_format($accountTotals['balance'], 2) }}</td></tr>
+                    <tr><td>Total Credit</td><td>AED {{ number_format($accountTotals['credit'], 2) }}</td></tr>
+                    <tr><td>Total Debit</td><td>AED {{ number_format($accountTotals['debit'], 2) }}</td></tr>
+                    <tr class="line"><td>Net Owner Balance</td><td>AED {{ number_format($accountTotals['balance'], 2) }}</td></tr>
                 </table>
             </td>
         </tr>
@@ -72,12 +72,14 @@
     <table class="statement">
         <thead>
             <tr>
-                <th style="width: 14%;">Date</th>
-                <th style="width: 16%;">Transactions</th>
-                <th>Details</th>
-                <th class="right" style="width: 14%;">Amount</th>
-                <th class="right" style="width: 14%;">Payments</th>
-                <th class="right" style="width: 14%;">Balance</th>
+                <th style="width: 10%;">Date</th>
+                <th style="width: 15%;">Category</th>
+                <th>Description</th>
+                <th style="width: 12%;">Unit</th>
+                <th style="width: 11%;">Reference</th>
+                <th class="right" style="width: 11%;">Credit</th>
+                <th class="right" style="width: 11%;">Debit</th>
+                <th class="right" style="width: 12%;">Balance</th>
             </tr>
         </thead>
         <tbody>
@@ -85,16 +87,18 @@
                 <tr>
                     <td>{{ $entry->entry_date?->format('d M Y') }}</td>
                     <td>{{ $entry->type_label }}</td>
-                    <td>{{ $entry->description ?: ($entry->property?->name ?? '-') }}</td>
-                    <td class="right">{{ $entry->direction === 'credit' ? number_format((float) $entry->amount, 2) : '(' . number_format((float) $entry->amount, 2) . ')' }}</td>
-                    <td class="right">{{ $entry->direction === 'debit' ? number_format((float) $entry->amount, 2) : '' }}</td>
+                    <td>{{ $entry->description ?: '-' }}</td>
+                    <td>{{ $entry->property?->name ?? 'General' }}</td>
+                    <td>{{ $entry->reference ?? '-' }}</td>
+                    <td class="right">{{ $entry->direction === 'credit' ? number_format((float) $entry->amount, 2) : '-' }}</td>
+                    <td class="right">{{ $entry->direction === 'debit' ? number_format((float) $entry->amount, 2) : '-' }}</td>
                     <td class="right">{{ number_format((float) $entry->balance_after, 2) }}</td>
                 </tr>
             @empty
-                <tr><td colspan="6" style="text-align:center;">No owner account entries found.</td></tr>
+                <tr><td colspan="8" style="text-align:center;">No owner account entries found.</td></tr>
             @endforelse
             <tr class="balance-due">
-                <td colspan="5" class="right">Balance Due</td>
+                <td colspan="7" class="right">Net Owner Balance</td>
                 <td class="right">AED {{ number_format($accountTotals['balance'], 2) }}</td>
             </tr>
         </tbody>

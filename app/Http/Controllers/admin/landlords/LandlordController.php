@@ -128,7 +128,15 @@ class LandlordController extends Controller
             ->paginate($perPage)
             ->withQueryString();
         $accountTotals = $this->accountTotalsFor($landlord->id, $filters);
-        $accountEntryTypes = LandlordAccountEntry::allTypes();
+        $ownerLoanSummary = [
+            'advanced' => (float) LandlordAccountEntry::where('landlord_id', $landlord->id)->whereIn('type', ['owner_loan', 'furnishing'])->where('direction', 'debit')->sum('amount'),
+            'repaid' => (float) LandlordAccountEntry::where('landlord_id', $landlord->id)->where('type', 'loan_repayment')->where('direction', 'credit')->sum('amount'),
+            'receivable' => max(0, -(float) $this->accountTotalsFor($landlord->id)['balance']),
+        ];
+        $accountEntryTypes = LandlordAccountEntry::allTypes() + LandlordAccountEntry::query()
+            ->select('type')->distinct()->pluck('type')
+            ->mapWithKeys(fn (string $type) => [$type => str($type)->replace('_', ' ')->headline()->toString()])
+            ->all();
         $accountEntryRoute = route('admin.landlord.account-entry.store', $landlord->id);
         $detailsRoute = route('admin.landlord.show', $landlord->id);
         $ownedPropertiesRoute = route('admin.landlord.owned-properties', $landlord->id);
@@ -144,6 +152,7 @@ class LandlordController extends Controller
             'relatedProperties',
             'accountEntries',
             'accountTotals',
+            'ownerLoanSummary',
             'accountEntryTypes',
             'accountEntryRoute',
             'detailsRoute',
@@ -171,7 +180,7 @@ class LandlordController extends Controller
             'accountEntries',
             'accountTotals',
             'period'
-        ), 'owner-statement-' . Str::slug($landlord->name) . '.pdf');
+        ), 'owner-statement-' . Str::slug($landlord->name) . '.pdf', ['format' => 'A4-L']);
     }
 
     public function ownedProperties($id)
@@ -496,11 +505,11 @@ public function updateBankDetails(Request $request, $id)
 public function storeAccountEntry(Request $request, $id)
 {
     $landlord = User::where('role', 'landlord')->findOrFail($id);
-    $entryTypes = array_keys(LandlordAccountEntry::allTypes());
-
     $validatedData = $request->validate([
         'entry_date' => 'required|date',
-        'type' => 'required|in:' . implode(',', $entryTypes),
+        'type' => 'required|string|max:100',
+        'custom_type' => 'nullable|required_if:type,__custom__|string|max:100',
+        'custom_direction' => 'nullable|required_if:type,__custom__|in:credit,debit',
         'amount' => 'required|numeric|min:0.01',
         'property_id' => 'nullable|exists:properties,id',
         'reference' => 'nullable|string|max:255',
@@ -517,12 +526,24 @@ public function storeAccountEntry(Request $request, $id)
             ->withErrors(['property_id' => 'Please select one of this owner units.']);
     }
 
+    $entryTypes = LandlordAccountEntry::allTypes();
+    $type = $validatedData['type'] === '__custom__'
+        ? Str::slug($validatedData['custom_type'], '_')
+        : $validatedData['type'];
+
+    if ($validatedData['type'] !== '__custom__' && ! array_key_exists($type, $entryTypes)
+        && ! LandlordAccountEntry::where('type', $type)->exists()) {
+        return back()->withErrors(['type' => 'Please select a valid statement category.'])->withInput();
+    }
+
     LandlordAccountEntry::create([
         'landlord_id' => $landlord->id,
         'property_id' => $propertyId,
         'entry_date' => $validatedData['entry_date'],
-        'type' => $validatedData['type'],
-        'direction' => LandlordAccountEntry::directionForType($validatedData['type']),
+        'type' => $type,
+        'direction' => $validatedData['type'] === '__custom__'
+            ? $validatedData['custom_direction']
+            : LandlordAccountEntry::directionForType($type),
         'amount' => $validatedData['amount'],
         'reference' => $validatedData['reference'] ?? null,
         'description' => $validatedData['description'] ?? null,

@@ -5,6 +5,9 @@ namespace Tests\Feature;
 use App\Models\AccountingAccount;
 use App\Models\AccountingEntry;
 use App\Models\BankAccount;
+use App\Models\Booking;
+use App\Models\BookingInvoice;
+use App\Models\Property;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -61,5 +64,19 @@ class AccountingReportsTest extends TestCase
             ->get(route('admin.accounting.bank-accounts'))
             ->assertOk()
             ->assertSee('AED 1,300.00');
+    }
+
+    public function test_accounts_receivable_identifies_the_guest_booking_and_unit(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $owner = User::factory()->create(['role' => 'landlord']);
+        $property = Property::create(['landlord_id' => $owner->id, 'name' => 'Unit AR-1207', 'status' => 'vacant']);
+        $booking = Booking::create(['property_id' => $property->id, 'booking_reference' => 'BK-AR-001', 'guest_name' => 'Receivable Guest', 'guest_email' => 'receivable@example.com', 'guest_phone' => '+971500000000', 'guest_passport_id_no' => 'PASS-AR-001', 'check_in' => '2026-08-01', 'check_out' => '2026-08-05', 'rent_amount' => 5000, 'status' => 'confirmed', 'invoice_number' => 'BOOK-INV-AR-001']);
+        BookingInvoice::create(['booking_id' => $booking->id, 'invoice_number' => 'INV-AR-001', 'invoice_type' => 'original', 'issue_date' => '2026-08-01', 'total_amount' => 5000, 'status' => 'unpaid']);
+
+        $this->actingAs($admin)->get(route('admin.accounting.reports'))
+            ->assertOk()->assertSee('Accounts Receivable - Who Owes')->assertSee('Receivable Guest')->assertSee('BK-AR-001')->assertSee('Unit AR-1207');
+        $this->actingAs($admin)->get(route('admin.accounting.dashboard'))
+            ->assertOk()->assertSee(route('admin.accounting.reports') . '#accounts-receivable', false);
     }
 }

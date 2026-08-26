@@ -13,21 +13,21 @@
 
 <div class="row">
     @foreach([
-        ['Today Income', $todayIncome, 'ri-arrow-up-circle-line', 'success'],
-        ['Today Expenses', $todayExpenses, 'ri-arrow-down-circle-line', 'danger'],
-        ['Cash Balance', $cashBalance, 'ri-money-dollar-circle-line', 'success'],
-        ['Bank Balance', $bankBalance, 'ri-bank-line', 'primary'],
-        ['Accounts Receivable', $accountsReceivable, 'ri-file-list-3-line', 'info'],
-        ['Accounts Payable', $accountsPayable, 'ri-bill-line', 'warning'],
-        ['Owner Payables', $ownerPayables, 'ri-user-star-line', 'secondary'],
-        ['VAT Payable', $vatOutput - $vatInput, 'ri-percent-line', 'warning'],
-        ['Monthly Profit', $monthlyProfit, 'ri-line-chart-line', 'primary'],
-        ['Occupancy Revenue', $occupancyRevenue, 'ri-hotel-bed-line', 'success'],
-        ['Utility Expenses', $utilityExpenses, 'ri-flashlight-line', 'danger'],
-        ['Outstanding Bills', $outstandingUtilities, 'ri-alarm-warning-line', 'info'],
-    ] as [$label, $amount, $icon, $color])
+        ['Today Income', $todayIncome, 'ri-arrow-up-circle-line', 'success', null],
+        ['Today Expenses', $todayExpenses, 'ri-arrow-down-circle-line', 'danger', null],
+        ['Cash Balance', $cashBalance, 'ri-money-dollar-circle-line', 'success', null],
+        ['Bank Balance', $bankBalance, 'ri-bank-line', 'primary', route('admin.accounting.bank-statements')],
+        ['Accounts Receivable', $accountsReceivable, 'ri-file-list-3-line', 'info', route('admin.accounting.reports').'#accounts-receivable'],
+        ['Accounts Payable', $accountsPayable, 'ri-bill-line', 'warning', route('admin.accounting.expenses')],
+        ['Owner Payables', $ownerPayables, 'ri-user-star-line', 'secondary', route('admin.accounting.owner-statements')],
+        ['VAT Payable', $vatOutput - $vatInput, 'ri-percent-line', 'warning', route('admin.accounting.vat')],
+        ['Monthly Profit', $monthlyProfit, 'ri-line-chart-line', 'primary', route('admin.accounting.reports')],
+        ['Occupancy Revenue', $occupancyRevenue, 'ri-hotel-bed-line', 'success', null],
+        ['Utility Expenses', $utilityExpenses, 'ri-flashlight-line', 'danger', route('admin.accounting.utilities')],
+        ['Outstanding Bills', $outstandingUtilities, 'ri-alarm-warning-line', 'info', route('admin.accounting.utilities')],
+    ] as [$label, $amount, $icon, $color, $href])
         <div class="col-xl-3 col-md-4">
-            <div class="card finance-card">
+            <div class="card finance-card">@if($href)<a href="{{ $href }}" class="stretched-link" aria-label="Open {{ $label }}"></a>@endif
                 <div class="card-body d-flex justify-content-between align-items-center">
                     <div>
                         <p class="text-muted mb-1">{{ $label }}</p>

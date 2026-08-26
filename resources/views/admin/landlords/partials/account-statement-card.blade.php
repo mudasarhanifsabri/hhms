@@ -55,6 +55,14 @@
                 </div>
             </div>
         </div>
+        <div class="alert alert-info d-flex flex-wrap justify-content-between gap-3 align-items-center">
+            <div><strong>Owner Loan Management</strong><div class="small">Furnishing and owner advances are recovered automatically through the running owner balance as rental-income credits are posted.</div></div>
+            <div class="d-flex flex-wrap gap-4">
+                <span><small class="d-block text-muted">Loans / Advances</small><strong>AED {{ number_format($ownerLoanSummary['advanced'], 2) }}</strong></span>
+                <span><small class="d-block text-muted">Direct Repayments</small><strong>AED {{ number_format($ownerLoanSummary['repaid'], 2) }}</strong></span>
+                <span><small class="d-block text-muted">Total Owner Receivable</small><strong class="text-danger">AED {{ number_format($ownerLoanSummary['receivable'], 2) }}</strong></span>
+            </div>
+        </div>
 
         <div class="table-responsive">
             <table class="table table-hover align-middle mb-0">
@@ -208,8 +216,17 @@
                                 @foreach ($accountEntryTypes as $type => $label)
                                     <option value="{{ $type }}" @selected(old('type') === $type)>{{ $label }}</option>
                                 @endforeach
+                                <option value="__custom__" @selected(old('type') === '__custom__')>+ Add Custom Category</option>
                             </select>
                             <small class="text-muted">Use Furnishing / Setup Cost to recover owner-approved furnishing spend from future rental income.</small>
+                        </div>
+                        <div class="col-lg-4">
+                            <label for="custom_type" class="form-label">Custom Category</label>
+                            <input type="text" class="form-control" id="custom_type" name="custom_type" value="{{ old('custom_type') }}" placeholder="Used only for Add Custom Category">
+                        </div>
+                        <div class="col-lg-4">
+                            <label for="custom_direction" class="form-label">Custom Category Side</label>
+                            <select class="form-control" id="custom_direction" name="custom_direction"><option value="debit" @selected(old('custom_direction')==='debit')>Debit - owner owes / deduction</option><option value="credit" @selected(old('custom_direction')==='credit')>Credit - owner income / payment</option></select>
                         </div>
                         <div class="col-lg-4">
                             <label for="amount" class="form-label">Amount</label>

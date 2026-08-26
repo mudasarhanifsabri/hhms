@@ -60,4 +60,19 @@ class OwnerStatementEntryDeletionTest extends TestCase
             ->assertSee(url('/admin/accounting/owner-statements/entries/' . $entry->id), false)
             ->assertSee('Delete statement entry');
     }
+
+    public function test_admin_can_add_dynamic_statement_category_and_owner_loan(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $owner = User::factory()->create(['role' => 'landlord']);
+
+        $this->actingAs($admin)->post(route('admin.landlord.account-entry.store', $owner->id), [
+            'entry_date' => '2026-08-26', 'type' => '__custom__', 'custom_type' => 'Owner Renovation Advance',
+            'custom_direction' => 'debit', 'amount' => 25000, 'description' => 'Recover from future rental income',
+        ])->assertRedirect()->assertSessionHasNoErrors();
+
+        $this->assertDatabaseHas('landlord_account_entries', ['landlord_id' => $owner->id, 'type' => 'owner_renovation_advance', 'direction' => 'debit', 'amount' => 25000]);
+        $this->actingAs($admin)->get(route('admin.landlord.account-statement', $owner->id))
+            ->assertOk()->assertSee('Owner Renovation Advance')->assertSee('Owner Loan / Advance');
+    }
 }
