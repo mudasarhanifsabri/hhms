@@ -33,9 +33,15 @@
     <div class="card-header"><h4 class="card-title mb-0">Accounts Receivable - Who Owes</h4></div>
     <div class="table-responsive"><table class="table table-hover align-middle mb-0">
         <thead class="bg-light-subtle"><tr><th>Invoice</th><th>Receivable From</th><th>Booking</th><th>Unit</th><th>Issue Date</th><th>Age</th><th class="text-end">Amount Due</th><th>Action</th></tr></thead>
-        <tbody>@forelse($receivableRows as $invoice)<tr>
+        <tbody>
+        @foreach($ownerReceivableRows as $ownerRow)<tr class="table-warning">
+            <td>Owner Ledger</td><td><strong>{{ $ownerRow->landlord?->name ?? 'Owner' }}</strong><br><small class="text-muted">Owner / Landlord</small></td><td>-</td><td>Multiple / owner account</td><td>{{ $ownerRow->oldest_debit_date ? \Illuminate\Support\Carbon::parse($ownerRow->oldest_debit_date)->format('d M Y') : '-' }}</td><td>{{ $ownerRow->oldest_debit_date ? \Illuminate\Support\Carbon::parse($ownerRow->oldest_debit_date)->diffInDays(today()) : 0 }} days</td><td class="text-end fw-semibold">AED {{ number_format(abs((float)$ownerRow->balance),2) }}</td><td>@if($ownerRow->landlord)<a href="{{ route('admin.landlord.account-statement',$ownerRow->landlord_id) }}" class="btn btn-sm btn-soft-warning">Owner Statement</a>@endif</td>
+        </tr>@endforeach
+        @foreach($receivableRows as $invoice)<tr>
             <td>{{ $invoice->invoice_number }}</td><td><strong>{{ $invoice->booking?->guest_name ?? 'Booking customer' }}</strong><br><small class="text-muted">Guest / Tenant</small></td><td>{{ $invoice->booking?->booking_reference ?? '-' }}</td><td>{{ $invoice->booking?->property?->name ?? '-' }}</td><td>{{ $invoice->issue_date?->format('d M Y') }}</td><td>{{ $invoice->issue_date?->diffInDays(today()) ?? 0 }} days</td><td class="text-end fw-semibold">AED {{ number_format((float)$invoice->total_amount,2) }}</td><td>@if($invoice->booking)<a href="{{ route('admin.booking.show',$invoice->booking) }}" class="btn btn-sm btn-soft-primary">Open Booking</a>@endif</td>
-        </tr>@empty<tr><td colspan="8" class="text-center text-muted py-4">No unpaid booking invoices.</td></tr>@endforelse</tbody>
+        </tr>@endforeach
+        @if($ownerReceivableRows->isEmpty() && $receivableRows->isEmpty())<tr><td colspan="8" class="text-center text-muted py-4">No outstanding receivables.</td></tr>@endif
+        </tbody>
     </table></div>
 </div>
 

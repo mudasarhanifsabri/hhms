@@ -8,6 +8,7 @@ use App\Models\BankAccount;
 use App\Models\Booking;
 use App\Models\BookingInvoice;
 use App\Models\Property;
+use App\Models\LandlordAccountEntry;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -78,5 +79,18 @@ class AccountingReportsTest extends TestCase
             ->assertOk()->assertSee('Accounts Receivable - Who Owes')->assertSee('Receivable Guest')->assertSee('BK-AR-001')->assertSee('Unit AR-1207');
         $this->actingAs($admin)->get(route('admin.accounting.dashboard'))
             ->assertOk()->assertSee(route('admin.accounting.reports') . '#accounts-receivable', false);
+    }
+
+    public function test_owner_negative_balance_is_included_in_accounts_receivable(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $owner = User::factory()->create(['role' => 'landlord', 'name' => 'Owner Owing Balance']);
+        LandlordAccountEntry::create(['landlord_id' => $owner->id, 'entry_date' => '2026-08-01', 'type' => 'owner_loan', 'direction' => 'debit', 'amount' => 20850, 'balance_after' => -20850]);
+
+        $this->actingAs($admin)->get(route('admin.accounting.dashboard'))
+            ->assertOk()->assertSee('Accounts Receivable')->assertSee('AED 20,850.00')->assertSee('AED 0.00');
+        $this->actingAs($admin)->get(route('admin.accounting.reports'))
+            ->assertOk()->assertSee('Owner Owing Balance')->assertSee('Owner / Landlord')->assertSee('AED 20,850.00')
+            ->assertSee(route('admin.landlord.account-statement', $owner->id), false);
     }
 }

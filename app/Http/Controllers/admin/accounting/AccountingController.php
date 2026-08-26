@@ -39,9 +39,11 @@ class AccountingController extends Controller
         $todayExpenses = AccountingEntry::whereDate('entry_date', today())->sum('debit');
         $cashBalance = $this->bankBalanceTotal('cash');
         $bankBalance = $this->bankBalanceTotal('bank');
-        $accountsReceivable = BookingInvoice::where('status', 'unpaid')->sum('total_amount');
+        $ownerBalances = $this->ownerAccountBalances();
+        $accountsReceivable = (float) BookingInvoice::where('status', 'unpaid')->sum('total_amount')
+            + $ownerBalances->filter(fn ($balance) => $balance < 0)->sum(fn ($balance) => abs($balance));
         $accountsPayable = Expense::whereIn('approval_status', ['pending', 'approved'])->sum('gross_amount');
-        $ownerPayables = LandlordAccountEntry::selectRaw("sum(case when direction = 'credit' then amount else -amount end) as balance")->value('balance') ?? 0;
+        $ownerPayables = $ownerBalances->filter(fn ($balance) => $balance > 0)->sum();
         $vatOutput = AccountingEntry::where('type', 'income')->whereBetween('entry_date', [$from, $to])->sum('vat_amount');
         $vatInput = AccountingEntry::whereIn('type', ['expense', 'utility'])->whereBetween('entry_date', [$from, $to])->sum('vat_amount');
         $monthlyProfit = $income - $expenses;
@@ -743,8 +745,14 @@ class AccountingController extends Controller
         ];
         $cashFlowSummary['closing'] = $cashFlowSummary['opening'] + $cashFlowSummary['inflow'] - $cashFlowSummary['outflow'];
 
+        $ownerReceivableRows = $this->ownerReceivableRows();
+        $receivableAgeingRecords = BookingInvoice::where('status', 'unpaid')->get(['issue_date', 'total_amount'])
+            ->concat($ownerReceivableRows->map(fn ($row) => (object) [
+                'issue_date' => $row->oldest_debit_date ?? today(),
+                'total_amount' => abs((float) $row->balance),
+            ]));
         $receivableAgeing = $this->ageingBuckets(
-            BookingInvoice::where('status', 'unpaid')->get(['issue_date', 'total_amount']),
+            $receivableAgeingRecords,
             'issue_date',
             'total_amount'
         );
@@ -777,6 +785,7 @@ class AccountingController extends Controller
             , 'cashFlowSummary'
             , 'receivableAgeing'
             , 'receivableRows'
+            , 'ownerReceivableRows'
             , 'payableAgeing'
             , 'expenseCategories'
         ));
@@ -1510,6 +1519,24 @@ class AccountingController extends Controller
         $buckets['total'] = array_sum($buckets);
 
         return $buckets;
+    }
+
+    private function ownerAccountBalances()
+    {
+        return LandlordAccountEntry::query()
+            ->selectRaw("landlord_id, SUM(CASE WHEN direction = 'credit' THEN amount ELSE -amount END) AS balance")
+            ->groupBy('landlord_id')
+            ->pluck('balance', 'landlord_id')
+            ->map(fn ($balance) => (float) $balance);
+    }
+
+    private function ownerReceivableRows()
+    {
+        return LandlordAccountEntry::with('landlord')
+            ->selectRaw("landlord_id, SUM(CASE WHEN direction = 'credit' THEN amount ELSE -amount END) AS balance, MIN(CASE WHEN direction = 'debit' THEN entry_date END) AS oldest_debit_date")
+            ->groupBy('landlord_id')
+            ->havingRaw("SUM(CASE WHEN direction = 'credit' THEN amount ELSE -amount END) < 0")
+            ->get();
     }
 
     private function expenseAccountId(?string $category): ?string
