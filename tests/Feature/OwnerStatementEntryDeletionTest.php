@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Expense;
 use App\Models\LandlordAccountEntry;
+use App\Models\Property;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -74,5 +75,20 @@ class OwnerStatementEntryDeletionTest extends TestCase
         $this->assertDatabaseHas('landlord_account_entries', ['landlord_id' => $owner->id, 'type' => 'owner_renovation_advance', 'direction' => 'debit', 'amount' => 25000]);
         $this->actingAs($admin)->get(route('admin.landlord.account-statement', $owner->id))
             ->assertOk()->assertSee('Owner Renovation Advance')->assertSee('Owner Loan / Advance');
+    }
+
+    public function test_owner_statement_can_filter_and_summarize_unit_wise(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $owner = User::factory()->create(['role' => 'landlord']);
+        $unitOne = Property::create(['landlord_id' => $owner->id, 'name' => 'Unit Wise 101', 'status' => 'vacant']);
+        $unitTwo = Property::create(['landlord_id' => $owner->id, 'name' => 'Unit Wise 202', 'status' => 'vacant']);
+        LandlordAccountEntry::create(['landlord_id' => $owner->id, 'property_id' => $unitOne->id, 'entry_date' => '2026-08-01', 'type' => 'rent_income', 'direction' => 'credit', 'amount' => 5000, 'description' => 'Unit 101 rent']);
+        LandlordAccountEntry::create(['landlord_id' => $owner->id, 'property_id' => $unitTwo->id, 'entry_date' => '2026-08-02', 'type' => 'maintenance', 'direction' => 'debit', 'amount' => 700, 'description' => 'Unit 202 repair']);
+
+        $this->actingAs($admin)->get(route('admin.landlord.account-statement', [$owner->id, 'property_id' => $unitOne->id]))
+            ->assertOk()->assertSee('Unit-wise Summary')->assertSee('Unit Wise 101')->assertSee('Unit 101 rent')->assertDontSee('Unit 202 repair');
+        $this->actingAs($admin)->get(route('admin.landlord.account-statement.pdf', [$owner->id, 'property_id' => $unitOne->id]))
+            ->assertOk()->assertDownload('owner-statement-' . str($owner->name)->slug() . '.pdf');
     }
 }

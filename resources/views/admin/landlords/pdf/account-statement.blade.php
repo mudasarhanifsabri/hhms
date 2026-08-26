@@ -23,6 +23,7 @@
         .summary td:last-child { text-align: right; }
         .summary .line td { border-top: 1px solid #111; }
         .statement { width: 100%; border-collapse: collapse; margin-top: 44px; }
+        .unit-title { margin-top: 24px; padding: 8px 10px; background: #e9e9e9; font-size: 13px; font-weight: 700; }
         .statement th { background: #3c403b; color: #fff; padding: 8px 6px; text-align: left; }
         .statement td { padding: 9px 6px; vertical-align: top; }
         .statement tbody tr:nth-child(even) { background: #f5f3f3; }
@@ -69,7 +70,9 @@
         </tr>
     </table>
 
-    <table class="statement">
+    @forelse($unitStatements as $unitStatement)
+    <div class="unit-title">{{ $unitStatement['property']?->name ?? 'General Owner Account' }}@if($unitStatement['property']?->building) - {{ $unitStatement['property']->building?->building_name }}@endif</div>
+    <table class="statement" style="margin-top:0">
         <thead>
             <tr>
                 <th style="width: 10%;">Date</th>
@@ -83,7 +86,7 @@
             </tr>
         </thead>
         <tbody>
-            @forelse($accountEntries as $entry)
+            @foreach($unitStatement['entries'] as $entry)
                 <tr>
                     <td>{{ $entry->entry_date?->format('d M Y') }}</td>
                     <td>{{ $entry->type_label }}</td>
@@ -92,17 +95,18 @@
                     <td>{{ $entry->reference ?? '-' }}</td>
                     <td class="right">{{ $entry->direction === 'credit' ? number_format((float) $entry->amount, 2) : '-' }}</td>
                     <td class="right">{{ $entry->direction === 'debit' ? number_format((float) $entry->amount, 2) : '-' }}</td>
-                    <td class="right">{{ number_format((float) $entry->balance_after, 2) }}</td>
+                    <td class="right">{{ number_format((float) $entry->unit_running_balance, 2) }}</td>
                 </tr>
-            @empty
-                <tr><td colspan="8" style="text-align:center;">No owner account entries found.</td></tr>
-            @endforelse
+            @endforeach
             <tr class="balance-due">
-                <td colspan="7" class="right">Net Owner Balance</td>
-                <td class="right">AED {{ number_format($accountTotals['balance'], 2) }}</td>
+                <td colspan="7" class="right">Unit Balance</td>
+                <td class="right">AED {{ number_format($unitStatement['balance'], 2) }}</td>
             </tr>
         </tbody>
     </table>
+    @empty
+        <p style="text-align:center;margin-top:40px">No owner account entries found.</p>
+    @endforelse
     <div class="footer-line"></div>
 </body>
 </html>

@@ -128,6 +128,13 @@ class LandlordController extends Controller
             ->paginate($perPage)
             ->withQueryString();
         $accountTotals = $this->accountTotalsFor($landlord->id, $filters);
+        $unitTotals = $this->accountEntriesQuery($landlord->id, $filters)->get()
+            ->groupBy(fn (LandlordAccountEntry $entry) => $entry->property_id ?: 'general')
+            ->map(function ($entries) {
+                $credit = (float) $entries->where('direction', 'credit')->sum('amount');
+                $debit = (float) $entries->where('direction', 'debit')->sum('amount');
+                return ['property' => $entries->first()?->property, 'credit' => $credit, 'debit' => $debit, 'balance' => $credit - $debit];
+            });
         $ownerLoanSummary = [
             'advanced' => (float) LandlordAccountEntry::where('landlord_id', $landlord->id)->whereIn('type', ['owner_loan', 'furnishing'])->where('direction', 'debit')->sum('amount'),
             'repaid' => (float) LandlordAccountEntry::where('landlord_id', $landlord->id)->where('type', 'loan_repayment')->where('direction', 'credit')->sum('amount'),
@@ -145,6 +152,7 @@ class LandlordController extends Controller
             'id' => $landlord->id,
             'date_from' => $filters['date_from'],
             'date_to' => $filters['date_to'],
+            'property_id' => $filters['property_id'],
         ]));
 
         return view('admin.landlords.account-statement', compact(
@@ -152,6 +160,7 @@ class LandlordController extends Controller
             'relatedProperties',
             'accountEntries',
             'accountTotals',
+            'unitTotals',
             'ownerLoanSummary',
             'accountEntryTypes',
             'accountEntryRoute',
@@ -174,12 +183,22 @@ class LandlordController extends Controller
             ->get();
         $accountTotals = $this->accountTotalsFor($landlord->id, $filters);
         $period = $this->statementPeriod($accountEntries, $filters);
+        $unitStatements = $accountEntries->groupBy(fn (LandlordAccountEntry $entry) => $entry->property_id ?: 'general')
+            ->map(function ($entries) {
+                $running = 0;
+                $entries->each(function (LandlordAccountEntry $entry) use (&$running) {
+                    $running += $entry->direction === 'credit' ? (float) $entry->amount : -(float) $entry->amount;
+                    $entry->setAttribute('unit_running_balance', $running);
+                });
+                return ['property' => $entries->first()?->property, 'entries' => $entries, 'balance' => $running];
+            });
 
         return PdfRenderer::downloadView('admin.landlords.pdf.account-statement', compact(
             'landlord',
             'accountEntries',
             'accountTotals',
-            'period'
+            'period',
+            'unitStatements'
         ), 'owner-statement-' . Str::slug($landlord->name) . '.pdf', ['format' => 'A4-L']);
     }
 
@@ -578,10 +597,11 @@ private function accountTotalsFor(string $landlordId, array $filters = []): arra
 
 private function accountEntriesQuery(string $landlordId, array $filters = [])
 {
-    return LandlordAccountEntry::with('property')
+    return LandlordAccountEntry::with('property.building')
         ->where('landlord_id', $landlordId)
         ->when(! empty($filters['date_from']), fn ($query) => $query->whereDate('entry_date', '>=', $filters['date_from']))
-        ->when(! empty($filters['date_to']), fn ($query) => $query->whereDate('entry_date', '<=', $filters['date_to']));
+        ->when(! empty($filters['date_to']), fn ($query) => $query->whereDate('entry_date', '<=', $filters['date_to']))
+        ->when(! empty($filters['property_id']), fn ($query) => $query->where('property_id', $filters['property_id']));
 }
 
 private function accountStatementFilters(Request $request): array
@@ -589,6 +609,7 @@ private function accountStatementFilters(Request $request): array
     return [
         'date_from' => $request->input('date_from'),
         'date_to' => $request->input('date_to'),
+        'property_id' => $request->input('property_id'),
     ];
 }
 

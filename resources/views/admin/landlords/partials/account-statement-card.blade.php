@@ -12,13 +12,17 @@
             </div>
         </div>
         <form method="GET" action="{{ route('admin.landlord.account-statement', $landlord->id) }}" class="row g-2 mt-3 align-items-end">
-            <div class="col-lg-3">
+            <div class="col-lg-2">
                 <label for="date_from" class="form-label">From</label>
                 <input type="date" id="date_from" name="date_from" class="form-control" value="{{ $filters['date_from'] ?? '' }}">
             </div>
-            <div class="col-lg-3">
+            <div class="col-lg-2">
                 <label for="date_to" class="form-label">To</label>
                 <input type="date" id="date_to" name="date_to" class="form-control" value="{{ $filters['date_to'] ?? '' }}">
+            </div>
+            <div class="col-lg-3">
+                <label for="statement_property_id" class="form-label">Unit</label>
+                <select id="statement_property_id" name="property_id" class="form-control"><option value="">All units</option>@foreach($relatedProperties as $property)<option value="{{ $property->id }}" @selected(($filters['property_id'] ?? '')===$property->id)>{{ $property->name }} - {{ $property->building?->building_name ?? 'No building' }}</option>@endforeach</select>
             </div>
             <div class="col-lg-2">
                 <label for="per_page" class="form-label">Per Page</label>
@@ -28,7 +32,7 @@
                     @endforeach
                 </select>
             </div>
-            <div class="col-lg-4 d-flex gap-2">
+            <div class="col-lg-3 d-flex gap-2">
                 <button type="submit" class="btn btn-outline-primary">Apply</button>
                 <a href="{{ route('admin.landlord.account-statement', $landlord->id) }}" class="btn btn-light">Reset</a>
             </div>
@@ -63,6 +67,9 @@
                 <span><small class="d-block text-muted">Total Owner Receivable</small><strong class="text-danger">AED {{ number_format($ownerLoanSummary['receivable'], 2) }}</strong></span>
             </div>
         </div>
+        @if($unitTotals->isNotEmpty())
+            <div class="mb-3"><h5 class="mb-2">Unit-wise Summary</h5><div class="row g-2">@foreach($unitTotals as $unit)<div class="col-lg-4"><div class="border rounded p-2 h-100"><strong>{{ $unit['property']?->name ?? 'General Owner Account' }}</strong><div class="small text-muted">Credit AED {{ number_format($unit['credit'],2) }} · Debit AED {{ number_format($unit['debit'],2) }}</div><div class="fw-semibold {{ $unit['balance'] < 0 ? 'text-danger':'text-success' }}">Balance AED {{ number_format($unit['balance'],2) }}</div></div></div>@endforeach</div></div>
+        @endif
 
         <div class="table-responsive">
             <table class="table table-hover align-middle mb-0">
