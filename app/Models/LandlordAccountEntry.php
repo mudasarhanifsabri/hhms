@@ -22,6 +22,7 @@ class LandlordAccountEntry extends BaseModel
         'chiller' => 'Chiller',
         'cleaning' => 'Cleaning',
         'maintenance' => 'Maintenance',
+        'furnishing' => 'Furnishing / Setup Cost',
         'payout' => 'Owner Payout Transfer',
         'adjustment_debit' => 'Debit Adjustment',
         'other_expense' => 'Other Expense',

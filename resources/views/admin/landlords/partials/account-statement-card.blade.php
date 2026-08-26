@@ -209,6 +209,7 @@
                                     <option value="{{ $type }}" @selected(old('type') === $type)>{{ $label }}</option>
                                 @endforeach
                             </select>
+                            <small class="text-muted">Use Furnishing / Setup Cost to recover owner-approved furnishing spend from future rental income.</small>
                         </div>
                         <div class="col-lg-4">
                             <label for="amount" class="form-label">Amount</label>
@@ -229,7 +230,7 @@
                         </div>
                         <div class="col-lg-12">
                             <label for="description" class="form-label">Description</label>
-                            <textarea class="form-control" id="description" name="description" rows="3" placeholder="Short note for this statement entry">{{ old('description') }}</textarea>
+                            <textarea class="form-control" id="description" name="description" rows="3" placeholder="Example: Furnishing package for Unit 1207, recover from future rental income">{{ old('description') }}</textarea>
                         </div>
                         <div class="col-lg-6">
                             <label for="invoice_attachment" class="form-label">Invoice Attachment</label>

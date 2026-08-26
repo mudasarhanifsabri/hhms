@@ -34,7 +34,7 @@ class LandlordController extends Controller
             ->get();
         $propertyIds = $properties->pluck('id');
         $bookings = Booking::with('property')->whereIn('property_id', $propertyIds)->latest()->take(8)->get();
-        $entries = LandlordAccountEntry::where('landlord_id', Auth::id())->latest('entry_date')->take(8)->get();
+        $entries = LandlordAccountEntry::with('property')->where('landlord_id', Auth::id())->latest('entry_date')->take(8)->get();
         $documents = PropertyOwnerDocument::with('property')
             ->whereIn('property_id', $propertyIds)
             ->latest()

@@ -38,8 +38,9 @@
             @forelse($entries as $entry)
                 <div class="portal-list-item">
                     <div>
-                        <strong>{{ $entry->description }}</strong>
-                        <p>{{ $entry->entry_date?->format('d M Y') }}</p>
+                        <strong>{{ $entry->type_label }}</strong>
+                        <p class="mb-1">{{ $entry->description ?: 'No additional description' }}</p>
+                        <p>{{ $entry->entry_date?->format('d M Y') }} · {{ $entry->property?->name ?? 'General account' }}@if($entry->reference) · {{ $entry->reference }}@endif</p>
                     </div>
                     <span>{{ $entry->direction === 'credit' ? '+' : '-' }} AED {{ number_format((float) $entry->amount, 2) }}</span>
                 </div>
