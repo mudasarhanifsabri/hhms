@@ -18,6 +18,7 @@ class ExpenseReportDownloadTest extends TestCase
             'expense_no' => 'EXP-CLEAN-001', 'expense_date' => '2026-08-01', 'category' => 'cleaning',
             'responsibility' => 'company', 'net_amount' => 100, 'vat_amount' => 5, 'gross_amount' => 105,
             'approval_status' => 'approved', 'description' => 'Cleaning export row',
+            'invoice_path' => 'expense_invoices/2026/08/27/supplier-invoice.pdf',
         ]);
         Expense::create([
             'expense_no' => 'EXP-GAS-002', 'expense_date' => '2026-08-15', 'category' => 'gas',
@@ -33,6 +34,8 @@ class ExpenseReportDownloadTest extends TestCase
         $response->assertOk()->assertDownload('expense-report-' . now()->format('Y-m-d') . '.csv');
         $csv = $response->streamedContent();
         $this->assertStringContainsString('EXP-CLEAN-001', $csv);
+        $this->assertStringContainsString('View Document', $csv);
+        $this->assertStringContainsString('supplier-invoice.pdf', $csv);
         $this->assertStringNotContainsString('EXP-GAS-002', $csv);
     }
 

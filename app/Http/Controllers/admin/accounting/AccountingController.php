@@ -169,7 +169,7 @@ class AccountingController extends Controller
         return response()->streamDownload(function () use ($expenses) {
             $output = fopen('php://output', 'wb');
             fwrite($output, "\xEF\xBB\xBF");
-            fputcsv($output, ['Date', 'Expense No.', 'Category', 'Unit', 'Building', 'Vendor', 'Charged To', 'Paid From', 'Status', 'Net (AED)', 'VAT (AED)', 'Total (AED)', 'Description']);
+            fputcsv($output, ['Date', 'Expense No.', 'Category', 'Unit', 'Building', 'Vendor', 'Charged To', 'Paid From', 'Status', 'Net (AED)', 'VAT (AED)', 'Total (AED)', 'Description', 'View Document']);
 
             foreach ($expenses as $expense) {
                 fputcsv($output, [
@@ -186,6 +186,7 @@ class AccountingController extends Controller
                     number_format((float) $expense->vat_amount, 2, '.', ''),
                     number_format((float) $expense->gross_amount, 2, '.', ''),
                     $expense->description,
+                    MediaStorage::url($expense->invoice_path ?: $expense->receipt_path ?: $expense->import_source_file) ?: '',
                 ]);
             }
 
