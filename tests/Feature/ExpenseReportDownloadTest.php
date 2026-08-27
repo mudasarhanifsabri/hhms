@@ -36,8 +36,12 @@ class ExpenseReportDownloadTest extends TestCase
         $this->assertStringContainsString('EXP-CLEAN-001', $csv);
         $this->assertStringContainsString('View Document', $csv);
         $this->assertStringContainsString('=HYPERLINK(', $csv);
-        $this->assertStringContainsString('supplier-invoice.pdf', $csv);
+        $this->assertStringContainsString('/admin/e/', $csv);
+        $this->assertStringNotContainsString('amazonaws.com', $csv);
         $this->assertStringNotContainsString('EXP-GAS-002', $csv);
+
+        $expense = Expense::where('expense_no', 'EXP-CLEAN-001')->firstOrFail();
+        $this->actingAs($admin)->get(route('admin.accounting.expenses.document', $expense))->assertRedirect();
     }
 
     public function test_admin_can_download_expense_report_as_pdf(): void

@@ -48,6 +48,7 @@ Route::post('/accounting/ledger', [AccountingController::class, 'storeEntry'])->
 Route::get('/accounting/expenses', [AccountingController::class, 'expenses'])->name('accounting.expenses');
 Route::get('/accounting/expenses/report/pdf', [AccountingController::class, 'expenseReportPdf'])->name('accounting.expenses.report.pdf');
 Route::get('/accounting/expenses/report/csv', [AccountingController::class, 'expenseReportCsv'])->name('accounting.expenses.report.csv');
+Route::get('/e/{expense}', [AccountingController::class, 'expenseDocument'])->name('accounting.expenses.document');
 Route::post('/accounting/expenses', [AccountingController::class, 'storeExpense'])->name('accounting.expenses.store');
 Route::put('/accounting/expenses/{expense}', [AccountingController::class, 'updateExpense'])->name('accounting.expenses.update');
 Route::delete('/accounting/expenses/{expense}', [AccountingController::class, 'destroyExpense'])->name('accounting.expenses.destroy');

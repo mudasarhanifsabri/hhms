@@ -172,7 +172,9 @@ class AccountingController extends Controller
             fputcsv($output, ['Date', 'Expense No.', 'Category', 'Unit', 'Building', 'Vendor', 'Charged To', 'Paid From', 'Status', 'Net (AED)', 'VAT (AED)', 'Total (AED)', 'Description', 'View Document']);
 
             foreach ($expenses as $expense) {
-                $documentUrl = MediaStorage::url($expense->invoice_path ?: $expense->receipt_path ?: $expense->import_source_file);
+                $documentUrl = ($expense->invoice_path || $expense->receipt_path || $expense->import_source_file)
+                    ? route('admin.accounting.expenses.document', $expense)
+                    : null;
                 fputcsv($output, [
                     $expense->expense_date?->format('Y-m-d'),
                     $expense->expense_no,
@@ -193,6 +195,14 @@ class AccountingController extends Controller
 
             fclose($output);
         }, 'expense-report-' . now()->format('Y-m-d') . '.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
+    }
+
+    public function expenseDocument(Expense $expense)
+    {
+        $path = $expense->invoice_path ?: $expense->receipt_path ?: $expense->import_source_file;
+        abort_if(blank($path), 404, 'No invoice or receipt is attached to this expense.');
+
+        return redirect()->away(MediaStorage::url($path));
     }
 
     private function filteredExpenses(Request $request)
