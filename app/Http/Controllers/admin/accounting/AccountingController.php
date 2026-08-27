@@ -172,6 +172,7 @@ class AccountingController extends Controller
             fputcsv($output, ['Date', 'Expense No.', 'Category', 'Unit', 'Building', 'Vendor', 'Charged To', 'Paid From', 'Status', 'Net (AED)', 'VAT (AED)', 'Total (AED)', 'Description', 'View Document']);
 
             foreach ($expenses as $expense) {
+                $documentUrl = MediaStorage::url($expense->invoice_path ?: $expense->receipt_path ?: $expense->import_source_file);
                 fputcsv($output, [
                     $expense->expense_date?->format('Y-m-d'),
                     $expense->expense_no,
@@ -186,7 +187,7 @@ class AccountingController extends Controller
                     number_format((float) $expense->vat_amount, 2, '.', ''),
                     number_format((float) $expense->gross_amount, 2, '.', ''),
                     $expense->description,
-                    MediaStorage::url($expense->invoice_path ?: $expense->receipt_path ?: $expense->import_source_file) ?: '',
+                    $documentUrl ? '=HYPERLINK("' . str_replace('"', '""', $documentUrl) . '","View Document")' : '',
                 ]);
             }
 

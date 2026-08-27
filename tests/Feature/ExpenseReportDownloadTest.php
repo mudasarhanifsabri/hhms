@@ -35,6 +35,7 @@ class ExpenseReportDownloadTest extends TestCase
         $csv = $response->streamedContent();
         $this->assertStringContainsString('EXP-CLEAN-001', $csv);
         $this->assertStringContainsString('View Document', $csv);
+        $this->assertStringContainsString('=HYPERLINK(', $csv);
         $this->assertStringContainsString('supplier-invoice.pdf', $csv);
         $this->assertStringNotContainsString('EXP-GAS-002', $csv);
     }
