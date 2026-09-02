@@ -6,9 +6,11 @@ use App\Http\Controllers\Controller;
 use App\Models\Booking;
 use App\Models\BookingHistory;
 use App\Models\BookingInvoice;
+use App\Models\BookingInvoicePayment;
 use App\Models\BookingTask;
 use App\Models\AccountingAccount;
 use App\Models\AccountingEntry;
+use App\Models\BankAccount;
 use App\Models\LandlordAccountEntry;
 use App\Models\Property;
 use App\Models\User;
@@ -138,51 +140,47 @@ class BookingController extends Controller
         $validatedData = $request->validate([
             'check_out' => 'required|date|after:' . $booking->check_out?->toDateString(),
             'check_out_time' => 'nullable|date_format:H:i',
-            'extension_rent_amount' => 'nullable|numeric|min:0',
+            'extension_rent_amount' => 'required|numeric|min:0',
+            'vat_rate' => 'required|numeric|min:0|max:100',
+            'other_fees' => 'nullable|numeric|min:0',
             'notes' => 'nullable|string|max:2000',
         ]);
 
         $additionalRent = (float) ($validatedData['extension_rent_amount'] ?? 0);
         $oldCheckOut = $booking->check_out?->copy();
-        $this->ensurePropertyCanBeBooked($booking->property_id, $booking->check_in?->toDateString(), $validatedData['check_out'], $booking->id);
-        $booking->check_out = $validatedData['check_out'];
-        $booking->check_out_time = $validatedData['check_out_time'] ?? $booking->check_out_time;
+        $maximumContractCheckout = $booking->check_in?->copy()->addDays(90);
 
-        if ($additionalRent > 0) {
-            $grossRent = (float) $booking->rent_amount + $additionalRent;
-            $requestForAmounts = new Request([
-                'vat_included' => $booking->vat_included,
+        if ($maximumContractCheckout && \Carbon\Carbon::parse($validatedData['check_out'])->gt($maximumContractCheckout)) {
+            throw ValidationException::withMessages([
+                'check_out' => 'This extension exceeds the 90-day contract limit. Create a contract renewal and charge the DTCM fee again.',
             ]);
-            $amounts = $this->calculateAmounts([
-                'property_id' => $booking->property_id,
-                'rent_amount' => $grossRent,
-                'dtcm_fee' => $booking->dtcm_fee,
-                'cleaning_fee' => $booking->cleaning_fee,
-                'agency_fee' => $booking->agency_fee,
-                'security_deposit' => $booking->security_deposit,
-            ], $requestForAmounts);
-            $booking->fill($amounts);
         }
 
-        $booking->save();
-        $booking->histories()->create([
-            'title' => 'Booking Extended',
-            'description' => 'Extended until ' . $booking->check_out?->format('d M Y') . ($additionalRent > 0 ? ' with additional rent ' . number_format($additionalRent, 2) . ' AED.' : '.') . (! empty($validatedData['notes']) ? ' Notes: ' . $validatedData['notes'] : ''),
-        ]);
+        $this->ensurePropertyCanBeBooked($booking->property_id, $booking->check_in?->toDateString(), $validatedData['check_out'], $booking->id);
 
-        $this->syncOwnerIncome($booking);
+        DB::transaction(function () use ($booking, $validatedData, $additionalRent, $oldCheckOut) {
+            $booking->update([
+                'check_out' => $validatedData['check_out'],
+                'check_out_time' => $validatedData['check_out_time'] ?? $booking->check_out_time,
+            ]);
 
-        if ($additionalRent > 0) {
-            $this->createBookingInvoice($booking, 'extension', [
+            $invoice = $this->createBookingInvoice($booking, 'extension', [
                 'period_from' => $oldCheckOut?->copy()->addDay() ?? $booking->check_in,
                 'period_to' => $booking->check_out,
                 'rent_amount' => $additionalRent,
-                'fees' => [],
+                'vat_rate' => (float) $validatedData['vat_rate'],
+                'fees' => ['Other Fees' => (float) ($validatedData['other_fees'] ?? 0)],
                 'notes' => 'Extension invoice for booking ' . $booking->booking_reference,
             ]);
-        }
 
-        return back()->with('success', 'Booking extended successfully.');
+            $booking->histories()->create([
+                'title' => 'Booking Extended',
+                'description' => 'Extended until ' . $booking->check_out?->format('d M Y') . '. Separate invoice ' . $invoice->invoice_number . ' created for AED ' . number_format((float) $invoice->total_amount, 2) . '.',
+            ]);
+            $this->recordOwnerIncomeForInvoice($invoice);
+        });
+
+        return back()->with('success', 'Booking extended. A separate extension invoice and payment balance were created.');
     }
 
     public function renew(Request $request, Booking $booking)
@@ -193,12 +191,16 @@ class BookingController extends Controller
             'check_out' => 'required|date|after:check_in',
             'check_out_time' => 'nullable|date_format:H:i',
             'rent_amount' => 'required|numeric|min:0',
-            'dtcm_fee' => 'nullable|numeric|min:0',
+            'dtcm_fee' => 'required|numeric|min:0.01',
             'cleaning_fee' => 'nullable|numeric|min:0',
             'agency_fee' => 'nullable|numeric|min:0',
             'security_deposit' => 'nullable|numeric|min:0',
             'notes' => 'nullable|string|max:2000',
         ]);
+
+        if (\Carbon\Carbon::parse($validatedData['check_in'])->diffInDays(\Carbon\Carbon::parse($validatedData['check_out'])) > 90) {
+            throw ValidationException::withMessages(['check_out' => 'A renewed contract cannot exceed 90 days.']);
+        }
 
         $payload = [
             'property_id' => $booking->property_id,
@@ -225,6 +227,7 @@ class BookingController extends Controller
 
         $newBooking = Booking::create([
             ...$payload,
+            'renewed_from_booking_id' => $booking->id,
             'booking_reference' => $this->nextReference('BK'),
             'invoice_number' => $this->nextReference('INV'),
             ...$amounts,
@@ -241,10 +244,11 @@ class BookingController extends Controller
             'description' => 'Renewal booking ' . $newBooking->booking_reference . ' was created.',
         ]);
 
-        $this->recordOwnerIncome($newBooking);
-        $this->createBookingInvoice($newBooking, 'renewal', [
+        $invoice = $this->createBookingInvoice($newBooking, 'renewal', [
+            'vat_amount' => (float) $newBooking->vat_amount,
             'notes' => 'Renewal invoice from booking ' . $booking->booking_reference,
         ]);
+        $this->recordOwnerIncomeForInvoice($invoice);
         $this->markPropertyStatus($newBooking, 'booked');
 
         return redirect()->route('admin.booking.show', $newBooking->id)
@@ -258,9 +262,70 @@ class BookingController extends Controller
             'agent',
             'histories',
             'inspections.items',
+            'invoices.payments.bankAccount',
         ]);
 
-        return view('admin.bookings.show', compact('booking'));
+        $bankAccounts = BankAccount::where('is_active', true)->orderBy('name')->get();
+
+        return view('admin.bookings.show', compact('booking', 'bankAccounts'));
+    }
+
+    public function recordInvoicePayment(Request $request, BookingInvoice $invoice)
+    {
+        $data = $request->validate([
+            'payment_date' => 'required|date',
+            'amount' => 'required|numeric|min:0.01',
+            'payment_method' => 'required|string|max:100',
+            'bank_account_id' => 'nullable|exists:bank_accounts,id',
+            'reference' => 'nullable|string|max:150',
+            'receipt' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:10240',
+            'notes' => 'nullable|string|max:2000',
+        ]);
+
+        $invoice->load('payments', 'booking.property');
+        if ((float) $data['amount'] > $invoice->balance_due + 0.001) {
+            throw ValidationException::withMessages(['amount' => 'Payment cannot exceed the invoice balance of AED ' . number_format($invoice->balance_due, 2) . '.']);
+        }
+
+        $paidBefore = $invoice->paid_amount;
+        DB::transaction(function () use ($request, $invoice, $data, $paidBefore) {
+            $entry = AccountingEntry::create([
+                'entry_no' => $this->nextAccountingEntryNumber(),
+                'entry_date' => $data['payment_date'],
+                'type' => 'income', 'category' => 'rental_income',
+                'accounting_account_id' => AccountingAccount::where('code', '4010')->value('id'),
+                'description' => 'Guest payment for ' . $invoice->invoice_number,
+                'property_id' => $invoice->booking?->property_id,
+                'landlord_id' => $invoice->booking?->property?->landlord_id,
+                'booking_id' => $invoice->booking_id,
+                'paid_from_account_id' => $data['bank_account_id'] ?? null,
+                'debit' => 0, 'credit' => $data['amount'],
+                'vat_rate' => $invoice->vat_rate, 'vat_amount' => 0,
+                'net_amount' => $data['amount'], 'gross_amount' => $data['amount'],
+                'payment_method' => $data['payment_method'],
+                'transaction_reference' => ($data['reference'] ?? null) ?: $invoice->invoice_number,
+                'status' => 'posted', 'approval_status' => 'posted', 'created_by' => auth()->id(),
+            ]);
+
+            BookingInvoicePayment::create([
+                'booking_invoice_id' => $invoice->id,
+                'payment_date' => $data['payment_date'], 'amount' => $data['amount'],
+                'payment_method' => $data['payment_method'], 'bank_account_id' => $data['bank_account_id'] ?? null,
+                'reference' => $data['reference'] ?? null,
+                'receipt_path' => $this->uploadFile($request, 'receipt', 'booking_payment_proofs'),
+                'notes' => $data['notes'] ?? null, 'accounting_entry_id' => $entry->id, 'created_by' => auth()->id(),
+            ]);
+
+            $paid = $paidBefore + (float) $data['amount'];
+            $invoice->update(['status' => $paid >= (float) $invoice->total_amount ? 'paid' : 'partial']);
+            $invoice->booking?->update(['invoice_status' => $invoice->booking->invoices()->where('status', '!=', 'paid')->exists() ? 'unpaid' : 'paid']);
+            if ($data['bank_account_id'] ?? null) {
+                $account = BankAccount::find($data['bank_account_id']);
+                $account?->forceFill(['current_balance' => (float) $account->current_balance + (float) $data['amount']])->save();
+            }
+        });
+
+        return back()->with('success', 'Payment recorded against ' . $invoice->invoice_number . '.');
     }
 
     public function history(Booking $booking)
@@ -441,7 +506,7 @@ class BookingController extends Controller
 
     private function markPropertyStatus(Booking $booking, string $status): void
     {
-        $booking->property?->update(['status' => $status]);
+        $booking->property?->update(['status' => $status === 'booked' ? 'rented' : $status]);
     }
 
     private function nextTaskNumber(): string
@@ -474,13 +539,10 @@ class BookingController extends Controller
     private function createBookingInvoice(Booking $booking, string $type = 'original', array $override = []): BookingInvoice
     {
         $rentAmount = (float) ($override['rent_amount'] ?? $booking->rent_amount);
-        $vatRate = 5.0;
-        $vatAmount = $booking->vat_included && $type !== 'original'
-            ? round($rentAmount - ($rentAmount / 1.05), 2)
+        $vatRate = (float) ($override['vat_rate'] ?? 5.0);
+        $vatAmount = array_key_exists('vat_amount', $override)
+            ? (float) $override['vat_amount']
             : round($rentAmount * ($vatRate / 100), 2);
-        $rentAmount = $booking->vat_included && $type !== 'original'
-            ? round($rentAmount - $vatAmount, 2)
-            : $rentAmount;
         $fees = $override['fees'] ?? [
             'DTCM Fee' => (float) $booking->dtcm_fee,
             'Cleaning Fee' => (float) $booking->cleaning_fee,
@@ -508,6 +570,30 @@ class BookingController extends Controller
             'status' => 'unpaid',
             'notes' => $override['notes'] ?? null,
         ]);
+    }
+
+    private function recordOwnerIncomeForInvoice(BookingInvoice $invoice): void
+    {
+        $booking = $invoice->booking()->with('property')->first();
+        $property = $booking?->property;
+        if (! $property?->landlord_id) return;
+
+        $reference = $invoice->invoice_number;
+        $description = $invoice->type_label . ' rent for ' . ($property->name ?? 'Unit') . ' - ' . $invoice->period_from?->format('d M Y') . ' to ' . $invoice->period_to?->format('d M Y');
+        LandlordAccountEntry::firstOrCreate(['landlord_id' => $property->landlord_id, 'reference' => $reference, 'type' => 'rent_income'], [
+            'property_id' => $property->id, 'entry_date' => $invoice->period_from ?? now(), 'direction' => 'credit',
+            'amount' => $invoice->rent_amount, 'description' => $description,
+        ]);
+
+        $rate = (float) ($property->management_fee_percent ?? 0);
+        $fee = round((float) $invoice->rent_amount * $rate / 100, 2);
+        if ($fee > 0) {
+            LandlordAccountEntry::firstOrCreate(['landlord_id' => $property->landlord_id, 'reference' => $reference, 'type' => 'management_fee'], [
+                'property_id' => $property->id, 'entry_date' => $invoice->period_from ?? now(), 'direction' => 'debit',
+                'amount' => $fee, 'description' => 'Management fee ' . number_format($rate, 2) . '% on ' . $description,
+            ]);
+        }
+        LandlordAccountEntry::recalculateBalancesFor($property->landlord_id);
     }
 
     private function validateBooking(Request $request): array

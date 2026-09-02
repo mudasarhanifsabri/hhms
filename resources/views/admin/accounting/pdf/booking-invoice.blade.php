@@ -57,6 +57,8 @@
                 @endif
             @endforeach
             <tr class="total"><td>Total Invoice Amount</td><td class="right">AED {{ number_format((float) $invoice->total_amount, 2) }}</td></tr>
+            <tr><td>Payments Received</td><td class="right">AED {{ number_format($invoice->paid_amount, 2) }}</td></tr>
+            <tr class="total"><td>Balance Due</td><td class="right">AED {{ number_format($invoice->balance_due, 2) }}</td></tr>
         </tbody>
     </table>
 

@@ -1,6 +1,13 @@
 @extends('layouts.app')
 
 @section('content')
+@php
+    $contractDays = $booking->nights;
+    $remainingContractDays = max(0, 90 - $contractDays);
+    $contractLimitDate = $booking->check_in?->copy()->addDays(90);
+    $latestInvoice = $booking->invoices->sortByDesc('created_at')->first();
+    $defaultExtensionRent = (float) ($latestInvoice?->rent_amount ?? $booking->rent_amount);
+@endphp
 <div class="row">
     <div class="col-xl-8">
         <div class="card">
@@ -46,6 +53,48 @@
         </div>
 
         <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h4 class="card-title mb-0">Invoices, Extensions & Renewals</h4>
+                <span class="badge bg-light-subtle text-muted border">{{ $booking->invoices->count() }} records</span>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead><tr><th>Type / Invoice</th><th>Period</th><th>Total</th><th>Paid</th><th>Balance</th><th>Status</th><th>Actions</th></tr></thead>
+                        <tbody>
+                        @forelse($booking->invoices->sortBy('created_at') as $invoice)
+                            <tr>
+                                <td><strong>{{ $invoice->type_label }}</strong><div class="small text-muted">{{ $invoice->invoice_number }}</div></td>
+                                <td>{{ $invoice->period_from?->format('d M Y') }}<br><span class="small text-muted">to {{ $invoice->period_to?->format('d M Y') }}</span></td>
+                                <td>AED {{ number_format((float) $invoice->total_amount, 2) }}</td>
+                                <td class="text-success">AED {{ number_format($invoice->paid_amount, 2) }}</td>
+                                <td class="{{ $invoice->balance_due > 0 ? 'text-danger' : 'text-success' }}">AED {{ number_format($invoice->balance_due, 2) }}</td>
+                                <td><span class="badge {{ $invoice->status === 'paid' ? 'bg-success' : ($invoice->status === 'partial' ? 'bg-warning' : 'bg-danger') }}">{{ ucfirst($invoice->status) }}</span></td>
+                                <td><div class="d-flex gap-1">
+                                    <a href="{{ route('admin.accounting.booking-invoices.pdf', $invoice->id) }}" class="btn btn-sm btn-outline-primary">PDF</a>
+                                    @if($invoice->balance_due > 0)
+                                        <button class="btn btn-sm btn-dark" data-bs-toggle="modal" data-bs-target="#paymentModal{{ $invoice->id }}">Payment</button>
+                                    @endif
+                                </div></td>
+                            </tr>
+                            @if($invoice->payments->isNotEmpty())
+                                <tr class="table-light"><td colspan="7" class="small">
+                                    <strong>Payments:</strong>
+                                    @foreach($invoice->payments as $payment)
+                                        <span class="ms-2">{{ $payment->payment_date?->format('d M Y') }} · AED {{ number_format((float) $payment->amount, 2) }} · {{ $payment->payment_method }}{{ $payment->reference ? ' · '.$payment->reference : '' }}</span>
+                                    @endforeach
+                                </td></tr>
+                            @endif
+                        @empty
+                            <tr><td colspan="7" class="text-center text-muted py-4">No invoices created.</td></tr>
+                        @endforelse
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
             <div class="card-header"><h4 class="card-title mb-0">Charges</h4></div>
             <div class="card-body">
                 <div class="table-responsive">
@@ -79,7 +128,7 @@
                     <a href="{{ route('admin.booking.history', $booking->id) }}" class="btn btn-light" title="History" aria-label="History">
                         <iconify-icon icon="solar:history-2-broken" class="align-middle fs-18"></iconify-icon>
                     </a>
-                    <button type="button" class="btn btn-outline-dark" data-bs-toggle="modal" data-bs-target="#extendBookingModal" title="Extend Booking" aria-label="Extend Booking">
+                    <button type="button" class="btn btn-outline-dark" data-bs-toggle="modal" data-bs-target="{{ $remainingContractDays > 0 ? '#extendBookingModal' : '#contractLimitModal' }}" title="Extend Booking" aria-label="Extend Booking">
                         <iconify-icon icon="solar:calendar-add-broken" class="align-middle fs-18"></iconify-icon>
                     </button>
                     <button type="button" class="btn btn-dark" data-bs-toggle="modal" data-bs-target="#renewBookingModal" title="Renew Booking" aria-label="Renew Booking">
@@ -92,6 +141,14 @@
         <div class="card">
             <div class="card-header"><h4 class="card-title mb-0">Booking Workflow</h4></div>
             <div class="card-body">
+                <div class="alert {{ $remainingContractDays > 0 ? 'alert-success' : 'alert-warning' }}">
+                    <strong>{{ $contractDays }} of 90 contract days used.</strong><br>
+                    @if($remainingContractDays > 0)
+                        {{ $remainingContractDays }} days remain before renewal is required. Maximum checkout: {{ $contractLimitDate?->format('d M Y') }}.
+                    @else
+                        The 90-day limit is reached. Use Renew Contract; a new DTCM fee is required.
+                    @endif
+                </div>
                 <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
                     <span class="badge {{ $booking->workflow_status_class }} text-white">{{ $booking->workflow_status_label }}</span>
                     @if($booking->checked_in_at)
@@ -158,21 +215,6 @@
             </div>
         </div>
 
-        <div class="card">
-            <div class="card-header"><h4 class="card-title mb-0">Payment Proof</h4></div>
-            <div class="card-body">
-                @if($booking->payment_proof)
-                    <a href="{{ asset($booking->payment_proof) }}" target="_blank" class="btn btn-sm btn-success mb-3">View Attached Receipt</a>
-                @endif
-                <form action="{{ route('admin.booking.payment-proof', $booking->id) }}" method="POST" enctype="multipart/form-data">
-                    @csrf
-                    <label class="form-label" for="payment_proof">Attach receipt with invoice</label>
-                    <input type="file" class="form-control mb-3" id="payment_proof" name="payment_proof" accept=".pdf,.jpg,.jpeg,.png" required>
-                    @error('payment_proof')<span class="text-danger">{{ $message }}</span>@enderror
-                    <button class="btn btn-dark w-100">Mark Invoice Paid</button>
-                </form>
-            </div>
-        </div>
     </div>
 </div>
 
@@ -186,18 +228,28 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
+                    <div class="row g-2 mb-3">
+                        <div class="col-6"><div class="border rounded p-2"><span class="small text-muted">Previous checkout</span><br><strong>{{ $booking->check_out?->format('d M Y') }}</strong></div></div>
+                        <div class="col-6"><div class="border rounded p-2"><span class="small text-muted">Maximum under this contract</span><br><strong>{{ $contractLimitDate?->format('d M Y') }}</strong></div></div>
+                    </div>
                     <div class="mb-3">
                         <label for="extend_check_out" class="form-label">New Check Out Date</label>
-                        <input type="date" id="extend_check_out" name="check_out" class="form-control" value="{{ old('check_out', $booking->check_out?->copy()->addDay()->format('Y-m-d')) }}" required>
+                        <input type="date" id="extend_check_out" name="check_out" class="form-control" min="{{ $booking->check_out?->copy()->addDay()->format('Y-m-d') }}" max="{{ $contractLimitDate?->format('Y-m-d') }}" value="{{ old('check_out', $booking->check_out?->copy()->addDay()->min($contractLimitDate)->format('Y-m-d')) }}" required>
                     </div>
                     <div class="mb-3">
                         <label for="extend_check_out_time" class="form-label">Check Out Time</label>
                         <input type="time" id="extend_check_out_time" name="check_out_time" class="form-control" value="{{ old('check_out_time', $booking->check_out_time ? \Carbon\Carbon::parse($booking->check_out_time)->format('H:i') : '11:00') }}">
                     </div>
                     <div class="mb-3">
-                        <label for="extension_rent_amount" class="form-label">Additional Rent Amount</label>
-                        <input type="number" step="0.01" min="0" id="extension_rent_amount" name="extension_rent_amount" class="form-control" value="{{ old('extension_rent_amount', 0) }}">
+                        <label for="extension_rent_amount" class="form-label">New Extension Rent (AED)</label>
+                        <input type="number" step="0.01" min="0" id="extension_rent_amount" name="extension_rent_amount" class="form-control extension-calculation" value="{{ old('extension_rent_amount', $defaultExtensionRent) }}" required>
                     </div>
+                    <div class="row g-3 mb-3">
+                        <div class="col-6"><label class="form-label" for="extension_vat_rate">VAT Rate %</label><input class="form-control extension-calculation" type="number" step="0.01" min="0" max="100" id="extension_vat_rate" name="vat_rate" value="{{ old('vat_rate', 5) }}" required></div>
+                        <div class="col-6"><label class="form-label" for="extension_other_fees">Other Fees (AED)</label><input class="form-control extension-calculation" type="number" step="0.01" min="0" id="extension_other_fees" name="other_fees" value="{{ old('other_fees', 0) }}"></div>
+                    </div>
+                    <div class="alert alert-primary d-flex justify-content-between"><span>Separate extension invoice total</span><strong id="extensionTotal">AED 0.00</strong></div>
+                    <p class="small text-muted">The original booking invoice and its payments will not be changed.</p>
                     <div class="mb-0">
                         <label for="extension_notes" class="form-label">Notes</label>
                         <textarea id="extension_notes" name="notes" rows="3" class="form-control">{{ old('notes') }}</textarea>
@@ -205,7 +257,7 @@
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Save Extension</button>
+                    <button type="submit" class="btn btn-primary">Create Extension Invoice</button>
                 </div>
             </form>
         </div>
@@ -233,7 +285,7 @@
                         </div>
                         <div class="col-lg-3">
                             <label for="renew_check_out" class="form-label">Check Out</label>
-                            <input type="date" id="renew_check_out" name="check_out" class="form-control" value="{{ old('check_out', $booking->check_out?->copy()->addMonth()->format('Y-m-d')) }}" required>
+                            <input type="date" id="renew_check_out" name="check_out" class="form-control" value="{{ old('check_out', $booking->check_out?->copy()->addDays(90)->format('Y-m-d')) }}" required>
                         </div>
                         <div class="col-lg-3">
                             <label for="renew_check_out_time" class="form-label">Check Out Time</label>
@@ -266,6 +318,7 @@
                     </div>
                 </div>
                 <div class="modal-footer">
+                    <span class="me-auto small text-muted">New contract, DTCM fee, invoice and payment record.</span>
                     <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
                     <button type="submit" class="btn btn-primary">Create Renewal</button>
                 </div>
@@ -273,4 +326,56 @@
         </div>
     </div>
 </div>
+
+<div class="modal fade" id="contractLimitModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered"><div class="modal-content">
+        <div class="modal-body text-center p-4">
+            <div class="text-warning mb-3"><iconify-icon icon="solar:danger-triangle-bold" class="fs-48"></iconify-icon></div>
+            <h4>This guest has reached the maximum 90-day contract period.</h4>
+            <p class="text-muted">A new contract and DTCM fee are required to continue the stay.</p>
+            <div class="border rounded p-3 mb-4 d-flex justify-content-between"><span>Current contract</span><strong>{{ $booking->check_in?->format('d M Y') }} — {{ $contractLimitDate?->format('d M Y') }}</strong></div>
+            <button class="btn btn-light" data-bs-dismiss="modal">Back</button>
+            <button class="btn btn-primary" data-bs-dismiss="modal" data-bs-toggle="modal" data-bs-target="#renewBookingModal">Renew Contract</button>
+        </div>
+    </div></div>
+</div>
+
+@foreach($booking->invoices as $invoice)
+<div class="modal fade" id="paymentModal{{ $invoice->id }}" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg"><div class="modal-content">
+        <form action="{{ route('admin.booking-invoice.payment', $invoice->id) }}" method="POST" enctype="multipart/form-data">@csrf
+            <div class="modal-header"><h5 class="modal-title">Record Payment — {{ $invoice->invoice_number }}</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body">
+                <div class="row g-3 mb-3">
+                    <div class="col-md-4"><div class="border rounded p-3"><span class="text-muted small">Invoice Total</span><h5>AED {{ number_format((float) $invoice->total_amount, 2) }}</h5></div></div>
+                    <div class="col-md-4"><div class="border rounded p-3"><span class="text-muted small">Already Paid</span><h5 class="text-success">AED {{ number_format($invoice->paid_amount, 2) }}</h5></div></div>
+                    <div class="col-md-4"><div class="border rounded p-3"><span class="text-muted small">Balance Due</span><h5 class="text-danger">AED {{ number_format($invoice->balance_due, 2) }}</h5></div></div>
+                    <div class="col-md-6"><label class="form-label">Payment Date</label><input type="date" name="payment_date" class="form-control" value="{{ now()->format('Y-m-d') }}" required></div>
+                    <div class="col-md-6"><label class="form-label">Amount (AED)</label><input type="number" name="amount" class="form-control" step="0.01" min="0.01" max="{{ $invoice->balance_due }}" value="{{ $invoice->balance_due }}" required></div>
+                    <div class="col-md-6"><label class="form-label">Payment Method</label><select name="payment_method" class="form-select" required><option>Bank Transfer</option><option>Cash</option><option>Card</option><option>Cheque</option><option>Online Payment</option></select></div>
+                    <div class="col-md-6"><label class="form-label">Deposit To Account</label><select name="bank_account_id" class="form-select"><option value="">Not selected</option>@foreach($bankAccounts as $account)<option value="{{ $account->id }}">{{ $account->name }}</option>@endforeach</select></div>
+                    <div class="col-md-6"><label class="form-label">Reference</label><input name="reference" class="form-control"></div>
+                    <div class="col-md-6"><label class="form-label">Upload Receipt</label><input type="file" name="receipt" class="form-control" accept=".pdf,.jpg,.jpeg,.png"></div>
+                    <div class="col-12"><label class="form-label">Notes</label><textarea name="notes" class="form-control" rows="2"></textarea></div>
+                </div>
+            </div>
+            <div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary">Save Payment</button></div>
+        </form>
+    </div></div>
+</div>
+@endforeach
+
+@push('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const rent = document.getElementById('extension_rent_amount');
+    const vat = document.getElementById('extension_vat_rate');
+    const fees = document.getElementById('extension_other_fees');
+    const total = document.getElementById('extensionTotal');
+    const calculate = () => total.textContent = 'AED ' + ((parseFloat(rent?.value) || 0) * (1 + (parseFloat(vat?.value) || 0) / 100) + (parseFloat(fees?.value) || 0)).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    document.querySelectorAll('.extension-calculation').forEach(input => input.addEventListener('input', calculate));
+    calculate();
+});
+</script>
+@endpush
 @endsection

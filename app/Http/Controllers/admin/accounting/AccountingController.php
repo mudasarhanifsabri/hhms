@@ -40,7 +40,7 @@ class AccountingController extends Controller
         $cashBalance = $this->bankBalanceTotal('cash');
         $bankBalance = $this->bankBalanceTotal('bank');
         $ownerBalances = $this->ownerAccountBalances();
-        $accountsReceivable = (float) BookingInvoice::where('status', 'unpaid')->sum('total_amount')
+        $accountsReceivable = $this->outstandingBookingInvoiceTotal()
             + $ownerBalances->filter(fn ($balance) => $balance < 0)->sum(fn ($balance) => abs($balance));
         $accountsPayable = Expense::whereIn('approval_status', ['pending', 'approved'])->sum('gross_amount');
         $ownerPayables = $ownerBalances->filter(fn ($balance) => $balance > 0)->sum();
@@ -758,7 +758,8 @@ class AccountingController extends Controller
         $cashFlowSummary['closing'] = $cashFlowSummary['opening'] + $cashFlowSummary['inflow'] - $cashFlowSummary['outflow'];
 
         $ownerReceivableRows = $this->ownerReceivableRows();
-        $receivableAgeingRecords = BookingInvoice::where('status', 'unpaid')->get(['issue_date', 'total_amount'])
+        $receivableAgeingRecords = BookingInvoice::withSum('payments', 'amount')->whereIn('status', ['unpaid', 'partial'])->get(['id', 'issue_date', 'total_amount'])
+            ->map(function (BookingInvoice $invoice) { $invoice->total_amount = $invoice->balance_due; return $invoice; })
             ->concat($ownerReceivableRows->map(fn ($row) => (object) [
                 'issue_date' => $row->oldest_debit_date ?? today(),
                 'total_amount' => abs((float) $row->balance),
@@ -768,8 +769,8 @@ class AccountingController extends Controller
             'issue_date',
             'total_amount'
         );
-        $receivableRows = BookingInvoice::with('booking.property')
-            ->where('status', 'unpaid')
+        $receivableRows = BookingInvoice::with('booking.property')->withSum('payments', 'amount')
+            ->whereIn('status', ['unpaid', 'partial'])
             ->orderBy('issue_date')
             ->get();
         $payableAgeing = $this->ageingBuckets(
@@ -1085,7 +1086,7 @@ class AccountingController extends Controller
 
     public function bookingInvoices(Request $request)
     {
-        $invoices = BookingInvoice::with('booking.property')
+        $invoices = BookingInvoice::with('booking.property')->withSum('payments', 'amount')
             ->latest('issue_date')
             ->paginate(20)
             ->withQueryString();
@@ -1095,7 +1096,7 @@ class AccountingController extends Controller
 
     public function bookingInvoicePdf(BookingInvoice $invoice)
     {
-        $invoice->load('booking.property.building', 'booking.agent');
+        $invoice->load('booking.property.building', 'booking.agent', 'payments');
 
         return PdfRenderer::downloadView('admin.accounting.pdf.booking-invoice', compact('invoice'), $invoice->invoice_number . '.pdf');
     }
@@ -1584,12 +1585,12 @@ class AccountingController extends Controller
     {
         $ownerReceivable = $this->ownerAccountBalances()->filter(fn ($balance) => $balance < 0)->sum(fn ($balance) => abs($balance));
 
-        return (float) BookingInvoice::where('status', 'unpaid')->sum('total_amount') + $ownerReceivable;
+        return $this->outstandingBookingInvoiceTotal() + $ownerReceivable;
     }
 
     private function accountsReceivableStatementRows()
     {
-        $bookingRows = BookingInvoice::with('booking.property')->get()->flatMap(function (BookingInvoice $invoice) {
+        $bookingRows = BookingInvoice::with(['booking.property', 'payments'])->get()->flatMap(function (BookingInvoice $invoice) {
             $charge = (object) [
                 'date' => $invoice->issue_date, 'source_type' => 'Guest Invoice',
                 'party' => $invoice->booking?->guest_name ?? 'Booking customer', 'reference' => $invoice->invoice_number,
@@ -1597,10 +1598,12 @@ class AccountingController extends Controller
                 'debit' => (float) $invoice->total_amount, 'credit' => 0.0,
                 'url' => $invoice->booking ? route('admin.booking.show', $invoice->booking) : null,
             ];
-            if ($invoice->status !== 'paid') return [$charge];
-            $payment = clone $charge; $payment->date = $invoice->updated_at; $payment->source_type = 'Guest Payment';
-            $payment->description = 'Invoice marked paid'; $payment->debit = 0.0; $payment->credit = (float) $invoice->total_amount;
-            return [$charge, $payment];
+            return collect([$charge])->concat($invoice->payments->map(function ($invoicePayment) use ($charge) {
+                $payment = clone $charge; $payment->date = $invoicePayment->payment_date; $payment->source_type = 'Guest Payment';
+                $payment->description = trim('Invoice payment ' . ($invoicePayment->payment_method ?: '') . ' ' . ($invoicePayment->reference ?: ''));
+                $payment->debit = 0.0; $payment->credit = (float) $invoicePayment->amount;
+                return $payment;
+            }));
         });
         $ownerIds = $this->ownerAccountBalances()->filter(fn ($balance) => $balance < 0)->keys();
         $ownerRows = LandlordAccountEntry::with(['landlord', 'property'])->whereIn('landlord_id', $ownerIds)->get()
@@ -1614,6 +1617,14 @@ class AccountingController extends Controller
             ]);
 
         return $bookingRows->concat($ownerRows);
+    }
+
+    private function outstandingBookingInvoiceTotal(): float
+    {
+        return BookingInvoice::withSum('payments', 'amount')
+            ->whereIn('status', ['unpaid', 'partial'])
+            ->get()
+            ->sum(fn (BookingInvoice $invoice) => $invoice->balance_due);
     }
 
     private function ownerReceivableRows()

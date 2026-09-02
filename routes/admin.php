@@ -162,6 +162,7 @@ Route::put('/bookings/{booking}', [BookingController::class, 'update'])->name('b
   Route::get('/bookings/{booking}', [BookingController::class, 'show'])->name('booking.show');
 Route::get('/bookings/{booking}/history', [BookingController::class, 'history'])->name('booking.history');
 Route::post('/bookings/{booking}/payment-proof', [BookingController::class, 'attachPaymentProof'])->name('booking.payment-proof');
+Route::post('/booking-invoices/{invoice}/payments', [BookingController::class, 'recordInvoicePayment'])->name('booking-invoice.payment');
 Route::get('/bookings/{booking}/invoice', [BookingController::class, 'invoice'])->name('booking.invoice');
 Route::get('/bookings/{booking}/confirmation', [BookingController::class, 'confirmation'])->name('booking.confirmation');
 

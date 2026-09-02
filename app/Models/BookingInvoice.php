@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class BookingInvoice extends BaseModel
 {
@@ -42,6 +43,23 @@ class BookingInvoice extends BaseModel
     public function booking(): BelongsTo
     {
         return $this->belongsTo(Booking::class);
+    }
+
+    public function payments(): HasMany
+    {
+        return $this->hasMany(BookingInvoicePayment::class);
+    }
+
+    public function getPaidAmountAttribute(): float
+    {
+        $paid = (float) ($this->payments_sum_amount ?? $this->payments()->sum('amount'));
+
+        return $paid === 0.0 && $this->status === 'paid' ? (float) $this->total_amount : $paid;
+    }
+
+    public function getBalanceDueAttribute(): float
+    {
+        return max(0, round((float) $this->total_amount - $this->paid_amount, 2));
     }
 
     public function getTypeLabelAttribute(): string

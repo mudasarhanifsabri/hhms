@@ -12,6 +12,7 @@ class Booking extends BaseModel
 
     protected $fillable = [
         'booking_reference',
+        'renewed_from_booking_id',
         'property_id',
         'agent_id',
         'guest_name',
@@ -89,6 +90,16 @@ class Booking extends BaseModel
     public function invoices(): HasMany
     {
         return $this->hasMany(BookingInvoice::class)->latest();
+    }
+
+    public function renewedFrom(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'renewed_from_booking_id');
+    }
+
+    public function renewals(): HasMany
+    {
+        return $this->hasMany(self::class, 'renewed_from_booking_id');
     }
 
     public function getWorkflowStatusLabelAttribute(): string
