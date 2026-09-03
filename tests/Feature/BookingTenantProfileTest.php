@@ -47,6 +47,20 @@ class BookingTenantProfileTest extends TestCase
         $this->get(route('tenant.dashboard'))->assertOk()->assertSee($booking->booking_reference);
     }
 
+    public function test_admin_tenant_pages_show_linked_bookings_without_unrelated_units(): void
+    {
+        $booking = $this->booking();
+        $tenant = BookingTenantProfile::sync($booking);
+        $unrelatedOwner = User::factory()->create(['role' => 'landlord']);
+        Property::create(['landlord_id' => $unrelatedOwner->id, 'name' => 'UNRELATED-UNIT']);
+        $this->actingAs(User::factory()->create(['role' => 'admin']))
+            ->get(route('admin.tenant.index'))->assertOk()->assertSee('Profile pending')
+            ->assertViewHas('tenants', fn ($rows) => (int) $rows->first()->tenant_bookings_count === 1);
+        $this->get(route('admin.tenant.grid'))->assertOk()->assertSee($tenant->name);
+        $this->get(route('admin.tenant.show', $tenant->id))->assertOk()
+            ->assertViewHas('relatedProperties', fn ($rows) => $rows->pluck('id')->all() === [$booking->property_id]);
+    }
+
     public function test_conflicts_never_link_another_role_or_identity(): void
     {
         $booking = $this->booking('owner@example.com');

@@ -8,6 +8,7 @@ use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use App\Models\User;
+use App\Models\Booking;
 use App\Models\Property;
 use App\Support\MediaStorage;
 use App\Support\PdfRenderer;
@@ -21,7 +22,8 @@ class TenantController extends Controller
     public function index(Request $request): Response
     {
         $perPage = $request->input('per_page', 10);
-        $tenants = User::where('role', 'tenant')->withCount('tenantBookings')->paginate($perPage);
+        $tenants = User::where('role', 'tenant')->addSelect(['tenant_bookings_count' => Booking::query()
+            ->selectRaw('COUNT(*)')->whereColumn('bookings.tenant_id', 'users.id')])->paginate($perPage);
         $totalTenants = User::where('role', 'tenant')->count();
 
         return response()->view('admin.tenants.index', compact('tenants', 'totalTenants', 'perPage'));
@@ -39,7 +41,7 @@ class TenantController extends Controller
     public function show($id)
     {
         $tenant = User::where('role', 'tenant')->findOrFail($id);
-        $relatedProperties = Property::whereIn('id', $tenant->tenantBookings()->select('property_id'))->latest()->get();
+        $relatedProperties = Property::whereIn('id', Booking::where('tenant_id', $tenant->id)->select('property_id'))->latest()->get();
         $profileUser = $tenant;
         $roleLabel = 'Tenant';
         $editRoute = route('admin.tenant.edit', $tenant->id);
