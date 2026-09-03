@@ -1,7 +1,6 @@
 @extends('layouts.app')
 
 @section('content')
-@include('admin.bookings.partials.filters')
 <div class="row">
     <div class="col-md-4">
         <div class="card"><div class="card-body d-flex align-items-center justify-content-between">
@@ -25,14 +24,16 @@
 
 <div class="row">
     <div class="col-xl-12">
-        <div class="card">
-            <div class="card-header d-flex justify-content-between align-items-center border-bottom">
-                <h4 class="card-title mb-0">List Of Booking</h4>
+        <div class="card" id="bookingTableCard">
+            <div class="card-header d-flex flex-wrap gap-2 justify-content-between align-items-center border-bottom">
+                <h4 class="card-title mb-0">Bookings</h4>
                 <div class="d-flex gap-2">
                     <a href="{{ route('admin.booking.grid', request()->except('page')) }}" class="btn btn-sm btn-outline-primary">Grid View</a>
                     <a href="{{ route('admin.booking.create') }}" class="btn btn-sm btn-primary">+ Create Booking</a>
                 </div>
             </div>
+
+            @include('admin.bookings.partials.filters', ['embedded' => true])
 
             @if(session('success'))
                 <div class="alert alert-success m-3">{{ session('success') }}</div>
@@ -89,7 +90,16 @@
                     </tbody>
                 </table>
             </div>
-            <div class="card-footer">{{ $bookings->links('pagination::bootstrap-5') }}</div>
+            <div class="card-footer d-flex flex-wrap align-items-center justify-content-between gap-3">
+                <div class="d-flex align-items-center flex-wrap gap-2">
+                    <label for="bookingPerPage" class="small mb-0">Rows per page</label>
+                    <select id="bookingPerPage" name="per_page" form="bookingFilters" class="form-select form-select-sm w-auto" onchange="this.form.requestSubmit()">
+                        @foreach([10,12,25,50,100] as $size)<option value="{{ $size }}" @selected((int)request('per_page',12)===$size)>{{ $size }}</option>@endforeach
+                    </select>
+                    <span class="small text-muted">{{ $bookings->firstItem() ?? 0 }}–{{ $bookings->lastItem() ?? 0 }} of {{ $bookings->total() }} bookings</span>
+                </div>
+                <div>{{ $bookings->onEachSide(1)->links('pagination::bootstrap-4') }}</div>
+            </div>
         </div>
     </div>
 </div>
