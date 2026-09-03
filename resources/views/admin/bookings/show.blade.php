@@ -1,4 +1,5 @@
 @extends('layouts.app')
+@section('hide-page-title', 'true')
 
 @push('styles')
 <style>
@@ -26,15 +27,15 @@
     $totalOutstanding = max(0, $totalInvoiced - $totalPaid);
     $expectedRentOutstanding = max(0, $booking->invoices->sum('rent_amount') - $booking->invoices->sum(fn($invoice) => $invoice->payments->sum('rent_amount')));
 @endphp
-<header class="booking-page-head">
-    <div><h3>{{ $booking->booking_reference }}</h3><div class="breadcrumb-note">Bookings / Booking details</div></div>
+<div class="booking-page-head" role="region" aria-label="Booking details and actions">
+    <div><h3>{{ $booking->booking_reference }}</h3><div class="breadcrumb-note"><a href="{{ route('admin.booking.index') }}">Bookings</a> / Booking details</div></div>
     <div class="booking-head-actions">
         <div class="dropdown"><button class="btn btn-light dropdown-toggle" data-bs-toggle="dropdown"><iconify-icon icon="solar:documents-broken" class="align-middle fs-18"></iconify-icon> Documents</button><div class="dropdown-menu dropdown-menu-end"><a href="{{ route('admin.booking.invoice', $booking) }}" class="dropdown-item">Original booking invoice</a><a href="{{ route('admin.booking.confirmation', $booking) }}" class="dropdown-item">Overall booking confirmation</a><a href="{{ route('admin.booking.history', $booking) }}" class="dropdown-item">History & corrections</a></div></div>
         <a href="{{ route('admin.booking.edit', $booking) }}" class="btn btn-outline-dark"><iconify-icon icon="solar:pen-2-broken" class="align-middle fs-18"></iconify-icon> Edit booking</a>
         @if($latestInvoice && $latestInvoice->balance_due > 0)<button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#paymentModal{{ $latestInvoice->id }}"><iconify-icon icon="solar:card-transfer-broken" class="align-middle fs-18"></iconify-icon> Record payment</button>@endif
         <div class="dropdown"><button class="btn btn-light" data-bs-toggle="dropdown" aria-label="More booking actions"><iconify-icon icon="solar:menu-dots-bold"></iconify-icon></button><div class="dropdown-menu dropdown-menu-end"><a class="dropdown-item" href="{{ route('admin.booking.history', $booking) }}">View history</a><div class="dropdown-divider"></div><form action="{{ route('admin.booking.destroy', $booking) }}" method="POST" onsubmit="return confirm('Delete this booking? Bookings with financial or deposit history cannot be deleted.');">@csrf @method('DELETE')<button class="dropdown-item text-danger">Delete booking</button></form></div></div>
     </div>
-</header>
+</div>
 <section class="booking-summary" aria-label="Booking financial summary">
     <div class="booking-summary-card"><div class="booking-summary-icon"><iconify-icon icon="solar:bill-list-broken"></iconify-icon></div><div><div class="booking-summary-label">Total invoiced</div><div class="booking-summary-value">AED {{ number_format($totalInvoiced, 2) }}</div></div></div>
     <div class="booking-summary-card success"><div class="booking-summary-icon"><iconify-icon icon="solar:wallet-money-broken"></iconify-icon></div><div><div class="booking-summary-label">Payments received</div><div class="booking-summary-value">AED {{ number_format($totalPaid, 2) }}</div></div></div>

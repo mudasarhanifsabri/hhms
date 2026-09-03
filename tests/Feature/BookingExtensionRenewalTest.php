@@ -137,7 +137,10 @@ class BookingExtensionRenewalTest extends TestCase
         ['admin' => $admin, 'booking' => $booking] = $this->booking();
         $invoice = $booking->invoices()->firstOrFail();
         $this->actingAs($admin)->get(route('admin.booking-invoice.receipt', $invoice))->assertStatus(422);
-        $this->get(route('admin.booking.show', $booking))->assertOk()->assertSee('Which document would you like?')->assertSee('Confirm Guest Checkout');
+        $this->get(route('admin.booking.show', $booking))->assertOk()->assertSee('Which document would you like?')->assertSee('Confirm Guest Checkout')
+            ->assertSee('<div class="booking-page-head"', false)
+            ->assertDontSee('<header class="booking-page-head"', false)
+            ->assertDontSee('class="page-title-box"', false);
         $invoice->payments()->create(['payment_date' => '2026-03-01', 'amount' => 2500, 'payment_method' => 'Cash']);
         $html = view('admin.bookings.pdf.payment-receipt', ['invoice' => $invoice->fresh()->load(['payments', 'booking.property.building'])])->render();
         $this->assertStringContainsString('2,500.00', $html);

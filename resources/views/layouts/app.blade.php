@@ -75,7 +75,7 @@
                <div class="container-fluid">
 
                     <!-- ========== Page Title Start ========== -->
-                    @unless($isMaintainerApp || request()->is('*/create'))
+                    @unless($isMaintainerApp || request()->is('*/create') || trim($__env->yieldContent('hide-page-title')) === 'true')
                     <div class="row">
                         <div class="col-12">
                             <div class="page-title-box">
