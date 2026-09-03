@@ -5,7 +5,21 @@
     $stamp = public_path('assets/images/vacation-homes-rental-stamp.png');
     $checkInTime = $booking->check_in_time ? \Carbon\Carbon::parse($booking->check_in_time)->format('H:i') : '15:00';
     $checkOutTime = $booking->check_out_time ? \Carbon\Carbon::parse($booking->check_out_time)->format('H:i') : '11:00';
-    $documentDate = ($booking->created_at ?? now())->format('d-m-Y');
+    $confirmationInvoice = $invoice ?? null;
+    $confirmationFrom = $confirmationInvoice?->period_from ?? $booking->check_in;
+    $confirmationTo = $confirmationInvoice?->period_to ?? $booking->check_out;
+    $confirmationReference = $confirmationInvoice?->invoice_number ?? $booking->booking_reference;
+    $documentDate = ($confirmationInvoice?->issue_date ?? $booking->created_at ?? now())->format('d-m-Y');
+    $confirmationRent = (float) ($confirmationInvoice?->rent_amount ?? $booking->rent_amount);
+    $confirmationVat = (float) ($confirmationInvoice?->vat_amount ?? $booking->vat_amount);
+    $confirmationFees = $confirmationInvoice?->fees ?? [
+        'DTCM Fee' => (float) $booking->dtcm_fee,
+        'Cleaning Fee' => (float) $booking->cleaning_fee,
+        'Agency Fee' => (float) $booking->agency_fee,
+        'Security Deposit' => (float) $booking->security_deposit,
+    ];
+    $confirmationOtherFees = collect($confirmationFees)->except(['DTCM Fee', 'Cleaning Fee', 'Agency Fee', 'Security Deposit'])->sum();
+    $confirmationTotal = (float) ($confirmationInvoice?->total_amount ?? $booking->total_amount);
 @endphp
 <!doctype html>
 <html>
@@ -53,7 +67,7 @@
             <img src="{{ $logo }}" class="logo" alt="Pattern">
         @endif
         <div class="title">Booking Confirmation</div>
-        <div class="ref">Ref no. {{ $booking->booking_reference }}<br>Date: {{ $documentDate }}</div>
+        <div class="ref">Ref no. {{ $confirmationReference }}<br>Booking: {{ $booking->booking_reference }}<br>Date: {{ $documentDate }}</div>
     </div>
 
     <table class="main">
@@ -77,22 +91,23 @@
 
         <h3>Reservation Details</h3>
         <table class="details">
-            <tr><td>Check-in date</td><td>{{ $booking->check_in?->format('d-m-Y') }}</td></tr>
+            <tr><td>Confirmation type</td><td>{{ $confirmationInvoice?->type_label ?? 'Original Booking' }}</td></tr>
+            <tr><td>Check-in date</td><td>{{ $confirmationFrom?->format('d-m-Y') }}</td></tr>
             <tr><td>Check-in time</td><td>{{ $checkInTime }}</td></tr>
-            <tr><td>Check-out date</td><td>{{ $booking->check_out?->format('d-m-Y') }}</td></tr>
+            <tr><td>Check-out date</td><td>{{ $confirmationTo?->format('d-m-Y') }}</td></tr>
             <tr><td>Check-out time</td><td>{{ $checkOutTime }}</td></tr>
         </table>
 
         <h3>Fees & Charges</h3>
         <table class="details fees">
-            <tr><td>Reservation Fee</td><td>{{ number_format((float) $booking->rent_amount, 2) }}</td></tr>
-            <tr><td>Housekeeping</td><td>{{ number_format((float) $booking->cleaning_fee, 2) }}</td></tr>
-            <tr><td>Tourism Fee</td><td>{{ number_format((float) $booking->dtcm_fee, 2) }}</td></tr>
-            <tr><td>Others</td><td>{{ number_format((float) $booking->vat_amount, 2) }}</td></tr>
-            <tr><td>Security Deposit</td><td>{{ number_format((float) $booking->security_deposit, 2) }}</td></tr>
-            <tr><td>Agency Commission</td><td>{{ number_format((float) $booking->agency_fee, 2) }}</td></tr>
-            <tr><td>Additional Service</td><td>0.00</td></tr>
-            <tr class="total"><td></td><td>Total {{ number_format((float) $booking->total_amount, 2) }}</td></tr>
+            <tr><td>Reservation Fee</td><td>{{ number_format($confirmationRent, 2) }}</td></tr>
+            <tr><td>Housekeeping</td><td>{{ number_format((float) ($confirmationFees['Cleaning Fee'] ?? 0), 2) }}</td></tr>
+            <tr><td>Tourism Fee</td><td>{{ number_format((float) ($confirmationFees['DTCM Fee'] ?? 0), 2) }}</td></tr>
+            <tr><td>VAT</td><td>{{ number_format($confirmationVat, 2) }}</td></tr>
+            <tr><td>Security Deposit</td><td>{{ number_format((float) ($confirmationFees['Security Deposit'] ?? 0), 2) }}</td></tr>
+            <tr><td>Agency Commission</td><td>{{ number_format((float) ($confirmationFees['Agency Fee'] ?? 0), 2) }}</td></tr>
+            <tr><td>Additional Service</td><td>{{ number_format((float) $confirmationOtherFees, 2) }}</td></tr>
+            <tr class="total"><td></td><td>Total {{ number_format($confirmationTotal, 2) }}</td></tr>
         </table>
             </td>
 

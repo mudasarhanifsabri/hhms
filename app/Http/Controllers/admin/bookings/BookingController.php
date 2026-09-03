@@ -3,23 +3,22 @@
 namespace App\Http\Controllers\admin\bookings;
 
 use App\Http\Controllers\Controller;
-use App\Models\Booking;
-use App\Models\BookingHistory;
-use App\Models\BookingInvoice;
-use App\Models\BookingInvoicePayment;
-use App\Models\BookingTask;
 use App\Models\AccountingAccount;
 use App\Models\AccountingEntry;
 use App\Models\BankAccount;
+use App\Models\Booking;
+use App\Models\BookingInvoice;
+use App\Models\BookingInvoicePayment;
+use App\Models\BookingTask;
 use App\Models\LandlordAccountEntry;
 use App\Models\Property;
 use App\Models\User;
 use App\Support\MediaStorage;
 use App\Support\PdfRenderer;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
-use Illuminate\Support\Facades\DB;
 
 class BookingController extends Controller
 {
@@ -65,14 +64,14 @@ class BookingController extends Controller
             });
         }
         foreach (['status', 'invoice_status'] as $field) {
-            if (!empty($filters[$field])) {
+            if (! empty($filters[$field])) {
                 $query->where($field, $filters[$field]);
             }
         }
-        if (!empty($filters['from'])) {
+        if (! empty($filters['from'])) {
             $query->whereDate('check_in', '>=', $filters['from']);
         }
-        if (!empty($filters['to'])) {
+        if (! empty($filters['to'])) {
             $query->whereDate('check_in', '<=', $filters['to']);
         }
 
@@ -105,7 +104,7 @@ class BookingController extends Controller
 
         $booking->histories()->create([
             'title' => 'Booking Created',
-            'description' => 'Booking and invoice were generated for ' . $booking->guest_name . '.',
+            'description' => 'Booking and invoice were generated for '.$booking->guest_name.'.',
         ]);
 
         $this->recordOwnerIncome($booking);
@@ -132,17 +131,18 @@ class BookingController extends Controller
     public function update(Request $request, Booking $booking)
     {
         if ($booking->invoices()->exists()) {
-            if (!$request->boolean('edit_details_only')) {
+            if (! $request->boolean('edit_details_only')) {
                 return back()->withErrors(['invoice' => 'Use Edit Invoice for charges. Booking financial and stay details are locked once invoices exist.']);
             }
             $details = $request->validate(['guest_name' => 'required|string|max:255', 'guest_email' => 'required|email|max:255',
                 'guest_phone' => 'required|string|max:50', 'notes' => 'nullable|string|max:2000', 'reason' => 'required|string|min:5|max:1000']);
             DB::transaction(function () use ($booking, $details) {
                 $booking = Booking::whereKey($booking->id)->lockForUpdate()->firstOrFail();
-                $before = $booking->only(['guest_name','guest_email','guest_phone','notes']);
+                $before = $booking->only(['guest_name', 'guest_email', 'guest_phone', 'notes']);
                 $booking->update(\Illuminate\Support\Arr::only($details, array_keys($before)));
                 $booking->histories()->create(['title' => 'Guest Details Corrected', 'description' => 'By '.auth()->user()->name.'. Reason: '.$details['reason'].' | Before: '.json_encode($before).' | After: '.json_encode($booking->only(array_keys($before)))]);
             });
+
             return redirect()->route('admin.booking.show', $booking)->with('success', 'Guest contact details updated. Invoice charges and payments are unchanged.');
         }
         $validatedData = $this->validateBooking($request);
@@ -202,7 +202,7 @@ class BookingController extends Controller
     public function extend(Request $request, Booking $booking)
     {
         $validatedData = $request->validate([
-            'check_out' => 'required|date|after:' . $booking->check_out?->toDateString(),
+            'check_out' => 'required|date|after:'.$booking->check_out?->toDateString(),
             'check_out_time' => 'nullable|date_format:H:i',
             'extension_rent_amount' => 'required|numeric|min:0',
             'vat_rate' => 'required|numeric|min:0|max:100',
@@ -234,12 +234,12 @@ class BookingController extends Controller
                 'rent_amount' => $additionalRent,
                 'vat_rate' => (float) $validatedData['vat_rate'],
                 'fees' => ['Other Fees' => (float) ($validatedData['other_fees'] ?? 0)],
-                'notes' => 'Extension invoice for booking ' . $booking->booking_reference,
+                'notes' => 'Extension invoice for booking '.$booking->booking_reference,
             ]);
 
             $booking->histories()->create([
                 'title' => 'Booking Extended',
-                'description' => 'Extended until ' . $booking->check_out?->format('d M Y') . '. Separate invoice ' . $invoice->invoice_number . ' created for AED ' . number_format((float) $invoice->total_amount, 2) . '.',
+                'description' => 'Extended until '.$booking->check_out?->format('d M Y').'. Separate invoice '.$invoice->invoice_number.' created for AED '.number_format((float) $invoice->total_amount, 2).'.',
             ]);
             $this->recordOwnerIncomeForInvoice($invoice);
         });
@@ -250,7 +250,7 @@ class BookingController extends Controller
     public function renew(Request $request, Booking $booking)
     {
         $validatedData = $request->validate([
-            'check_in' => 'required|date|after_or_equal:' . $booking->check_out?->toDateString(),
+            'check_in' => 'required|date|after_or_equal:'.$booking->check_out?->toDateString(),
             'check_in_time' => 'nullable|date_format:H:i',
             'check_out' => 'required|date|after:check_in',
             'check_out_time' => 'nullable|date_format:H:i',
@@ -302,16 +302,16 @@ class BookingController extends Controller
 
         $newBooking->histories()->create([
             'title' => 'Booking Renewed',
-            'description' => 'Renewed from booking ' . $booking->booking_reference . '.' . (! empty($validatedData['notes']) ? ' Notes: ' . $validatedData['notes'] : ''),
+            'description' => 'Renewed from booking '.$booking->booking_reference.'.'.(! empty($validatedData['notes']) ? ' Notes: '.$validatedData['notes'] : ''),
         ]);
         $booking->histories()->create([
             'title' => 'Renewal Created',
-            'description' => 'Renewal booking ' . $newBooking->booking_reference . ' was created.',
+            'description' => 'Renewal booking '.$newBooking->booking_reference.' was created.',
         ]);
 
         $invoice = $this->createBookingInvoice($newBooking, 'renewal', [
             'vat_amount' => (float) $newBooking->vat_amount,
-            'notes' => 'Renewal invoice from booking ' . $booking->booking_reference,
+            'notes' => 'Renewal invoice from booking '.$booking->booking_reference,
         ]);
         $this->recordOwnerIncomeForInvoice($invoice);
         $this->markPropertyStatus($newBooking, 'booked');
@@ -332,8 +332,9 @@ class BookingController extends Controller
         ]);
 
         $bankAccounts = BankAccount::where('is_active', true)->orderBy('name')->get();
+        $depositTotals = \App\Support\DepositWallet::totals($booking);
 
-        return view('admin.bookings.show', compact('booking', 'bankAccounts'));
+        return view('admin.bookings.show', compact('booking', 'bankAccounts', 'depositTotals'));
     }
 
     public function recordInvoicePayment(Request $request, BookingInvoice $invoice)
@@ -359,6 +360,7 @@ class BookingController extends Controller
                 if ($existing->booking_invoice_id !== $invoice->id || \App\Support\DepositWallet::cents($existing->amount) !== \App\Support\DepositWallet::cents($data['deposit_amount'] ?? 0)) {
                     throw ValidationException::withMessages(['deposit' => 'This deposit submission has already been used.']);
                 }
+
                 return;
             }
             $paidBefore = $invoice->paid_amount;
@@ -366,7 +368,7 @@ class BookingController extends Controller
                 throw ValidationException::withMessages(['amount' => 'Payment exceeds the current invoice balance.']);
             }
             if ($invoice->booking->owner_posting_basis === 'receipts') {
-                if (!isset($data['rent_amount'])) {
+                if (! isset($data['rent_amount'])) {
                     throw ValidationException::withMessages(['rent_amount' => 'Enter the rent portion of this payment, excluding VAT, fees and security deposit.']);
                 }
                 $rent = (float) $data['rent_amount'];
@@ -386,7 +388,7 @@ class BookingController extends Controller
                 'entry_date' => $data['payment_date'],
                 'type' => 'income', 'category' => 'rental_income',
                 'accounting_account_id' => AccountingAccount::where('code', '4010')->value('id'),
-                'description' => 'Guest payment for ' . $invoice->invoice_number,
+                'description' => 'Guest payment for '.$invoice->invoice_number,
                 'property_id' => $invoice->booking?->property_id,
                 'landlord_id' => $invoice->booking?->property?->landlord_id,
                 'booking_id' => $invoice->booking_id,
@@ -415,7 +417,7 @@ class BookingController extends Controller
 
             $paid = $paidBefore + (float) $data['amount'];
             \App\Support\OwnerReceiptPosting::post($payment);
-            $invoice->booking->histories()->create(['title' => 'Payment Recorded', 'description' => 'Payment '.$payment->id.' for '.$invoice->invoice_number.': AED '.number_format((float)$payment->amount, 2).'; rent portion '.($payment->rent_amount ?? 'legacy').'; recorded by '.auth()->user()->name.'.']);
+            $invoice->booking->histories()->create(['title' => 'Payment Recorded', 'description' => 'Payment '.$payment->id.' for '.$invoice->invoice_number.': AED '.number_format((float) $payment->amount, 2).'; rent portion '.($payment->rent_amount ?? 'legacy').'; recorded by '.auth()->user()->name.'.']);
             $invoice->update(['status' => $paid >= (float) $invoice->total_amount ? 'paid' : 'partial']);
             $invoice->booking?->update(['invoice_status' => $invoice->booking->invoices()->where('status', '!=', 'paid')->exists() ? 'unpaid' : 'paid']);
             if ($data['bank_account_id'] ?? null) {
@@ -424,13 +426,14 @@ class BookingController extends Controller
             }
         });
 
-        return back()->with('success', 'Payment recorded against ' . $invoice->invoice_number . '.');
+        return back()->with('success', 'Payment recorded against '.$invoice->invoice_number.'.');
     }
 
     public function paymentReceipt(BookingInvoice $invoice)
     {
         $invoice->load(['booking.property.building', 'payments.bankAccount']);
         abort_if($invoice->payments->isEmpty(), 422, 'No itemised payment records exist for this invoice. A receipt cannot be generated from an invoice status alone.');
+
         return PdfRenderer::downloadView('admin.bookings.pdf.payment-receipt', compact('invoice'), $invoice->invoice_number.'-receipt.pdf');
     }
 
@@ -450,7 +453,7 @@ class BookingController extends Controller
     private function nextAccountingEntryNumber(): string
     {
         do {
-            $number = 'JE-' . now()->format('Ymd') . '-' . Str::upper(Str::random(5));
+            $number = 'JE-'.now()->format('Ymd').'-'.Str::upper(Str::random(5));
         } while (AccountingEntry::where('entry_no', $number)->exists());
 
         return $number;
@@ -487,22 +490,22 @@ class BookingController extends Controller
             throw ValidationException::withMessages(['checkout' => 'Only an active booking can be checked out.']);
         }
         DB::transaction(function () use ($booking) {
-        $booking = Booking::whereKey($booking->id)->lockForUpdate()->firstOrFail();
-        if (! in_array($booking->status, ['confirmed', 'checked_in'])) {
-            throw ValidationException::withMessages(['checkout' => 'This booking has already been checked out.']);
-        }
-        $booking->update([
-            'status' => 'checked_out',
-            'checked_out_at' => now(),
-        ]);
+            $booking = Booking::whereKey($booking->id)->lockForUpdate()->firstOrFail();
+            if (! in_array($booking->status, ['confirmed', 'checked_in'])) {
+                throw ValidationException::withMessages(['checkout' => 'This booking has already been checked out.']);
+            }
+            $booking->update([
+                'status' => 'checked_out',
+                'checked_out_at' => now(),
+            ]);
 
-        $this->createCheckoutTasks($booking);
-        $this->markPropertyStatus($booking, 'under_cleaning');
+            $this->createCheckoutTasks($booking);
+            $this->markPropertyStatus($booking, 'under_cleaning');
 
-        $booking->histories()->create([
-            'title' => 'Guest Checked Out',
-            'description' => 'Cleaning, maintenance, and check out inspection tasks were created.',
-        ]);
+            $booking->histories()->create([
+                'title' => 'Guest Checked Out',
+                'description' => 'Cleaning, maintenance, and check out inspection tasks were created.',
+            ]);
         });
         $request->session()->forget('checkout_confirmation.'.$booking->id);
 
@@ -514,6 +517,7 @@ class BookingController extends Controller
         abort_unless(in_array($booking->status, ['confirmed', 'checked_in']), 422, 'Booking is not active.');
         $token = Str::random(48);
         $request->session()->put('checkout_confirmation.'.$booking->id, ['token' => $token, 'issued_at' => time()]);
+
         return response()->json(['token' => $token]);
     }
 
@@ -521,6 +525,7 @@ class BookingController extends Controller
     {
         $data = $request->validate(['reason' => 'required|string|min:5|max:1000']);
         \App\Support\BookingCheckout::reverse($booking, $data['reason']);
+
         return back()->with('success', 'Checkout reversed. Unstarted checkout tasks were cancelled; payment records were preserved.');
     }
 
@@ -528,14 +533,26 @@ class BookingController extends Controller
     {
         $booking->load(['property.building', 'agent']);
 
-        return PdfRenderer::downloadView('admin.bookings.pdf.invoice', compact('booking'), $booking->invoice_number . '.pdf');
+        return PdfRenderer::downloadView('admin.bookings.pdf.invoice', compact('booking'), $booking->invoice_number.'.pdf');
     }
 
     public function confirmation(Booking $booking)
     {
         $booking->load(['property.building', 'agent']);
 
-        return PdfRenderer::downloadView('admin.bookings.pdf.confirmation', compact('booking'), $booking->booking_reference . '-confirmation.pdf');
+        return PdfRenderer::downloadView('admin.bookings.pdf.confirmation', compact('booking'), $booking->booking_reference.'-confirmation.pdf');
+    }
+
+    public function invoiceConfirmation(BookingInvoice $invoice)
+    {
+        $invoice->load('booking.property.building', 'booking.agent');
+        $booking = $invoice->booking;
+
+        return PdfRenderer::downloadView(
+            'admin.bookings.pdf.confirmation',
+            compact('booking', 'invoice'),
+            $invoice->invoice_number.'-booking-confirmation.pdf'
+        );
     }
 
     private function uploadFile(Request $request, string $field, string $folder): ?string
@@ -599,13 +616,15 @@ class BookingController extends Controller
 
     private function markPropertyStatus(Booking $booking, string $status): void
     {
-        $booking->property?->update(['status' => match ($status) { 'booked' => 'rented', 'under_cleaning' => 'vacant', default => $status }]);
+        $booking->property?->update(['status' => match ($status) {
+            'booked' => 'rented', 'under_cleaning' => 'vacant', default => $status
+        }]);
     }
 
     private function nextTaskNumber(): string
     {
         do {
-            $number = 'TSK-' . now()->format('Ymd') . '-' . Str::upper(Str::random(4));
+            $number = 'TSK-'.now()->format('Ymd').'-'.Str::upper(Str::random(4));
         } while (BookingTask::where('task_number', $number)->exists());
 
         return $number;
@@ -614,7 +633,7 @@ class BookingController extends Controller
     private function nextReference(string $prefix): string
     {
         do {
-            $reference = $prefix . '-' . now()->format('Ymd') . '-' . Str::upper(Str::random(5));
+            $reference = $prefix.'-'.now()->format('Ymd').'-'.Str::upper(Str::random(5));
         } while (Booking::where($prefix === 'INV' ? 'invoice_number' : 'booking_reference', $reference)->exists());
 
         return $reference;
@@ -623,7 +642,7 @@ class BookingController extends Controller
     private function nextInvoiceNumber(string $prefix = 'INV'): string
     {
         do {
-            $reference = $prefix . '-' . now()->format('Ymd') . '-' . Str::upper(Str::random(5));
+            $reference = $prefix.'-'.now()->format('Ymd').'-'.Str::upper(Str::random(5));
         } while (BookingInvoice::where('invoice_number', $reference)->exists() || Booking::where('invoice_number', $reference)->exists());
 
         return $reference;
@@ -669,12 +688,16 @@ class BookingController extends Controller
     private function recordOwnerIncomeForInvoice(BookingInvoice $invoice): void
     {
         $booking = $invoice->booking()->with('property')->first();
-        if ($booking?->owner_posting_basis === 'receipts') return;
+        if ($booking?->owner_posting_basis === 'receipts') {
+            return;
+        }
         $property = $booking?->property;
-        if (! $property?->landlord_id) return;
+        if (! $property?->landlord_id) {
+            return;
+        }
 
         $reference = $invoice->invoice_number;
-        $description = $invoice->type_label . ' rent for ' . ($property->name ?? 'Unit') . ' - ' . $invoice->period_from?->format('d M Y') . ' to ' . $invoice->period_to?->format('d M Y');
+        $description = $invoice->type_label.' rent for '.($property->name ?? 'Unit').' - '.$invoice->period_from?->format('d M Y').' to '.$invoice->period_to?->format('d M Y');
         LandlordAccountEntry::firstOrCreate(['landlord_id' => $property->landlord_id, 'reference' => $reference, 'type' => 'rent_income'], [
             'property_id' => $property->id, 'entry_date' => $invoice->period_from ?? now(), 'direction' => 'credit',
             'amount' => $invoice->rent_amount, 'description' => $description,
@@ -685,7 +708,7 @@ class BookingController extends Controller
         if ($fee > 0) {
             LandlordAccountEntry::firstOrCreate(['landlord_id' => $property->landlord_id, 'reference' => $reference, 'type' => 'management_fee'], [
                 'property_id' => $property->id, 'entry_date' => $invoice->period_from ?? now(), 'direction' => 'debit',
-                'amount' => $fee, 'description' => 'Management fee ' . number_format($rate, 2) . '% on ' . $description,
+                'amount' => $fee, 'description' => 'Management fee '.number_format($rate, 2).'% on '.$description,
             ]);
         }
         LandlordAccountEntry::recalculateBalancesFor($property->landlord_id);
@@ -760,16 +783,18 @@ class BookingController extends Controller
 
     private function recordOwnerIncome(Booking $booking): void
     {
-        if ($booking->owner_posting_basis === 'receipts') return;
+        if ($booking->owner_posting_basis === 'receipts') {
+            return;
+        }
         $property = $booking->property()->first();
 
         if (! $property || ! $property->landlord_id) {
             return;
         }
 
-        $stayDuration = $booking->check_in?->format('d M Y') . ' to ' . $booking->check_out?->format('d M Y');
+        $stayDuration = $booking->check_in?->format('d M Y').' to '.$booking->check_out?->format('d M Y');
         $nights = $booking->nights;
-        $durationText = trim($stayDuration) . ' (' . $nights . ' ' . Str::plural('night', $nights) . ')';
+        $durationText = trim($stayDuration).' ('.$nights.' '.Str::plural('night', $nights).')';
         $unitName = $property->name ?? 'Unit';
 
         LandlordAccountEntry::create([
@@ -780,7 +805,7 @@ class BookingController extends Controller
             'direction' => 'credit',
             'amount' => $booking->rent_amount,
             'reference' => $booking->booking_reference,
-            'description' => 'Booking rent income for ' . $unitName . ' - stay ' . $durationText,
+            'description' => 'Booking rent income for '.$unitName.' - stay '.$durationText,
         ]);
 
         if ((float) $booking->management_fee_amount > 0) {
@@ -792,7 +817,7 @@ class BookingController extends Controller
                 'direction' => 'debit',
                 'amount' => $booking->management_fee_amount,
                 'reference' => $booking->booking_reference,
-                'description' => 'Management fee ' . number_format((float) $booking->management_fee_percent, 2) . '% from ' . $unitName . ' rent only - stay ' . $durationText,
+                'description' => 'Management fee '.number_format((float) $booking->management_fee_percent, 2).'% from '.$unitName.' rent only - stay '.$durationText,
             ]);
         }
 

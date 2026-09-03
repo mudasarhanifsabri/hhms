@@ -48,6 +48,19 @@ class BookingExtensionRenewalTest extends TestCase
         $this->assertSame('4500.00', $invoice->rent_amount);
         $this->assertSame('225.00', $invoice->vat_amount);
         $this->assertSame('4825.00', $invoice->total_amount);
+
+        $confirmation = view('admin.bookings.pdf.confirmation', [
+            'booking' => $booking->fresh()->load(['property.building', 'agent']),
+            'invoice' => $invoice,
+        ])->render();
+        $this->assertStringContainsString($invoice->invoice_number, $confirmation);
+        $this->assertStringContainsString('Extension', $confirmation);
+        $this->assertStringContainsString('23-03-2026', $confirmation);
+        $this->assertStringContainsString('27-03-2026', $confirmation);
+        $this->assertStringContainsString('4,825.00', $confirmation);
+        $this->assertStringNotContainsString('18,900.00', $confirmation);
+
+        $this->actingAs($admin)->get(route('admin.booking-invoice.confirmation', $invoice))->assertOk();
     }
 
     public function test_extension_beyond_90_days_requires_renewal(): void

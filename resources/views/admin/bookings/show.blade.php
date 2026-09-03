@@ -5,6 +5,10 @@
 .invoice-hover-preview{display:none;position:fixed;z-index:1080;width:275px;padding:16px;border:1px solid var(--bs-border-color,#e5e5ef);border-radius:8px;background:var(--bs-body-bg,#fff);box-shadow:0 8px 25px #18133b25;font-size:12px;pointer-events:none}
 .invoice-hover-preview div{display:flex;justify-content:space-between;gap:15px;margin-bottom:5px}
 .invoice-preview-wrap:hover .invoice-hover-preview,.invoice-preview-wrap:focus-within .invoice-hover-preview{display:block}
+.booking-page-head{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;margin-bottom:18px}.booking-page-head h3{font-size:24px;letter-spacing:-.02em;margin:0 0 4px}.booking-page-head .breadcrumb-note{color:#7a8496;font-size:13px}.booking-head-actions{display:flex;flex-wrap:wrap;gap:8px}
+.booking-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:18px}.booking-summary-card{background:#fff;border:1px solid #e5e9f1;border-radius:12px;padding:16px;box-shadow:0 3px 12px #17244008;display:flex;align-items:center;gap:13px}.booking-summary-icon{width:42px;height:42px;border-radius:50%;display:grid;place-items:center;background:#f0edff;color:#6341df;font-size:22px;flex:0 0 auto}.booking-summary-card.success .booking-summary-icon{background:#eafaf7;color:#0aa581}.booking-summary-card.warning .booking-summary-icon{background:#fff3e8;color:#f1782f}.booking-summary-card.info .booking-summary-icon{background:#edf5ff;color:#3978dc}.booking-summary-label{font-size:12px;color:#748096;margin-bottom:2px}.booking-summary-value{font-size:19px;font-weight:750;line-height:1.2;color:#19233a}.booking-summary-card.success .booking-summary-value{color:#07966f}.booking-summary-card.warning .booking-summary-value{color:#e75526}.booking-summary-detail{font-size:12px;color:#657086;margin-top:3px}
+.guest-card .card-header{border-bottom:0;padding-bottom:0}.guest-avatar{width:52px;height:52px;border-radius:50%;display:grid;place-items:center;background:#eeeaff;color:#6045d9;font-size:19px;font-weight:700}.guest-name{font-size:16px;font-weight:700;color:#182238}.booking-detail-label{display:block;color:#7a8496;font-size:11px;text-transform:uppercase;letter-spacing:.035em;margin-bottom:3px}.booking-detail-value{font-size:13px;color:#24324b}.booking-side-title{font-size:15px;font-weight:700}.booking-account-note{background:#f2f7ff;border-color:#cfe0fb!important}.booking-account-note strong{color:#1552a1}.booking-workspace .invoice-table thead th{white-space:nowrap;color:#667085;font-size:11px;text-transform:uppercase;letter-spacing:.025em;border-bottom-width:1px}.booking-workspace .invoice-table tfoot td{font-weight:700;background:#fafbfc}.booking-workspace .invoice-number{font-weight:500;text-decoration:none}.booking-workspace .invoice-actions{white-space:nowrap}.booking-workspace .invoice-actions .btn{padding:6px 10px}.booking-side .card{border-radius:12px}.booking-side .alert{border-radius:9px}.status-explanation{font-size:12px;color:#748096}.document-actions .btn{flex:1 1 auto}.owner-posting-card{border:1px solid #cee0ff;border-radius:11px;background:#f5f9ff;padding:15px 18px;margin-bottom:16px;color:#32547f}
+@media(max-width:1199px){.booking-summary{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:767px){.booking-page-head{display:block}.booking-head-actions{margin-top:12px}.booking-summary{grid-template-columns:1fr}.booking-page-head h3{font-size:20px}}
 </style>
 @endpush
 
@@ -17,32 +21,34 @@
     $contractLimitDate = $booking->check_in?->copy()->addDays(90);
     $latestInvoice = $booking->invoices->sortByDesc('created_at')->first();
     $defaultExtensionRent = (float) ($latestInvoice?->rent_amount ?? $booking->rent_amount);
+    $totalInvoiced = (float) $booking->invoices->sum('total_amount');
+    $totalPaid = (float) $booking->invoices->sum(fn ($invoice) => $invoice->paid_amount);
+    $totalOutstanding = max(0, $totalInvoiced - $totalPaid);
+    $expectedRentOutstanding = max(0, $booking->invoices->sum('rent_amount') - $booking->invoices->sum(fn($invoice) => $invoice->payments->sum('rent_amount')));
 @endphp
+<header class="booking-page-head">
+    <div><h3>{{ $booking->booking_reference }}</h3><div class="breadcrumb-note">Bookings / Booking details</div></div>
+    <div class="booking-head-actions">
+        <div class="dropdown"><button class="btn btn-light dropdown-toggle" data-bs-toggle="dropdown"><iconify-icon icon="solar:documents-broken" class="align-middle fs-18"></iconify-icon> Documents</button><div class="dropdown-menu dropdown-menu-end"><a href="{{ route('admin.booking.invoice', $booking) }}" class="dropdown-item">Original booking invoice</a><a href="{{ route('admin.booking.confirmation', $booking) }}" class="dropdown-item">Overall booking confirmation</a><a href="{{ route('admin.booking.history', $booking) }}" class="dropdown-item">History & corrections</a></div></div>
+        <a href="{{ route('admin.booking.edit', $booking) }}" class="btn btn-outline-dark"><iconify-icon icon="solar:pen-2-broken" class="align-middle fs-18"></iconify-icon> Edit booking</a>
+        @if($latestInvoice && $latestInvoice->balance_due > 0)<button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#paymentModal{{ $latestInvoice->id }}"><iconify-icon icon="solar:card-transfer-broken" class="align-middle fs-18"></iconify-icon> Record payment</button>@endif
+        <div class="dropdown"><button class="btn btn-light" data-bs-toggle="dropdown" aria-label="More booking actions"><iconify-icon icon="solar:menu-dots-bold"></iconify-icon></button><div class="dropdown-menu dropdown-menu-end"><a class="dropdown-item" href="{{ route('admin.booking.history', $booking) }}">View history</a><div class="dropdown-divider"></div><form action="{{ route('admin.booking.destroy', $booking) }}" method="POST" onsubmit="return confirm('Delete this booking? Bookings with financial or deposit history cannot be deleted.');">@csrf @method('DELETE')<button class="dropdown-item text-danger">Delete booking</button></form></div></div>
+    </div>
+</header>
+<section class="booking-summary" aria-label="Booking financial summary">
+    <div class="booking-summary-card"><div class="booking-summary-icon"><iconify-icon icon="solar:bill-list-broken"></iconify-icon></div><div><div class="booking-summary-label">Total invoiced</div><div class="booking-summary-value">AED {{ number_format($totalInvoiced, 2) }}</div></div></div>
+    <div class="booking-summary-card success"><div class="booking-summary-icon"><iconify-icon icon="solar:wallet-money-broken"></iconify-icon></div><div><div class="booking-summary-label">Payments received</div><div class="booking-summary-value">AED {{ number_format($totalPaid, 2) }}</div></div></div>
+    <div class="booking-summary-card warning"><div class="booking-summary-icon"><iconify-icon icon="solar:danger-circle-broken"></iconify-icon></div><div><div class="booking-summary-label">Outstanding balance</div><div class="booking-summary-value">AED {{ number_format($totalOutstanding, 2) }}</div></div></div>
+    <div class="booking-summary-card info"><div class="booking-summary-icon"><iconify-icon icon="solar:calendar-date-broken"></iconify-icon></div><div><div class="booking-summary-label">Contract duration</div><div class="booking-summary-value">{{ $contractDays }} days</div><div class="booking-summary-detail">{{ $booking->check_in?->format('d M') }} – {{ $booking->check_out?->format('d M Y') }}</div></div></div>
+</section>
 <div class="row">
-    <div class="col-12">@include('admin.bookings.partials.navigation')</div>    <div class="col-12"><div class="alert alert-info">
-        @if($booking->owner_posting_basis === 'receipts')
-            Owner rent posts only from the rent portion of actual payments. Expected rent not yet collected: AED {{ number_format(max(0, $booking->invoices->sum('rent_amount') - $booking->invoices->sum(fn($invoice) => $invoice->payments->sum('rent_amount'))), 2) }}.
-        @else
-            Legacy booking: existing owner entries have not been converted to receipt-based posting. Reconciliation is required before changing that basis.
-        @endif
-        Security deposits belong to the management-company deposit wallet, never to owner payable.
-    </div></div>
+    <div class="col-12">@include('admin.bookings.partials.navigation')</div>
     <div class="col-xl-8">
-        <div class="card">
+        <div class="card guest-card">
             <div class="card-header d-flex justify-content-between align-items-center">
-                <h4 class="card-title mb-0">{{ $booking->booking_reference }}</h4>
+                <h4 class="card-title mb-0">Guest & Stay</h4>
                 <div class="d-flex flex-wrap align-items-center gap-2">
                     <span class="badge {{ $booking->workflow_status_class }} text-white">{{ $booking->workflow_status_label }}</span>
-                    <a href="{{ route('admin.booking.edit', $booking->id) }}" class="btn btn-sm btn-soft-primary" title="Edit Booking" aria-label="Edit Booking">
-                        <iconify-icon icon="solar:pen-2-broken" class="align-middle fs-18"></iconify-icon>
-                    </a>
-                    <form action="{{ route('admin.booking.destroy', $booking->id) }}" method="POST" onsubmit="return confirm('Delete this booking?');">
-                        @csrf
-                        @method('DELETE')
-                        <button type="submit" class="btn btn-sm btn-soft-danger" title="Delete Booking" aria-label="Delete Booking">
-                            <iconify-icon icon="solar:trash-bin-minimalistic-2-broken" class="align-middle fs-18"></iconify-icon>
-                        </button>
-                    </form>
                 </div>
             </div>
             @if(session('success'))
@@ -52,17 +58,13 @@
                 <div class="alert alert-danger m-3 mb-0">{{ $errors->first() }}</div>
             @endif
             <div class="card-body">
-                <div class="row g-3">
-                    <div class="col-lg-6"><strong>Guest:</strong> {{ $booking->guest_name }}</div>
-                    <div class="col-lg-6"><strong>Email:</strong> {{ $booking->guest_email }}</div>
-                    <div class="col-lg-6"><strong>Phone:</strong> {{ $booking->guest_phone }}</div>
-                    <div class="col-lg-6"><strong>Passport/ID:</strong> {{ $booking->guest_passport_id_no }}</div>
-                    <div class="col-lg-6"><strong>Check In:</strong> {{ $booking->check_in?->format('d M Y') }}</div>
-                    <div class="col-lg-6"><strong>Check Out:</strong> {{ $booking->check_out?->format('d M Y') }}</div>
-                    <div class="col-lg-6"><strong>Check In Time:</strong> {{ $booking->check_in_time ? \Carbon\Carbon::parse($booking->check_in_time)->format('H:i') : '15:00' }}</div>
-                    <div class="col-lg-6"><strong>Check Out Time:</strong> {{ $booking->check_out_time ? \Carbon\Carbon::parse($booking->check_out_time)->format('H:i') : '11:00' }}</div>
-                    <div class="col-lg-12"><strong>Unit:</strong> {{ $booking->property?->name ?? 'N/A' }}</div>
-                    <div class="col-lg-12"><strong>Agent:</strong> {{ $booking->agent?->name ?? 'No Agent' }}</div>
+                <div class="row g-4 align-items-center">
+                    <div class="col-lg-6"><div class="d-flex gap-3 align-items-center"><div class="guest-avatar">{{ collect(explode(' ', $booking->guest_name))->filter()->take(2)->map(fn($part) => mb_strtoupper(mb_substr($part, 0, 1)))->join('') }}</div><div><div class="guest-name">{{ $booking->guest_name }}</div><div class="booking-detail-value mt-1">{{ $booking->property?->building?->building_name ? $booking->property->building->building_name.' — ' : '' }}{{ $booking->property?->name ?? 'N/A' }}</div><div class="mt-1">@if($booking->guest_passport_id_no)<span class="booking-detail-value">ID {{ $booking->guest_passport_id_no }}</span>@else<span class="badge bg-warning-subtle text-warning">Passport / ID missing</span>@endif</div></div></div></div>
+                    <div class="col-lg-3"><span class="booking-detail-label">Check-in</span><span class="booking-detail-value">{{ $booking->check_in?->format('d M Y') }} · {{ $booking->check_in_time ? \Carbon\Carbon::parse($booking->check_in_time)->format('H:i') : '15:00' }}</span></div>
+                    <div class="col-lg-3"><span class="booking-detail-label">Check-out</span><span class="booking-detail-value">{{ $booking->check_out?->format('d M Y') }} · {{ $booking->check_out_time ? \Carbon\Carbon::parse($booking->check_out_time)->format('H:i') : '11:00' }}</span></div>
+                    <div class="col-lg-4"><span class="booking-detail-label">Email</span><span class="booking-detail-value">{{ $booking->guest_email }}</span></div>
+                    <div class="col-lg-4"><span class="booking-detail-label">Phone</span><span class="booking-detail-value">{{ $booking->guest_phone }}</span></div>
+                    <div class="col-lg-4"><span class="booking-detail-label">Agent</span><span class="booking-detail-value">{{ $booking->agent?->name ?? 'Not assigned' }}</span></div>
                     @if($booking->guest_document)
                         <div class="col-lg-12"><a href="{{ asset($booking->guest_document) }}" target="_blank" class="btn btn-sm btn-outline-primary">View Guest Attachment</a></div>
                     @endif
@@ -77,12 +79,12 @@
             </div>
             <div class="card-body p-0">
                 <div class="table-responsive">
-                    <table class="table table-hover align-middle mb-0">
+                    <table class="table table-hover align-middle mb-0 invoice-table">
                         <thead><tr><th>Type / Invoice</th><th>Period</th><th>Total</th><th>Paid</th><th>Balance</th><th>Status</th><th>Actions</th></tr></thead>
                         <tbody>
                         @forelse($booking->invoices->sortBy('created_at') as $invoice)
                             <tr>
-                                <td><strong>{{ $invoice->type_label }}</strong><div class="invoice-preview-wrap"><button type="button" class="btn btn-link btn-sm p-0" data-bs-toggle="modal" data-bs-target="#invoiceDetails{{ $invoice->id }}" aria-describedby="invoicePreview{{ $invoice->id }}">{{ $invoice->invoice_number }}</button>
+                                <td><strong>{{ $invoice->type_label }}</strong><div class="invoice-preview-wrap"><button type="button" class="btn btn-link btn-sm p-0 invoice-number" data-bs-toggle="modal" data-bs-target="#invoiceDetails{{ $invoice->id }}" aria-describedby="invoicePreview{{ $invoice->id }}">{{ $invoice->invoice_number }}</button>
                                     <div class="invoice-hover-preview" role="tooltip" id="invoicePreview{{ $invoice->id }}">
                                         <div><span>Rent</span><strong>AED {{ number_format((float)$invoice->rent_amount,2) }}</strong></div>
                                         <div><span>VAT</span><strong>AED {{ number_format((float)$invoice->vat_amount,2) }}</strong></div>
@@ -95,12 +97,17 @@
                                 <td class="text-success">AED {{ number_format($invoice->paid_amount, 2) }}</td>
                                 <td class="{{ $invoice->balance_due > 0 ? 'text-danger' : 'text-success' }}">AED {{ number_format($invoice->balance_due, 2) }}</td>
                                 <td><span class="badge {{ $invoice->status === 'paid' ? 'bg-success' : ($invoice->status === 'partial' ? 'bg-warning' : 'bg-danger') }}">{{ ucfirst($invoice->status) }}</span></td>
-                                <td><div class="d-flex gap-1">
-                                    <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#invoiceDetails{{ $invoice->id }}">Charges / Documents</button>
-                                    @if($invoice->status==='unpaid' && $invoice->payments->isEmpty())<button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#correctInvoice{{ $invoice->id }}">Edit Invoice</button>@endif
+                                <td><div class="d-flex gap-1 invoice-actions">
+                                    <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#invoiceDetails{{ $invoice->id }}">View</button>
                                     @if($invoice->balance_due > 0)
-                                        <button class="btn btn-sm btn-dark" data-bs-toggle="modal" data-bs-target="#paymentModal{{ $invoice->id }}">Payment</button>
+                                        <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#paymentModal{{ $invoice->id }}">Pay</button>
                                     @endif
+                                    <div class="dropdown"><button class="btn btn-sm btn-light" data-bs-toggle="dropdown" aria-label="More invoice actions"><iconify-icon icon="solar:menu-dots-bold"></iconify-icon></button><div class="dropdown-menu dropdown-menu-end">
+                                        <a class="dropdown-item" href="{{ route('admin.booking-invoice.confirmation', $invoice) }}"><iconify-icon icon="solar:document-add-broken" class="me-2"></iconify-icon>Period confirmation PDF</a>
+                                        <a class="dropdown-item" href="{{ route('admin.accounting.booking-invoices.pdf', $invoice) }}"><iconify-icon icon="solar:bill-list-broken" class="me-2"></iconify-icon>Invoice PDF</a>
+                                        @if($invoice->payments->isNotEmpty())<a class="dropdown-item" href="{{ route('admin.booking-invoice.receipt', $invoice) }}"><iconify-icon icon="solar:bill-check-broken" class="me-2"></iconify-icon>Payment receipt</a>@endif
+                                        @if($invoice->status==='unpaid' && $invoice->payments->isEmpty())<button type="button" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#correctInvoice{{ $invoice->id }}"><iconify-icon icon="solar:pen-2-broken" class="me-2"></iconify-icon>Edit invoice</button>@endif
+                                    </div></div>
                                 </div></td>
                             </tr>
                             @if($invoice->payments->isNotEmpty())
@@ -115,57 +122,19 @@
                             <tr><td colspan="7" class="text-center text-muted py-4">No invoices created.</td></tr>
                         @endforelse
                         </tbody>
+                        @if($booking->invoices->isNotEmpty())<tfoot><tr><td colspan="2">Total</td><td>AED {{ number_format($totalInvoiced, 2) }}</td><td class="text-success">AED {{ number_format($totalPaid, 2) }}</td><td class="text-danger">AED {{ number_format($totalOutstanding, 2) }}</td><td colspan="2"></td></tr></tfoot>@endif
                     </table>
                 </div>
+                <div class="px-3 py-2 border-top small text-muted"><iconify-icon icon="solar:info-circle-broken" class="align-middle"></iconify-icon> Each invoice has its own confirmation PDF for that invoice’s exact period. Click an invoice number to view charges and documents.</div>
             </div>
         </div>
 
-        <div class="card">
-            <div class="card-header"><h4 class="card-title mb-0">Original Contract Charges</h4><small class="text-muted">Extensions have their own invoices above.</small></div>
-            <div class="card-body">
-                <div class="table-responsive">
-                    <table class="table table-hover align-middle mb-0">
-                        <tbody>
-                            <tr><td>Rent</td><td class="text-end">{{ number_format((float) $booking->rent_amount, 2) }} AED</td></tr>
-                            <tr><td>VAT 5% {{ $booking->vat_included ? '(separated from rent)' : '' }}</td><td class="text-end">{{ number_format((float) $booking->vat_amount, 2) }} AED</td></tr>
-                            <tr><td>DTCM Fee</td><td class="text-end">{{ number_format((float) $booking->dtcm_fee, 2) }} AED</td></tr>
-                            <tr><td>Cleaning Fee</td><td class="text-end">{{ number_format((float) $booking->cleaning_fee, 2) }} AED</td></tr>
-                            <tr><td>Agency Fee</td><td class="text-end">{{ number_format((float) $booking->agency_fee, 2) }} AED</td></tr>
-                            <tr><td>Security Deposit</td><td class="text-end">{{ number_format((float) $booking->security_deposit, 2) }} AED</td></tr>
-                            <tr class="fw-semibold"><td>Total</td><td class="text-end">{{ number_format((float) $booking->total_amount, 2) }} AED</td></tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
+        <div class="owner-posting-card"><div class="d-flex gap-3"><iconify-icon icon="solar:buildings-3-broken" class="fs-24 text-primary"></iconify-icon><div><strong>Owner posting</strong><div class="mt-1">Expected rent not collected: <strong>AED {{ number_format($expectedRentOutstanding, 2) }}</strong></div><small>Owner rent posts from received rent only. Security deposits are separate from owner income.</small>@if($booking->owner_posting_basis !== 'receipts')<div class="text-warning mt-1">Legacy owner posting requires reconciliation before changing its basis.</div>@endif</div></div></div>
     </div>
 
-    <div class="col-xl-4">
+    <div class="col-xl-4 booking-side">
         <div class="card">
-            <div class="card-header"><h4 class="card-title mb-0">Documents</h4></div>
-            <div class="card-body">
-                <div class="d-flex flex-wrap gap-2">
-                    <a href="{{ route('admin.booking.invoice', $booking->id) }}" class="btn btn-primary" title="Generate Invoice" aria-label="Generate Invoice">
-                        <iconify-icon icon="solar:bill-list-broken" class="align-middle fs-18"></iconify-icon> Invoice PDF
-                    </a>
-                    <a href="{{ route('admin.booking.confirmation', $booking->id) }}" class="btn btn-outline-primary" title="Booking Confirmation" aria-label="Booking Confirmation">
-                        <iconify-icon icon="solar:document-add-broken" class="align-middle fs-18"></iconify-icon> Confirmation
-                    </a>
-                    <a href="{{ route('admin.booking.history', $booking->id) }}" class="btn btn-light" title="History" aria-label="History">
-                        <iconify-icon icon="solar:history-2-broken" class="align-middle fs-18"></iconify-icon> History
-                    </a>
-                    <button type="button" class="btn btn-outline-dark" data-bs-toggle="modal" data-bs-target="{{ $remainingContractDays > 0 ? '#extendBookingModal' : '#contractLimitModal' }}" title="Extend Booking" aria-label="Extend Booking">
-                        <iconify-icon icon="solar:calendar-add-broken" class="align-middle fs-18"></iconify-icon>
-                    </button>
-                    <button type="button" class="btn btn-dark" data-bs-toggle="modal" data-bs-target="#renewBookingModal" title="Renew Booking" aria-label="Renew Booking">
-                        <iconify-icon icon="solar:restart-circle-broken" class="align-middle fs-18"></iconify-icon>
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        <div class="card">
-            <div class="card-header"><h4 class="card-title mb-0">Booking Workflow</h4></div>
+            <div class="card-header"><h4 class="card-title mb-0">Stay Actions</h4></div>
             <div class="card-body">
                 <div class="alert {{ $remainingContractDays > 0 ? 'alert-success' : 'alert-warning' }}">
                     <strong>{{ $contractDays }} of 90 contract days used.</strong><br>
@@ -174,6 +143,10 @@
                     @else
                         The 90-day limit is reached. Use Renew Contract; a new DTCM fee is required.
                     @endif
+                </div>
+                <div class="d-grid gap-2 mb-3">
+                    @if($remainingContractDays > 0)<button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#extendBookingModal"><iconify-icon icon="solar:calendar-add-broken" class="align-middle fs-18"></iconify-icon> Extend current period</button>@endif
+                    <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#renewBookingModal"><iconify-icon icon="solar:restart-circle-broken" class="align-middle fs-18"></iconify-icon> Renew contract</button>
                 </div>
                 <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
                     <span class="badge {{ $booking->workflow_status_class }} text-white">{{ $booking->workflow_status_label }}</span>
@@ -219,6 +192,11 @@
                     </div>
                 </div>
             </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header"><h4 class="card-title mb-0">Security Deposit</h4></div>
+            <div class="card-body"><div class="d-flex align-items-center gap-3 mb-3"><div class="booking-summary-icon"><iconify-icon icon="solar:shield-check-broken"></iconify-icon></div><div><strong>Company-held funds</strong><div class="text-muted small">Held balance: AED {{ number_format((float) ($depositTotals['held'] ?? 0), 2) }}</div></div></div><p class="small text-muted">Managed separately from owner rent and income.</p><a href="{{ route('admin.booking.deposit-wallet', $booking) }}" class="btn btn-outline-dark w-100">Manage deposit</a></div>
         </div>
 
         <div class="card">
@@ -394,6 +372,7 @@
         <tr><td>Balance</td><td class="text-end">AED {{ number_format($invoice->balance_due,2) }}</td></tr>
     </tbody></table><p>Which document would you like?</p>
     <a class="btn btn-primary" href="{{ route('admin.accounting.booking-invoices.pdf', $invoice) }}">Invoice PDF</a>
+    <a class="btn btn-outline-primary" href="{{ route('admin.booking-invoice.confirmation', $invoice) }}">Period Confirmation</a>
     @if($invoice->payments->isNotEmpty())<a class="btn btn-outline-success" href="{{ route('admin.booking-invoice.receipt', $invoice) }}">Receipt — Amount Paid</a>@else<p class="small text-muted mt-2">A receipt requires an itemised payment record.</p>@endif
     </div>
 </div></div></div>
