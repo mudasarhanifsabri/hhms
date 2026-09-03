@@ -328,6 +328,13 @@ class BookingController extends Controller
         return back()->with('success', 'Payment recorded against ' . $invoice->invoice_number . '.');
     }
 
+    public function paymentReceipt(BookingInvoice $invoice)
+    {
+        $invoice->load(['booking.property.building', 'payments.bankAccount']);
+        abort_if($invoice->payments->isEmpty(), 422, 'No itemised payment records exist for this invoice. A receipt cannot be generated from an invoice status alone.');
+        return PdfRenderer::downloadView('admin.bookings.pdf.payment-receipt', compact('invoice'), $invoice->invoice_number.'-receipt.pdf');
+    }
+
     public function history(Booking $booking)
     {
         $booking->load(['property', 'agent', 'histories']);
@@ -415,6 +422,19 @@ class BookingController extends Controller
 
     public function checkOut(Request $request, Booking $booking)
     {
+        $data = $request->validate(['checkout_confirmation' => 'required|string']);
+        $confirmation = $request->session()->get('checkout_confirmation.'.$booking->id);
+        if (! $confirmation || ! hash_equals($confirmation['token'], $data['checkout_confirmation']) || time() - $confirmation['issued_at'] < 5 || time() - $confirmation['issued_at'] > 600) {
+            throw ValidationException::withMessages(['checkout' => 'Open the checkout confirmation and wait five seconds before confirming.']);
+        }
+        if (! in_array($booking->status, ['confirmed', 'checked_in'])) {
+            throw ValidationException::withMessages(['checkout' => 'Only an active booking can be checked out.']);
+        }
+        DB::transaction(function () use ($booking) {
+        $booking = Booking::whereKey($booking->id)->lockForUpdate()->firstOrFail();
+        if (! in_array($booking->status, ['confirmed', 'checked_in'])) {
+            throw ValidationException::withMessages(['checkout' => 'This booking has already been checked out.']);
+        }
         $booking->update([
             'status' => 'checked_out',
             'checked_out_at' => now(),
@@ -427,8 +447,25 @@ class BookingController extends Controller
             'title' => 'Guest Checked Out',
             'description' => 'Cleaning, maintenance, and check out inspection tasks were created.',
         ]);
+        });
+        $request->session()->forget('checkout_confirmation.'.$booking->id);
 
         return back()->with('success', 'Check out completed and tasks created.');
+    }
+
+    public function prepareCheckout(Request $request, Booking $booking)
+    {
+        abort_unless(in_array($booking->status, ['confirmed', 'checked_in']), 422, 'Booking is not active.');
+        $token = Str::random(48);
+        $request->session()->put('checkout_confirmation.'.$booking->id, ['token' => $token, 'issued_at' => time()]);
+        return response()->json(['token' => $token]);
+    }
+
+    public function reverseCheckout(Request $request, Booking $booking)
+    {
+        $data = $request->validate(['reason' => 'required|string|min:5|max:1000']);
+        \App\Support\BookingCheckout::reverse($booking, $data['reason']);
+        return back()->with('success', 'Checkout reversed. Unstarted checkout tasks were cancelled; payment records were preserved.');
     }
 
     public function invoice(Booking $booking)
@@ -463,7 +500,7 @@ class BookingController extends Controller
         ];
 
         foreach ($tasks as $type => $title) {
-            if ($booking->tasks()->where('type', $type)->exists()) {
+            if ($booking->tasks()->where('type', $type)->where('status', '!=', 'cancelled')->exists()) {
                 continue;
             }
 
@@ -506,7 +543,7 @@ class BookingController extends Controller
 
     private function markPropertyStatus(Booking $booking, string $status): void
     {
-        $booking->property?->update(['status' => $status === 'booked' ? 'rented' : $status]);
+        $booking->property?->update(['status' => match ($status) { 'booked' => 'rented', 'under_cleaning' => 'vacant', default => $status }]);
     }
 
     private function nextTaskNumber(): string

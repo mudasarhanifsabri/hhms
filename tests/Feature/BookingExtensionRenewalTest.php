@@ -76,4 +76,44 @@ class BookingExtensionRenewalTest extends TestCase
         $this->assertSame('partial', $invoice->fresh()->status);
         $this->assertSame('10000.00', $bank->fresh()->current_balance);
     }
+
+    public function test_checkout_requires_confirmation_and_can_be_safely_reversed(): void
+    {
+        ['admin' => $admin, 'booking' => $booking] = $this->booking();
+        $this->actingAs($admin)->post(route('admin.booking.check-out', $booking))->assertSessionHasErrors('checkout_confirmation');
+        $this->assertSame('confirmed', $booking->fresh()->status);
+        $this->withSession(['checkout_confirmation.'.$booking->id => ['token' => 'test-token', 'issued_at' => time()]])
+            ->post(route('admin.booking.check-out', $booking), ['checkout_confirmation' => 'test-token'])->assertSessionHasErrors('checkout');
+        $this->withSession(['checkout_confirmation.'.$booking->id => ['token' => 'test-token', 'issued_at' => time() - 6]])
+            ->post(route('admin.booking.check-out', $booking), ['checkout_confirmation' => 'test-token'])->assertSessionHas('success');
+        $this->assertSame('checked_out', $booking->fresh()->status);
+        $this->assertSame(3, $booking->tasks()->count());
+        $this->post(route('admin.booking.reverse-checkout', $booking), ['reason' => 'Accidental checkout'])->assertSessionHas('success');
+        $this->assertSame('confirmed', $booking->fresh()->status);
+        $this->assertSame(3, $booking->tasks()->where('status', 'cancelled')->count());
+        $this->assertNull($booking->fresh()->checked_out_at);
+    }
+
+    public function test_reversal_preserves_booking_when_checkout_work_has_started(): void
+    {
+        ['admin' => $admin, 'booking' => $booking] = $this->booking();
+        $booking->update(['status' => 'checked_out', 'checked_out_at' => now()->subMinute()]);
+        $booking->tasks()->create(['task_number' => 'TASK-STARTED', 'property_id' => $booking->property_id, 'type' => 'cleaning', 'title' => 'Checkout cleaning', 'status' => 'in_progress', 'progress' => 20, 'description' => 'Auto created from booking check out.']);
+        $this->actingAs($admin)->post(route('admin.booking.reverse-checkout', $booking), ['reason' => 'Accidental checkout'])->assertSessionHasErrors('checkout');
+        $this->assertSame('checked_out', $booking->fresh()->status);
+    }
+
+    public function test_receipt_requires_real_payments_and_invoice_popup_is_available(): void
+    {
+        ['admin' => $admin, 'booking' => $booking] = $this->booking();
+        $invoice = $booking->invoices()->firstOrFail();
+        $this->actingAs($admin)->get(route('admin.booking-invoice.receipt', $invoice))->assertStatus(422);
+        $this->get(route('admin.booking.show', $booking))->assertOk()->assertSee('Which document would you like?')->assertSee('Confirm Guest Checkout');
+        $invoice->payments()->create(['payment_date' => '2026-03-01', 'amount' => 2500, 'payment_method' => 'Cash']);
+        $html = view('admin.bookings.pdf.payment-receipt', ['invoice' => $invoice->fresh()->load(['payments', 'booking.property.building'])])->render();
+        $this->assertStringContainsString('2,500.00', $html);
+        $this->assertStringContainsString('16,400.00', $html);
+        $this->assertStringContainsString('101001557300003', $html);
+        $this->assertStringContainsString('Sultan Sameer Saleh Yaslam Alhemeiri', $html);
+    }
 }

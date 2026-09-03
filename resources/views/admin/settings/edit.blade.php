@@ -89,6 +89,9 @@
                                     <label class="form-label" for="company_name">Company Name</label>
                                     <input type="text" class="form-control" id="company_name" name="company_name" value="{{ $value('company_name', config('app.name')) }}">
                                 </div>
+                                @foreach(['invoice_establishment_name' => 'Invoice Establishment Name', 'invoice_legal_name' => 'Registered Legal Entity', 'invoice_trn' => 'Tax Registration Number (TRN)', 'invoice_address' => 'Registered Invoice Address'] as $field => $label)
+                                <div class="col-12"><label class="form-label" for="{{ $field }}">{{ $label }}</label><input type="text" class="form-control" id="{{ $field }}" name="{{ $field }}" value="{{ $value($field) }}"></div>
+                                @endforeach
                                 <div class="col-md-6">
                                     <label class="form-label" for="company_phone">Company Phone</label>
                                     <input type="text" class="form-control" id="company_phone" name="company_phone" value="{{ $value('company_phone') }}">

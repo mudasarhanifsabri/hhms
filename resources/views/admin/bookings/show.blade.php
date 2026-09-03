@@ -64,14 +64,14 @@
                         <tbody>
                         @forelse($booking->invoices->sortBy('created_at') as $invoice)
                             <tr>
-                                <td><strong>{{ $invoice->type_label }}</strong><div class="small text-muted">{{ $invoice->invoice_number }}</div></td>
+                                <td><strong>{{ $invoice->type_label }}</strong><div><button type="button" class="btn btn-link btn-sm p-0" data-bs-toggle="modal" data-bs-target="#invoiceDetails{{ $invoice->id }}">{{ $invoice->invoice_number }}</button></div></td>
                                 <td>{{ $invoice->period_from?->format('d M Y') }}<br><span class="small text-muted">to {{ $invoice->period_to?->format('d M Y') }}</span></td>
                                 <td>AED {{ number_format((float) $invoice->total_amount, 2) }}</td>
                                 <td class="text-success">AED {{ number_format($invoice->paid_amount, 2) }}</td>
                                 <td class="{{ $invoice->balance_due > 0 ? 'text-danger' : 'text-success' }}">AED {{ number_format($invoice->balance_due, 2) }}</td>
                                 <td><span class="badge {{ $invoice->status === 'paid' ? 'bg-success' : ($invoice->status === 'partial' ? 'bg-warning' : 'bg-danger') }}">{{ ucfirst($invoice->status) }}</span></td>
                                 <td><div class="d-flex gap-1">
-                                    <a href="{{ route('admin.accounting.booking-invoices.pdf', $invoice->id) }}" class="btn btn-sm btn-outline-primary">PDF</a>
+                                    <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#invoiceDetails{{ $invoice->id }}">Documents</button>
                                     @if($invoice->balance_due > 0)
                                         <button class="btn btn-sm btn-dark" data-bs-toggle="modal" data-bs-target="#paymentModal{{ $invoice->id }}">Payment</button>
                                     @endif
@@ -166,13 +166,20 @@
                             Complete Check In
                         </button>
                     </form>
-                    <form action="{{ route('admin.booking.check-out', $booking->id) }}" method="POST">
-                        @csrf
-                        <button class="btn btn-outline-dark w-100" {{ $booking->checked_out_at ? 'disabled' : '' }}>
+                    <div>
+                        <button type="button" class="btn btn-outline-dark w-100" data-bs-toggle="modal" data-bs-target="#checkoutConfirmModal" {{ $booking->checked_out_at ? 'disabled' : '' }}>
                             <iconify-icon icon="solar:clipboard-remove-broken" class="align-middle fs-18"></iconify-icon>
                             Complete Check Out & Create Tasks
                         </button>
+                    </div>
+                    @if($booking->checked_out_at)
+                    <form action="{{ route('admin.booking.reverse-checkout', $booking) }}" method="POST" onsubmit="return confirm('Restore this booking and cancel only untouched checkout tasks?');">
+                        @csrf
+                        <label class="form-label">Reason for reversing checkout</label>
+                        <input name="reason" class="form-control mb-2" minlength="5" maxlength="1000" required placeholder="Checked out by mistake">
+                        <button class="btn btn-outline-warning w-100">Reverse Accidental Checkout</button>
                     </form>
+                    @endif
                 </div>
                 <div class="border-top mt-3 pt-3">
                     <p class="text-muted mb-2 small">Guest app inspection flow</p>
@@ -341,6 +348,20 @@
 </div>
 
 @foreach($booking->invoices as $invoice)
+<div class="modal fade" id="invoiceDetails{{ $invoice->id }}" tabindex="-1" aria-hidden="true"><div class="modal-dialog"><div class="modal-content">
+    <div class="modal-header"><h5>{{ $invoice->type_label }} — {{ $invoice->invoice_number }}</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body"><table class="table"><tbody>
+        <tr><td>Rent</td><td class="text-end">AED {{ number_format((float)$invoice->rent_amount,2) }}</td></tr>
+        <tr><td>VAT recorded ({{ $invoice->vat_rate }}%)</td><td class="text-end">AED {{ number_format((float)$invoice->vat_amount,2) }}</td></tr>
+        @foreach($invoice->fees ?? [] as $label => $amount)<tr><td>{{ $label }}</td><td class="text-end">AED {{ number_format((float)$amount,2) }}</td></tr>@endforeach
+        <tr><th>Total</th><th class="text-end">AED {{ number_format((float)$invoice->total_amount,2) }}</th></tr>
+        <tr><td>Paid</td><td class="text-end text-success">AED {{ number_format($invoice->paid_amount,2) }}</td></tr>
+        <tr><td>Balance</td><td class="text-end">AED {{ number_format($invoice->balance_due,2) }}</td></tr>
+    </tbody></table><p>Which document would you like?</p>
+    <a class="btn btn-primary" href="{{ route('admin.accounting.booking-invoices.pdf', $invoice) }}">Invoice PDF</a>
+    @if($invoice->payments->isNotEmpty())<a class="btn btn-outline-success" href="{{ route('admin.booking-invoice.receipt', $invoice) }}">Receipt — Amount Paid</a>@else<p class="small text-muted mt-2">A receipt requires an itemised payment record.</p>@endif
+    </div>
+</div></div></div>
 <div class="modal fade" id="paymentModal{{ $invoice->id }}" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-lg"><div class="modal-content">
         <form action="{{ route('admin.booking-invoice.payment', $invoice->id) }}" method="POST" enctype="multipart/form-data">@csrf
@@ -365,9 +386,42 @@
 </div>
 @endforeach
 
+<div class="modal fade" id="checkoutConfirmModal" tabindex="-1" aria-hidden="true"><div class="modal-dialog modal-dialog-centered"><div class="modal-content">
+    <form method="POST" action="{{ route('admin.booking.check-out', $booking) }}">@csrf
+        <input type="hidden" name="checkout_confirmation" id="checkoutToken">
+        <div class="modal-header"><h5>Confirm Guest Checkout</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body"><strong>{{ $booking->guest_name }} — {{ $booking->booking_reference }}</strong><p>{{ $booking->property?->name }} · Scheduled checkout {{ $booking->check_out?->format('d M Y') }}</p><div class="alert alert-warning">This marks the guest checked out and creates checkout tasks. No action occurs until you confirm.</div><p id="checkoutWait" role="status">Preparing confirmation…</p></div>
+        <div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button><button class="btn btn-danger" id="checkoutConfirmButton" disabled>Confirm Check Out</button></div>
+    </form>
+</div></div></div>
 @push('scripts')
 <script>
 document.addEventListener('DOMContentLoaded', function () {
+    const checkoutModal = document.getElementById('checkoutConfirmModal');
+    let countdown, checkoutAttempt = 0;
+    checkoutModal.addEventListener('show.bs.modal', async function () {
+        const attempt = ++checkoutAttempt;
+        const button = document.getElementById('checkoutConfirmButton');
+        const status = document.getElementById('checkoutWait');
+        button.disabled = true;
+        document.getElementById('checkoutToken').value = '';
+        status.textContent = 'Preparing confirmation…';
+        try {
+            const response = await fetch(@json(route('admin.booking.prepare-checkout', $booking)), {method: 'POST', headers: {'X-CSRF-TOKEN': @json(csrf_token()), 'Accept': 'application/json'}});
+            if (!response.ok) throw new Error('Cannot prepare checkout');
+            const data = await response.json();
+            if (attempt !== checkoutAttempt) return;
+            document.getElementById('checkoutToken').value = data.token;
+            let seconds = 5;
+            status.textContent = 'Please review. Confirm available in 5 seconds.';
+            countdown = setInterval(function () {
+                seconds--;
+                status.textContent = seconds > 0 ? 'Confirm available in ' + seconds + ' seconds.' : 'Ready. Confirm only if the guest has left.';
+                if (seconds <= 0) { clearInterval(countdown); button.disabled = false; }
+            }, 1000);
+        } catch (error) { status.textContent = 'Could not prepare checkout. Close and try again.'; }
+    });
+    checkoutModal.addEventListener('hidden.bs.modal', () => { checkoutAttempt++; clearInterval(countdown); document.getElementById('checkoutConfirmButton').disabled = true; });
     const rent = document.getElementById('extension_rent_amount');
     const vat = document.getElementById('extension_vat_rate');
     const fees = document.getElementById('extension_other_fees');

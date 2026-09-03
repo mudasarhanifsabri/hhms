@@ -18,7 +18,10 @@
 <body>
     @php($booking = $invoice->booking)
     <div class="top">
-        <div class="brand">PATTERN Vacation Homes Rental</div>
+        <div class="brand">{{ \App\Support\AppSettings::get('invoice_establishment_name', 'PATTERN Vacation Homes Rental') }}</div>
+        <div>{{ \App\Support\AppSettings::get('invoice_legal_name') }}</div>
+        <div>{{ \App\Support\AppSettings::get('invoice_address') }}</div>
+        <div>TRN: {{ \App\Support\AppSettings::get('invoice_trn') }}</div>
         <div class="muted">{{ $invoice->type_label }} Invoice</div>
     </div>
 
