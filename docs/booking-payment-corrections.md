@@ -20,3 +20,11 @@ General company income-account mapping is not changed by this feature; allocatio
 - Bookings with payment or deposit history cannot be deleted.
 
 Run migration 037 as part of deployment before using these screens. Regression coverage: BookingCorrectionsTest, DepositWalletTest, BookingExtensionRenewalTest, AccountingReportsTest and OwnerStatementOrderTest.
+
+## VAT input and compact booking screens
+
+Migration 038 stores each invoice's VAT input mode. The Edit Invoice popup accepts either rent including VAT or rent before VAT, previews the breakdown, and recalculates it again on the server. Reopening an inclusive invoice restores its gross rent input without adding VAT twice. Existing invoices default to the additive input view of their already-stored net rent; migration does not change their amounts.
+
+Example at 5%: entering AED 10,500 with VAT Included produces net rent 10,000 and VAT 500; Add VAT produces net rent 10,500 and VAT 525. A separate AED 1,500 security deposit results in totals 12,000 and 12,525 respectively. Neither saving action records a payment or posts owner income.
+
+Booking creation uses the same VAT choice. Overview and History both offer the invoice editor; all booking views share compact spacing and navigation. Bookings with invoices use a contact-only Edit Guest Details form, keeping charges, identity documents, unit and stay dates protected from accidental financial changes. Use invoice corrections and extension/renewal actions separately.

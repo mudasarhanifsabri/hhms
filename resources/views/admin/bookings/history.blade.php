@@ -1,6 +1,9 @@
 @extends('layouts.app')
 
 @section('content')
+@include('admin.bookings.partials.compact-style')
+<div class="booking-workspace">
+@include('admin.bookings.partials.navigation')
 @include('admin.bookings.partials.corrections')
 <div class="card">
     <div class="card-header d-flex justify-content-between align-items-center">
@@ -27,5 +30,6 @@
             </table>
         </div>
     </div>
+</div>
 </div>
 @endsection

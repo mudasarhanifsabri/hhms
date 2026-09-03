@@ -27,6 +27,7 @@ class BookingCorrectionController extends Controller
     public function invoice(Request $request, BookingInvoice $invoice)
     {
         $data = $request->validate(['rent_amount' => 'required|numeric|min:0|decimal:0,2',
+            'vat_included' => 'nullable|boolean',
             'vat_rate' => 'required|numeric|min:0|max:100', 'fees' => 'nullable|array',
             'fees.*' => 'required|numeric|min:0|decimal:0,2', 'reason' => 'required|string|min:5|max:1000']);
         DB::transaction(function () use ($invoice, $data) {
@@ -42,13 +43,16 @@ class BookingCorrectionController extends Controller
                 }
                 $fees[$label] = (float) $value;
             }
-            $before = $invoice->only(['rent_amount', 'vat_rate', 'vat_amount', 'fees', 'total_amount']);
-            $vat = round((float) $data['rent_amount'] * (float) $data['vat_rate'] / 100, 2);
-            $invoice->update(['rent_amount' => $data['rent_amount'], 'vat_rate' => $data['vat_rate'],
-                'vat_amount' => $vat, 'fees' => $fees, 'total_amount' => round((float) $data['rent_amount'] + $vat + array_sum($fees), 2)]);
+            $before = $invoice->only(['rent_amount', 'vat_rate', 'vat_included', 'vat_amount', 'fees', 'total_amount']);
+            $included = (bool) ($data['vat_included'] ?? false);
+            $entered = round((float) $data['rent_amount'], 2);
+            $rent = $included ? round($entered / (1 + (float) $data['vat_rate'] / 100), 2) : $entered;
+            $vat = $included ? round($entered - $rent, 2) : round($rent * (float) $data['vat_rate'] / 100, 2);
+            $invoice->update(['rent_amount' => $rent, 'vat_rate' => $data['vat_rate'], 'vat_included' => $included,
+                'vat_amount' => $vat, 'fees' => $fees, 'total_amount' => round($rent + $vat + array_sum($fees), 2)]);
             if ($invoice->invoice_type !== 'extension') {
                 $fee = round((float) $invoice->rent_amount * (float) $booking->management_fee_percent / 100, 2);
-                $booking->update(['rent_amount' => $invoice->rent_amount, 'vat_amount' => $vat, 'total_amount' => $invoice->total_amount,
+                $booking->update(['rent_amount' => $invoice->rent_amount, 'vat_included' => $included, 'vat_amount' => $vat, 'total_amount' => $invoice->total_amount,
                     'management_fee_amount' => $fee, 'owner_rent_income' => (float) $invoice->rent_amount - $fee,
                     'security_deposit' => $fees['Security Deposit'] ?? 0, 'dtcm_fee' => $fees['DTCM Fee'] ?? 0,
                     'cleaning_fee' => $fees['Cleaning Fee'] ?? 0, 'agency_fee' => $fees['Agency Fee'] ?? 0]);

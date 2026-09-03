@@ -9,6 +9,8 @@
 @endpush
 
 @section('content')
+@include('admin.bookings.partials.compact-style')
+<div class="booking-workspace">
 @php
     $contractDays = $booking->nights;
     $remainingContractDays = max(0, 90 - $contractDays);
@@ -17,8 +19,7 @@
     $defaultExtensionRent = (float) ($latestInvoice?->rent_amount ?? $booking->rent_amount);
 @endphp
 <div class="row">
-    <div class="col-12 mb-3"><nav class="nav nav-underline gap-3"><a class="nav-link active" href="{{ route('admin.booking.show',$booking) }}">Overview</a><a class="nav-link" href="#bookingInvoices">Invoices</a><a class="nav-link" href="{{ route('admin.booking.deposit-wallet',$booking) }}">Security Deposit Wallet</a><a class="nav-link" href="{{ route('admin.booking.history',$booking) }}">History & Corrections</a></nav></div>
-    <div class="col-12"><div class="alert alert-info">
+    <div class="col-12">@include('admin.bookings.partials.navigation')</div>    <div class="col-12"><div class="alert alert-info">
         @if($booking->owner_posting_basis === 'receipts')
             Owner rent posts only from the rent portion of actual payments. Expected rent not yet collected: AED {{ number_format(max(0, $booking->invoices->sum('rent_amount') - $booking->invoices->sum(fn($invoice) => $invoice->payments->sum('rent_amount'))), 2) }}.
         @else
@@ -95,7 +96,8 @@
                                 <td class="{{ $invoice->balance_due > 0 ? 'text-danger' : 'text-success' }}">AED {{ number_format($invoice->balance_due, 2) }}</td>
                                 <td><span class="badge {{ $invoice->status === 'paid' ? 'bg-success' : ($invoice->status === 'partial' ? 'bg-warning' : 'bg-danger') }}">{{ ucfirst($invoice->status) }}</span></td>
                                 <td><div class="d-flex gap-1">
-                                    <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#invoiceDetails{{ $invoice->id }}">Documents</button>
+                                    <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#invoiceDetails{{ $invoice->id }}">Charges / Documents</button>
+                                    @if($invoice->status==='unpaid' && $invoice->payments->isEmpty())<button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#correctInvoice{{ $invoice->id }}">Edit Invoice</button>@endif
                                     @if($invoice->balance_due > 0)
                                         <button class="btn btn-sm btn-dark" data-bs-toggle="modal" data-bs-target="#paymentModal{{ $invoice->id }}">Payment</button>
                                     @endif
@@ -119,7 +121,7 @@
         </div>
 
         <div class="card">
-            <div class="card-header"><h4 class="card-title mb-0">Charges</h4></div>
+            <div class="card-header"><h4 class="card-title mb-0">Original Contract Charges</h4><small class="text-muted">Extensions have their own invoices above.</small></div>
             <div class="card-body">
                 <div class="table-responsive">
                     <table class="table table-hover align-middle mb-0">
@@ -144,13 +146,13 @@
             <div class="card-body">
                 <div class="d-flex flex-wrap gap-2">
                     <a href="{{ route('admin.booking.invoice', $booking->id) }}" class="btn btn-primary" title="Generate Invoice" aria-label="Generate Invoice">
-                        <iconify-icon icon="solar:bill-list-broken" class="align-middle fs-18"></iconify-icon>
+                        <iconify-icon icon="solar:bill-list-broken" class="align-middle fs-18"></iconify-icon> Invoice PDF
                     </a>
                     <a href="{{ route('admin.booking.confirmation', $booking->id) }}" class="btn btn-outline-primary" title="Booking Confirmation" aria-label="Booking Confirmation">
-                        <iconify-icon icon="solar:document-add-broken" class="align-middle fs-18"></iconify-icon>
+                        <iconify-icon icon="solar:document-add-broken" class="align-middle fs-18"></iconify-icon> Confirmation
                     </a>
                     <a href="{{ route('admin.booking.history', $booking->id) }}" class="btn btn-light" title="History" aria-label="History">
-                        <iconify-icon icon="solar:history-2-broken" class="align-middle fs-18"></iconify-icon>
+                        <iconify-icon icon="solar:history-2-broken" class="align-middle fs-18"></iconify-icon> History
                     </a>
                     <button type="button" class="btn btn-outline-dark" data-bs-toggle="modal" data-bs-target="{{ $remainingContractDays > 0 ? '#extendBookingModal' : '#contractLimitModal' }}" title="Extend Booking" aria-label="Extend Booking">
                         <iconify-icon icon="solar:calendar-add-broken" class="align-middle fs-18"></iconify-icon>
@@ -373,6 +375,7 @@
 </div>
 
 @foreach($booking->invoices as $invoice)
+@include('admin.bookings.partials.invoice-edit-modal')
 <div class="modal fade" id="invoiceDetails{{ $invoice->id }}" tabindex="-1" aria-hidden="true"><div class="modal-dialog"><div class="modal-content">
     <div class="modal-header"><h5>{{ $invoice->type_label }} — {{ $invoice->invoice_number }}</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
     <div class="modal-body"><table class="table"><tbody>
@@ -468,4 +471,5 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 </script>
 @endpush
+</div>
 @endsection

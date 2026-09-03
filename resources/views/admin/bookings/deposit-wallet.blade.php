@@ -1,5 +1,7 @@
 @extends('layouts.app')
 @section('content')
+@include('admin.bookings.partials.compact-style')
+<div class="booking-workspace">
 @php
     $money = fn($v) => 'AED '.number_format((float)$v, 2);
     $depositInvoices = $booking->invoices->filter(fn($i) => (float)(($i->fees ?? [])['Security Deposit'] ?? 0) > 0);
@@ -17,11 +19,7 @@
     @if(session('success'))<div class="alert alert-success" role="status">{{ session('success') }}</div>@endif
     @if($errors->any())<div class="alert alert-danger" role="alert">{{ $errors->first() }} Please reopen the action to correct your details and reattach any files.</div>@endif
 
-    <nav class="nav deposit-tabs mb-4" aria-label="Booking sections">
-        <a class="nav-link" href="{{ route('admin.booking.show',$booking) }}">Overview</a>
-        <a class="nav-link" href="{{ route('admin.booking.show',$booking) }}#bookingInvoices">Invoices</a>
-        <a class="nav-link active" aria-current="page" href="{{ route('admin.booking.deposit-wallet',$booking) }}">Security Deposit</a>
-    </nav>
+    @include('admin.bookings.partials.navigation')
     <div class="row g-3 mb-3">
         <div class="col-lg-5"><div class="card h-100 mb-0"><div class="card-header"><h5 class="mb-0">Collect Security Deposit</h5></div><div class="card-body">
             <div class="deposit-metrics">
@@ -178,6 +176,7 @@
 @if($entry->kind==='refunded')<a class="btn btn-primary" href="{{ route('admin.booking.deposit.receipt',[$booking,$entry]) }}">Refund Receipt PDF</a>@endif
 </div></div></div></div>
 @endforeach
+</div>
 @endsection
 @push('styles')
 <style>

@@ -20,18 +20,7 @@
     </tbody></table></div>
 </div>
 @foreach($booking->invoices as $invoice)
-<div class="modal fade" id="correctInvoice{{ $invoice->id }}" tabindex="-1" aria-label="Edit invoice" aria-hidden="true"><div class="modal-dialog modal-dialog-centered"><div class="modal-content">
-    <form method="POST" action="{{ route('admin.booking-invoice.correct',$invoice) }}">@csrf @method('PUT')
-        <div class="modal-header"><h5 class="modal-title">Edit {{ $invoice->invoice_number }}</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
-        <div class="modal-body"><div class="row g-3">
-            <div class="col-6"><label class="form-label">Rent excluding VAT</label><input name="rent_amount" type="number" min="0" step="0.01" value="{{ $invoice->rent_amount }}" class="form-control" required></div>
-            <div class="col-6"><label class="form-label">VAT rate (%) on rent</label><input name="vat_rate" type="number" min="0" max="100" step="0.01" value="{{ $invoice->vat_rate }}" class="form-control" required></div>
-            @foreach($invoice->fees ?? [] as $label=>$amount)<div class="col-6"><label class="form-label">{{ $label }}</label><input name="fees[{{ $label }}]" type="number" min="0" step="0.01" value="{{ $amount }}" class="form-control" required></div>@endforeach
-            <div class="col-12"><label class="form-label">Reason for correction</label><textarea name="reason" class="form-control" minlength="5" required></textarea></div>
-        </div><p class="small text-muted mt-3">VAT and total are recalculated. Invoice number and original history remain unchanged.</p></div>
-        <div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary">Save Invoice Correction</button></div>
-    </form>
-</div></div></div>
+@include('admin.bookings.partials.invoice-edit-modal')
 @foreach($invoice->allPayments as $payment)
 <div class="modal fade" id="correctPayment{{ $payment->id }}" tabindex="-1" aria-label="Edit payment details" aria-hidden="true"><div class="modal-dialog modal-dialog-centered"><div class="modal-content">
     <form method="POST" action="{{ route('admin.booking-payment.details',$payment) }}">@csrf @method('PUT')

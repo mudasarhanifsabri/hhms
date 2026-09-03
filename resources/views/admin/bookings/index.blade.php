@@ -1,6 +1,8 @@
 @extends('layouts.app')
 
 @section('content')
+@include('admin.bookings.partials.compact-style')
+<div class="booking-workspace">
 <div class="row">
     <div class="col-md-4">
         <div class="card"><div class="card-body d-flex align-items-center justify-content-between">
@@ -102,5 +104,6 @@
             </div>
         </div>
     </div>
+</div>
 </div>
 @endsection

@@ -1,6 +1,8 @@
 @extends('layouts.app')
 
 @section('content')
+@include('admin.bookings.partials.compact-style')
+<div class="booking-workspace">
 <div class="row mb-3">
     <div class="col-12 d-flex justify-content-between align-items-center">
         <h4 class="card-title mb-0">Booking Grid View</h4>
@@ -45,4 +47,5 @@
 </div>
 
 {{ $bookings->links('pagination::bootstrap-5') }}
+</div>
 @endsection

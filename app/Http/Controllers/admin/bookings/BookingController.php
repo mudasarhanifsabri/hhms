@@ -119,6 +119,9 @@ class BookingController extends Controller
     public function edit(Booking $booking)
     {
         $booking->load(['property', 'agent']);
+        if ($booking->invoices()->exists()) {
+            return view('admin.bookings.edit-guest', compact('booking'));
+        }
         $properties = Property::with('building')->orderBy('name')->get();
         $agents = User::where('role', 'agent')->orderBy('name')->get();
 
@@ -128,7 +131,18 @@ class BookingController extends Controller
     public function update(Request $request, Booking $booking)
     {
         if ($booking->invoices()->exists()) {
-            return back()->withErrors(['invoice' => 'This booking has saved invoices. Use History → Edit Invoice for charges; booking-wide financial edits are locked to keep payments and statements consistent.']);
+            if (!$request->boolean('edit_details_only')) {
+                return back()->withErrors(['invoice' => 'Use Edit Invoice for charges. Booking financial and stay details are locked once invoices exist.']);
+            }
+            $details = $request->validate(['guest_name' => 'required|string|max:255', 'guest_email' => 'required|email|max:255',
+                'guest_phone' => 'required|string|max:50', 'notes' => 'nullable|string|max:2000', 'reason' => 'required|string|min:5|max:1000']);
+            DB::transaction(function () use ($booking, $details) {
+                $booking = Booking::whereKey($booking->id)->lockForUpdate()->firstOrFail();
+                $before = $booking->only(['guest_name','guest_email','guest_phone','notes']);
+                $booking->update(\Illuminate\Support\Arr::only($details, array_keys($before)));
+                $booking->histories()->create(['title' => 'Guest Details Corrected', 'description' => 'By '.auth()->user()->name.'. Reason: '.$details['reason'].' | Before: '.json_encode($before).' | After: '.json_encode($booking->only(array_keys($before)))]);
+            });
+            return redirect()->route('admin.booking.show', $booking)->with('success', 'Guest contact details updated. Invoice charges and payments are unchanged.');
         }
         $validatedData = $this->validateBooking($request);
         $this->ensurePropertyCanBeBooked($validatedData['property_id'], $validatedData['check_in'], $validatedData['check_out'], $booking->id);
@@ -640,6 +654,7 @@ class BookingController extends Controller
             'period_to' => $override['period_to'] ?? $booking->check_out,
             'rent_amount' => $rentAmount,
             'vat_rate' => $vatRate,
+            'vat_included' => $type === 'extension' ? false : (bool) $booking->vat_included,
             'vat_amount' => $vatAmount,
             'fees' => $fees,
             'total_amount' => $rentAmount + $vatAmount + $feeTotal,

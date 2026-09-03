@@ -1,6 +1,8 @@
 @extends('layouts.app')
 
 @section('content')
+@include('admin.bookings.partials.compact-style')
+<div class="booking-workspace">
 <form action="{{ route('admin.booking.store') }}" method="POST" enctype="multipart/form-data">
     @csrf
     <div class="row">
@@ -54,20 +56,21 @@
 
         <div class="col-xl-4">
             <div class="card">
-                <div class="card-header"><h4 class="card-title">Charges</h4></div>
+                <div class="card-header"><h4 class="card-title">Invoice Charges</h4><small class="text-muted">Enter rent only. Other fees and deposit are separate. Saving does not record payment.</small></div>
                 <div class="card-body">
-                    <div class="mb-3"><label class="form-label" for="rent_amount">Rent</label><input type="number" step="0.01" min="0" id="rent_amount" name="rent_amount" value="{{ old('rent_amount', 0) }}" class="form-control booking-money"></div>
-                    <div class="form-check mb-3">
-                        <input type="checkbox" class="form-check-input" id="vat_included" name="vat_included" value="1" @checked(old('vat_included'))>
-                        <label class="form-check-label" for="vat_included">VAT included in rent</label>
+                    <div class="mb-3"><label class="form-label" for="rent_amount">Rent amount entered (AED)</label><input type="number" step="0.01" min="0" id="rent_amount" name="rent_amount" value="{{ old('rent_amount', 0) }}" class="form-control booking-money"></div>
+                    <div class="btn-group w-100 mb-3" role="group" aria-label="VAT treatment">
+                        <input type="radio" class="btn-check booking-money" id="vat_included" name="vat_included" value="1" @checked(old('vat_included', false))><label class="btn btn-outline-primary" for="vat_included">VAT Included</label>
+                        <input type="radio" class="btn-check booking-money" id="vat_added" name="vat_included" value="0" @checked(!(old('vat_included', false)))><label class="btn btn-outline-primary" for="vat_added">Add VAT</label>
                     </div>
+                    <div class="mb-3"><label class="form-label" for="base_rent">Rent excluding VAT</label><input id="base_rent" class="form-control" readonly></div>
                     <div class="mb-3"><label class="form-label" for="vat_amount">VAT 5%</label><input type="number" step="0.01" id="vat_amount" class="form-control" readonly></div>
                     <div class="mb-3"><label class="form-label" for="dtcm_fee">DTCM Fee</label><input type="number" step="0.01" min="0" id="dtcm_fee" name="dtcm_fee" value="{{ old('dtcm_fee', 0) }}" class="form-control booking-money"></div>
                     <div class="mb-3"><label class="form-label" for="cleaning_fee">Cleaning Fee</label><input type="number" step="0.01" min="0" id="cleaning_fee" name="cleaning_fee" value="{{ old('cleaning_fee', 0) }}" class="form-control booking-money"></div>
                     <div class="mb-3"><label class="form-label" for="agency_fee">Agency Fee</label><input type="number" step="0.01" min="0" id="agency_fee" name="agency_fee" value="{{ old('agency_fee', 0) }}" class="form-control booking-money"></div>
-                    <div class="mb-3"><label class="form-label" for="security_deposit">Security Deposit</label><input type="number" step="0.01" min="0" id="security_deposit" name="security_deposit" value="{{ old('security_deposit', 0) }}" class="form-control booking-money"></div>
+                    <div class="mb-3"><label class="form-label" for="security_deposit">Refundable security deposit (company held)</label><input type="number" step="0.01" min="0" id="security_deposit" name="security_deposit" value="{{ old('security_deposit', 0) }}" class="form-control booking-money"></div>
                     <div class="border rounded p-3 bg-light-subtle">
-                        <p class="text-muted mb-1">Total</p>
+                        <p class="text-muted mb-1">Invoice total</p>
                         <h4 class="mb-0"><span id="booking_total">0.00</span> AED</h4>
                     </div>
                 </div>
@@ -80,6 +83,7 @@
         </div>
     </div>
 </form>
+</div>
 @endsection
 
 @section('script')
@@ -91,6 +95,7 @@
         const vat = vatIncluded ? rentInput - (rentInput / 1.05) : rentInput * 0.05;
         const rent = vatIncluded ? rentInput - vat : rentInput;
         const total = rent + vat + money('dtcm_fee') + money('cleaning_fee') + money('agency_fee') + money('security_deposit');
+        document.getElementById('base_rent').value = rent.toFixed(2);
         document.getElementById('vat_amount').value = vat.toFixed(2);
         document.getElementById('booking_total').textContent = total.toFixed(2);
     };

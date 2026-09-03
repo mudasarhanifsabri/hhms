@@ -37,6 +37,38 @@ class BookingCorrectionsTest extends TestCase
             'deposit_amount' => $deposit, 'payment_date' => today()->toDateString(), 'payment_method' => 'Cash', 'bank_account_id' => $bank->id]);
     }
 
+    public function test_invoice_vat_toggle_matches_the_approved_examples_and_survives_reopening(): void
+    {
+        [$booking, $invoice] = $this->setupInvoice(1500);
+        $data = ['rent_amount' => 10500, 'vat_rate' => 5, 'vat_included' => 1, 'fees' => $invoice->fees, 'reason' => 'Rent includes agreed VAT'];
+        $this->put(route('admin.booking-invoice.correct', $invoice), $data)->assertSessionHasNoErrors();
+        $this->assertEquals(10000, $invoice->fresh()->rent_amount);
+        $this->assertEquals(500, $invoice->fresh()->vat_amount);
+        $this->assertEquals(12000, $invoice->fresh()->total_amount);
+        $this->assertTrue($invoice->fresh()->vat_included);
+        $this->assertTrue($booking->fresh()->vat_included);
+        $this->get(route('admin.booking.show', $booking))->assertOk()->assertSee('VAT Included')->assertSee('Add VAT')->assertSee('value="10500.00"', false);
+        $this->put(route('admin.booking-invoice.correct', $invoice), array_replace($data, ['vat_included' => 0]))->assertSessionHasNoErrors();
+        $this->assertEquals(10500, $invoice->fresh()->rent_amount);
+        $this->assertEquals(525, $invoice->fresh()->vat_amount);
+        $this->assertEquals(12525, $invoice->fresh()->total_amount);
+        $this->assertSame(0, LandlordAccountEntry::count());
+        $this->assertSame(0, AccountingEntry::count());
+    }
+
+    public function test_guest_edit_is_compact_and_cannot_change_invoice_financials(): void
+    {
+        [$booking, $invoice] = $this->setupInvoice();
+        $this->get(route('admin.booking.edit', $booking))->assertOk()->assertSee('Edit Guest Details')->assertDontSee('name="rent_amount"', false);
+        $this->put(route('admin.booking.update', $booking), ['edit_details_only' => 1, 'guest_name' => 'Correct Name',
+            'guest_email' => 'correct@example.com', 'guest_phone' => '123456', 'reason' => 'Correct guest contact', 'rent_amount' => 99999])
+            ->assertSessionHasNoErrors();
+        $this->assertSame('Correct Name', $booking->fresh()->guest_name);
+        $this->assertEquals(1000, $booking->fresh()->rent_amount);
+        $this->assertEquals(1050, $invoice->fresh()->total_amount);
+        $this->get(route('admin.booking.create'))->assertOk()->assertSee('VAT Included')->assertSee('Add VAT');
+    }
+
     public function test_booking_posts_no_owner_income_until_actual_rent_is_collected(): void
     {
         [$booking, $invoice, $bank, $owner] = $this->setupInvoice(300);
