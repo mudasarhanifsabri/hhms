@@ -17,6 +17,7 @@ class Booking extends BaseModel
         'renewed_from_booking_id',
         'property_id',
         'agent_id',
+        'agent_commission_percent',
         'guest_name',
         'guest_email',
         'guest_phone',
@@ -47,6 +48,7 @@ class Booking extends BaseModel
     ];
 
     protected $casts = [
+        'agent_commission_percent' => 'decimal:2',
         'check_in' => 'date',
         'check_out' => 'date',
         'rent_amount' => 'decimal:2',

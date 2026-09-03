@@ -86,6 +86,7 @@ class BookingCorrectionController extends Controller
             $before = $payment->only(['reference', 'notes']);
             $payment->update(['reference' => $data['reference'] ?? null, 'notes' => $data['notes'] ?? null]);
             AccountingEntry::whereKey($payment->accounting_entry_id)->update(['transaction_reference' => $payment->reference ?: $payment->invoice->invoice_number]);
+            AccountingEntry::whereIn('id', $payment->allocation_entry_ids ?? [])->update(['transaction_reference' => $payment->reference ?: $payment->invoice->invoice_number]);
             BookingDepositEntry::where('booking_invoice_payment_id', $payment->id)->where('kind', 'received')->update(['reference' => $payment->reference]);
             $booking->histories()->create(['title' => 'Payment Details Corrected', 'description' => $payment->id.' by '.auth()->user()->name.'. Reason: '.$data['reason'].' | Before: '.json_encode($before).' | After: '.json_encode($payment->only(['reference', 'notes']))]);
         });
@@ -121,6 +122,7 @@ class BookingCorrectionController extends Controller
             $reversal->save();
             $payment->update(['reversed_at' => now()]);
             OwnerReceiptPosting::reverse($payment, $data['reason']);
+            \App\Support\InvoiceSettlement::reverse($payment, $data['reason']);
             $paid = (float) $invoice->payments()->sum('amount');
             $invoice->update(['status' => $paid <= 0 ? 'unpaid' : ($paid >= (float) $invoice->total_amount ? 'paid' : 'partial')]);
             $booking->update(['invoice_status' => $booking->invoices()->where('status', '!=', 'paid')->exists() ? 'unpaid' : 'paid']);

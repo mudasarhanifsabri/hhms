@@ -167,6 +167,8 @@ Route::post('/bookings/{booking}/payment-proof', [BookingController::class, 'att
 Route::post('/booking-invoices/{invoice}/payments', [BookingController::class, 'recordInvoicePayment'])->name('booking-invoice.payment');
 Route::get('/booking-invoices/{invoice}/receipt', [BookingController::class, 'paymentReceipt'])->name('booking-invoice.receipt');
 Route::get('/booking-invoices/{invoice}/confirmation', [BookingController::class, 'invoiceConfirmation'])->name('booking-invoice.confirmation');
+Route::put('/bookings/{booking}/agent-commission', [BookingController::class, 'commission'])->name('booking.agent-commission');
+Route::put('/agents/{agent}/commission-rate', [AgentController::class, 'commission'])->name('agent.commission');
 Route::put('/booking-invoices/{invoice}/correct', [\App\Http\Controllers\admin\bookings\BookingCorrectionController::class, 'invoice'])->name('booking-invoice.correct');
 Route::put('/booking-payments/{payment}/details', [\App\Http\Controllers\admin\bookings\BookingCorrectionController::class, 'paymentDetails'])->name('booking-payment.details');
 Route::post('/booking-payments/{payment}/reverse', [\App\Http\Controllers\admin\bookings\BookingCorrectionController::class, 'reversePayment'])->name('booking-payment.reverse');

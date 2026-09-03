@@ -60,7 +60,7 @@ class BookingExtensionRenewalTest extends TestCase
         $this->assertStringContainsString('4,825.00', $confirmation);
         $this->assertStringNotContainsString('18,900.00', $confirmation);
 
-        $this->actingAs($admin)->get(route('admin.booking-invoice.confirmation', $invoice))->assertOk();
+        $this->actingAs($admin)->get(route('admin.booking-invoice.confirmation', $invoice))->assertStatus(422);
     }
 
     public function test_extension_beyond_90_days_requires_renewal(): void
@@ -90,7 +90,7 @@ class BookingExtensionRenewalTest extends TestCase
             ->assertOk()->assertSee('Period confirmation unavailable')->assertSee('Guest & Stay', false);
     }
 
-    public function test_invoice_payment_is_separate_and_supports_partial_status(): void
+    public function test_invoice_payment_requires_the_full_balance(): void
     {
         ['admin' => $admin, 'booking' => $booking] = $this->booking();
         $invoice = $booking->invoices()->firstOrFail();
@@ -98,12 +98,12 @@ class BookingExtensionRenewalTest extends TestCase
         $this->assertNotNull(AccountingAccount::where('code', '4010')->first());
 
         $this->actingAs($admin)->post(route('admin.booking-invoice.payment', $invoice), [
-            'payment_date' => '2026-03-01', 'amount' => 10000, 'payment_method' => 'Bank Transfer', 'bank_account_id' => $bank->id,
+            'payment_date' => '2026-03-01', 'amount' => 18900, 'payment_method' => 'Bank Transfer', 'bank_account_id' => $bank->id,
         ])->assertSessionHasNoErrors()->assertSessionHas('success');
 
-        $this->assertDatabaseHas('booking_invoice_payments', ['booking_invoice_id' => $invoice->id, 'amount' => 10000]);
-        $this->assertSame('partial', $invoice->fresh()->status);
-        $this->assertSame('10000.00', $bank->fresh()->current_balance);
+        $this->assertDatabaseHas('booking_invoice_payments', ['booking_invoice_id' => $invoice->id, 'amount' => 18900]);
+        $this->assertSame('paid', $invoice->fresh()->status);
+        $this->assertSame('18900.00', $bank->fresh()->current_balance);
     }
 
     public function test_checkout_requires_confirmation_and_can_be_safely_reversed(): void

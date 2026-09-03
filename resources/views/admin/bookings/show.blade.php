@@ -105,7 +105,9 @@
                                     @endif
                                     <div class="dropdown"><button class="btn btn-sm btn-light" data-bs-toggle="dropdown" aria-label="More invoice actions"><iconify-icon icon="solar:menu-dots-bold"></iconify-icon></button><div class="dropdown-menu dropdown-menu-end">
                                         @if(\Illuminate\Support\Facades\Route::has('admin.booking-invoice.confirmation'))
+                                        @if($invoice->status === 'paid' && (float) $invoice->payments->sum('amount') >= (float) $invoice->total_amount)
                                         <a class="dropdown-item" href="{{ route('admin.booking-invoice.confirmation', $invoice) }}"><iconify-icon icon="solar:document-add-broken" class="me-2"></iconify-icon>Period confirmation PDF</a>
+                                        @else<span class="dropdown-item-text small text-muted">Confirmation locked until fully paid</span>@endif
                                         @else
                                         <span class="dropdown-item-text small text-warning">Period confirmation unavailable: refresh server route cache.</span>
                                         @endif
@@ -134,6 +136,9 @@
             </div>
         </div>
 
+        @if($booking->agent_id)<div class="card"><div class="card-body"><h4 class="card-title">Agent commission · {{ $booking->agent?->name }}</h4><p class="small text-muted">{{ $booking->agent_commission_percent ?? $booking->agent?->agent_commission ?? 0 }}% of the agency fee. The company retains the remaining agency fee.</p>
+        @if(!\App\Models\BookingInvoicePayment::whereHas('invoice', fn($q) => $q->where('booking_id', $booking->id))->exists())<form action="{{ route('admin.booking.agent-commission', $booking) }}" method="POST" class="row g-2">@csrf @method('PUT')<div class="col-md-3"><label class="form-label">Booking override %</label><input type="number" name="agent_commission_percent" class="form-control" min="0" max="100" step="0.01" value="{{ $booking->agent_commission_percent ?? $booking->agent?->agent_commission ?? 0 }}" required></div><div class="col-md-6"><label class="form-label">Reason</label><input name="reason" class="form-control" minlength="5" maxlength="500" required></div><div class="col-md-3 d-flex align-items-end"><button class="btn btn-outline-primary">Save rate</button></div></form>@else<p class="small text-muted mb-0">Commission locked because payment history exists.</p>@endif
+        </div></div>@endif
         <div class="owner-posting-card"><div class="d-flex gap-3"><iconify-icon icon="solar:buildings-3-broken" class="fs-24 text-primary"></iconify-icon><div><strong>Owner posting</strong><div class="mt-1">Expected rent not collected: <strong>AED {{ number_format($expectedRentOutstanding, 2) }}</strong></div><small>Owner rent posts from received rent only. Security deposits are separate from owner income.</small>@if($booking->owner_posting_basis !== 'receipts')<div class="text-warning mt-1">Legacy owner posting requires reconciliation before changing its basis.</div>@endif</div></div></div>
     </div>
 
@@ -358,6 +363,12 @@
 </div>
 
 @foreach($booking->invoices as $invoice)
+@php
+    $allocationError = null;
+    try { $automaticAllocation = \App\Support\InvoiceSettlement::allocation($invoice); }
+    catch (\Illuminate\Validation\ValidationException $e) { $automaticAllocation = []; $allocationError = collect($e->errors())->flatten()->first(); }
+    $commissionRate = $booking->agent_id ? (float) ($booking->agent_commission_percent ?? $booking->agent?->agent_commission ?? 0) : 0;
+@endphp
 @include('admin.bookings.partials.invoice-edit-modal')
 <div class="modal fade" id="invoiceDetails{{ $invoice->id }}" tabindex="-1" aria-hidden="true"><div class="modal-dialog"><div class="modal-content">
     <div class="modal-header"><h5>{{ $invoice->type_label }} — {{ $invoice->invoice_number }}</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
@@ -378,7 +389,9 @@
     </tbody></table><p>Which document would you like?</p>
     <a class="btn btn-primary" href="{{ route('admin.accounting.booking-invoices.pdf', $invoice) }}">Invoice PDF</a>
     @if(\Illuminate\Support\Facades\Route::has('admin.booking-invoice.confirmation'))
+    @if($invoice->status === 'paid' && (float) $invoice->payments->sum('amount') >= (float) $invoice->total_amount)
     <a class="btn btn-outline-primary" href="{{ route('admin.booking-invoice.confirmation', $invoice) }}">Period Confirmation</a>
+    @else<p class="small text-warning mt-2">Confirmation locked until the full invoice payment is recorded.</p>@endif
     @else
     <p class="small text-warning mt-2">Period confirmation unavailable. Complete the software update and refresh the server route cache.</p>
     @endif
@@ -395,19 +408,20 @@
                     <div class="col-md-4"><div class="border rounded p-3"><span class="text-muted small">Already Paid</span><h5 class="text-success">AED {{ number_format($invoice->paid_amount, 2) }}</h5></div></div>
                     <div class="col-md-4"><div class="border rounded p-3"><span class="text-muted small">Balance Due</span><h5 class="text-danger">AED {{ number_format($invoice->balance_due, 2) }}</h5></div></div>
                     <div class="col-md-6"><label class="form-label">Payment Date</label><input type="date" name="payment_date" class="form-control" value="{{ now()->format('Y-m-d') }}" required></div>
-                    <div class="col-md-6"><label class="form-label">Amount (AED)</label><input type="number" name="amount" class="form-control" step="0.01" min="0.01" max="{{ $invoice->balance_due }}" value="{{ $invoice->balance_due }}" required></div>
+                    <div class="col-md-6"><label class="form-label">Full outstanding amount (AED)</label><input type="number" name="amount" class="form-control" step="0.01" min="0.01" value="{{ $invoice->balance_due }}" readonly required><small class="text-muted">Record only after this full amount is received.</small></div>
                     <div class="col-md-6"><label class="form-label">Payment Method</label><select name="payment_method" class="form-select" required><option>Bank Transfer</option><option>Cash</option><option>Card</option><option>Cheque</option><option>Online Payment</option></select></div>
-                    <div class="col-md-6"><label class="form-label">Deposit To Account</label><select name="bank_account_id" class="form-select"><option value="">Not selected</option>@foreach($bankAccounts as $account)<option value="{{ $account->id }}">{{ $account->name }}</option>@endforeach</select></div>
-                    <div class="col-md-6"><label class="form-label">Of this payment: security deposit (AED)</label><input name="deposit_amount" type="number" class="form-control" min="0" step="0.01" value="0"><small class="text-muted">Included in the payment, not an additional charge. Allocates this portion to the deposit wallet.</small></div>
-                    @if($booking->owner_posting_basis === 'receipts')
-                    <div class="col-md-6"><label class="form-label">Of this payment: rent only (AED)</label><input name="rent_amount" type="number" class="form-control" min="0" step="0.01" max="{{ max(0,(float)$invoice->rent_amount-(float)$invoice->payments->sum('rent_amount')) }}" required><small class="text-muted">Exclude VAT, fees and deposit. Only this amount credits the owner, followed by the management-fee deduction. The remainder covers VAT and other charges.</small></div>
-                    @endif
-                    <div class="col-md-6"><label class="form-label">Reference</label><input name="reference" class="form-control"></div>
+                    <div class="col-md-6"><label class="form-label">Received into account</label><select name="bank_account_id" class="form-select" required><option value="">Select bank / cash account</option>@foreach($bankAccounts as $account)<option value="{{ $account->id }}">{{ $account->name }}</option>@endforeach</select></div>
+                    <div class="col-12"><div class="border rounded p-3"><strong>Automatic invoice allocation</strong><p class="small text-muted">No charge entry needed. Amounts come from this invoice.</p>
+                    @if($allocationError)<div class="alert alert-warning">{{ $allocationError }}</div>@else
+                    <table class="table table-sm mb-0"><tbody>@foreach(['rent'=>'Rent (before management fee)', 'vat'=>'VAT payable', 'cleaning'=>'Cleaning income', 'agency'=>'Agency fee', 'tourism'=>'Tourism fees payable', 'other'=>'Other fees', 'deposit'=>'Company-held refundable deposit'] as $key=>$label)<tr><td>{{ $label }}</td><td class="text-end">AED {{ number_format($automaticAllocation[$key], 2) }}</td></tr>@endforeach
+                    <tr class="table-light"><td>Agent commission — {{ $commissionRate }}% of agency fee</td><td class="text-end">AED {{ number_format(round($automaticAllocation['agency'] * $commissionRate / 100, 2), 2) }}</td></tr><tr class="table-light"><td>Company agency income</td><td class="text-end">AED {{ number_format($automaticAllocation['agency'] - round($automaticAllocation['agency'] * $commissionRate / 100, 2), 2) }}</td></tr></tbody></table><small class="text-muted">Agent commission is part of the agency fee, not an additional guest charge. It is recorded as payable, not paid to the agent.</small>@endif
+                    </div></div>
+                    <div class="col-md-6"><label class="form-label">Bank transaction reference</label><input name="reference" class="form-control" placeholder="Reference shown on the bank statement"><small class="text-muted">Keep this reference for comparison with your bank statement.</small></div>
                     <div class="col-md-6"><label class="form-label">Upload Receipt</label><input type="file" name="receipt" class="form-control" accept=".pdf,.jpg,.jpeg,.png"></div>
                     <div class="col-12"><label class="form-label">Notes</label><textarea name="notes" class="form-control" rows="2"></textarea></div>
                 </div>
             </div>
-            <div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary">Save Payment</button></div>
+            <div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-primary" @disabled($allocationError)>Record Full Payment</button></div>
         </form>
     </div></div>
 </div>

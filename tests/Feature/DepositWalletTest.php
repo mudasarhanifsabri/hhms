@@ -31,7 +31,17 @@ class DepositWalletTest extends TestCase
         $booking = Booking::create(['property_id' => $property->id, 'booking_reference' => 'BK-DEPOSIT', 'invoice_number' => 'INV-DEPOSIT', 'guest_name' => 'John Smith', 'guest_email' => 'john@example.com', 'guest_phone' => '0500000000', 'guest_passport_id_no' => 'P-1234', 'check_in' => '2026-08-01', 'check_out' => '2026-09-01', 'rent_amount' => 1000, 'security_deposit' => 1500, 'total_amount' => 2500, 'status' => 'confirmed']);
         $invoice = BookingInvoice::create(['booking_id' => $booking->id, 'invoice_number' => 'INV-DEPOSIT', 'invoice_type' => 'original', 'issue_date' => today(), 'rent_amount' => 1000, 'vat_amount' => 0, 'fees' => ['Security Deposit' => 1500], 'total_amount' => 2500, 'status' => 'unpaid']);
         $bank = BankAccount::create(['name' => 'Operating Bank', 'type' => 'bank', 'currency' => 'AED', 'opening_balance' => 0, 'current_balance' => 0, 'is_active' => true]);
-        $this->actingAs($admin)->post(route('admin.booking-invoice.payment', $invoice), ['payment_date' => today()->toDateString(), 'amount' => 2500, 'deposit_amount' => $allocate ? 1500 : 0, 'payment_method' => 'Bank Transfer', 'bank_account_id' => $bank->id])->assertSessionHasNoErrors()->assertSessionHas('success');
+        $this->actingAs($admin);
+        if ($allocate) {
+            $this->post(route('admin.booking-invoice.payment', $invoice), ['payment_date' => today()->toDateString(), 'amount' => 2500, 'payment_method' => 'Bank Transfer', 'bank_account_id' => $bank->id])->assertSessionHasNoErrors()->assertSessionHas('success');
+        } else {
+            // Historical receipt predating automatic allocation, not a new payment bypass.
+            $entry = AccountingEntry::create(['entry_no' => 'LEGACY-RECEIPT', 'entry_date' => today(), 'type' => 'income', 'category' => 'booking', 'accounting_account_id' => \App\Models\AccountingAccount::where('code', '4010')->firstOrFail()->id, 'booking_id' => $booking->id, 'property_id' => $property->id, 'landlord_id' => $owner->id, 'paid_from_account_id' => $bank->id, 'credit' => 2500, 'debit' => 0, 'net_amount' => 2500, 'gross_amount' => 2500, 'status' => 'posted', 'approval_status' => 'posted', 'created_by' => $admin->id]);
+            $invoice->payments()->create(['payment_date' => today(), 'amount' => 2500, 'payment_method' => 'Bank Transfer', 'bank_account_id' => $bank->id, 'accounting_entry_id' => $entry->id, 'created_by' => $admin->id]);
+            $invoice->update(['status' => 'paid']);
+            $booking->update(['invoice_status' => 'paid']);
+            $bank->update(['current_balance' => 2500]);
+        }
 
         return compact('admin', 'owner', 'booking', 'invoice', 'bank');
     }
@@ -190,7 +200,7 @@ class DepositWalletTest extends TestCase
         $data = ['invoice_id' => $invoice->id, 'amount' => 100, 'payment_date' => today()->toDateString(), 'bank_account_id' => $bank->id, 'payment_method' => 'Cash', 'reference' => 'DEP-100', 'submission_id' => $submission];
         $this->post(route('admin.booking.deposit.collect', $booking), $data)->assertSessionHasErrors('receipt');
         $this->post(route('admin.booking.deposit.collect', $booking), [...$data, 'receipt' => UploadedFile::fake()->create('received.pdf', 10, 'application/pdf')])->assertSessionHasNoErrors();
-        $this->post(route('admin.booking.deposit.collect', $booking), [...$data, 'receipt' => UploadedFile::fake()->create('received.pdf', 10, 'application/pdf')])->assertSessionHasNoErrors();
+        $this->post(route('admin.booking.deposit.collect', $booking), [...$data, 'receipt' => UploadedFile::fake()->create('received.pdf', 10, 'application/pdf')])->assertSessionHasErrors('amount');
         $this->assertSame(1, $invoice->payments()->count());
         $this->assertSame(1600.0, DepositWallet::totals($booking)['held']);
         $this->assertSame(2600.0, (float) $bank->fresh()->current_balance);

@@ -86,6 +86,21 @@ class BookingController extends Controller
         return view('admin.bookings.create', compact('properties', 'agents'));
     }
 
+    public function commission(Request $request, Booking $booking)
+    {
+        $data = $request->validate(['agent_commission_percent' => 'required|numeric|between:0,100', 'reason' => 'required|string|min:5|max:500']);
+        DB::transaction(function () use ($booking, $data) {
+            $booking = Booking::whereKey($booking->id)->lockForUpdate()->firstOrFail();
+            if (!$booking->agent_id || BookingInvoicePayment::whereHas('invoice', fn ($q) => $q->where('booking_id', $booking->id))->exists()) {
+                throw ValidationException::withMessages(['agent_commission_percent' => 'Assign an agent first. Commission is locked once payment history exists.']);
+            }
+            $before = $booking->agent_commission_percent ?? $booking->agent?->agent_commission ?? 0;
+            $booking->update(['agent_commission_percent' => $data['agent_commission_percent']]);
+            $booking->histories()->create(['title' => 'Agent Commission Updated', 'description' => $before.'% → '.$data['agent_commission_percent'].'% of agency fee by '.auth()->user()->name.'. '.$data['reason']]);
+        });
+        return back()->with('success', 'Booking agent commission updated.');
+    }
+
     public function store(Request $request)
     {
         $validatedData = $this->validateBooking($request);
@@ -269,6 +284,7 @@ class BookingController extends Controller
         $payload = [
             'property_id' => $booking->property_id,
             'agent_id' => $booking->agent_id,
+            'agent_commission_percent' => $booking->agent_commission_percent,
             'guest_name' => $booking->guest_name,
             'guest_email' => $booking->guest_email,
             'guest_phone' => $booking->guest_phone,
@@ -341,12 +357,10 @@ class BookingController extends Controller
     {
         $data = $request->validate([
             'payment_date' => 'required|date',
-            'amount' => 'required|numeric|min:0.01',
-            'deposit_amount' => 'nullable|numeric|min:0|decimal:0,2|lte:amount',
-            'rent_amount' => 'nullable|numeric|min:0|decimal:0,2|lte:amount',
+            'amount' => 'required|numeric|decimal:0,2|min:0.01',
             'deposit_submission_id' => 'nullable|uuid',
             'payment_method' => 'required|string|max:100',
-            'bank_account_id' => 'nullable|exists:bank_accounts,id',
+            'bank_account_id' => 'required|exists:bank_accounts,id,is_active,1',
             'reference' => 'nullable|string|max:150',
             'receipt' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:10240',
             'notes' => 'nullable|string|max:2000',
@@ -356,45 +370,25 @@ class BookingController extends Controller
         DB::transaction(function () use ($request, $invoice, $data) {
             Booking::whereKey($invoice->booking_id)->lockForUpdate()->firstOrFail();
             $invoice = BookingInvoice::whereKey($invoice->id)->lockForUpdate()->firstOrFail();
-            if (! empty($data['deposit_submission_id']) && ($existing = \App\Models\BookingDepositEntry::where('submission_id', $data['deposit_submission_id'])->first())) {
-                if ($existing->booking_invoice_id !== $invoice->id || \App\Support\DepositWallet::cents($existing->amount) !== \App\Support\DepositWallet::cents($data['deposit_amount'] ?? 0)) {
-                    throw ValidationException::withMessages(['deposit' => 'This deposit submission has already been used.']);
-                }
-
-                return;
-            }
             $paidBefore = $invoice->paid_amount;
-            if (\App\Support\DepositWallet::cents($data['amount']) > \App\Support\DepositWallet::cents($invoice->balance_due)) {
-                throw ValidationException::withMessages(['amount' => 'Payment exceeds the current invoice balance.']);
+            if (\App\Support\DepositWallet::cents($data['amount']) !== \App\Support\DepositWallet::cents($invoice->balance_due)) {
+                throw ValidationException::withMessages(['amount' => 'Record the full outstanding invoice balance. Partial payments and overpayments are not allowed.']);
             }
-            if ($invoice->booking->owner_posting_basis === 'receipts') {
-                if (! isset($data['rent_amount'])) {
-                    throw ValidationException::withMessages(['rent_amount' => 'Enter the rent portion of this payment, excluding VAT, fees and security deposit.']);
-                }
-                $rent = (float) $data['rent_amount'];
-                $deposit = (float) ($data['deposit_amount'] ?? 0);
-                $rentPaid = (float) $invoice->payments()->sum('rent_amount');
-                $depositPaid = (float) \App\Models\BookingDepositEntry::where('booking_invoice_id', $invoice->id)->where('kind', 'received')->sum('amount');
-                $nonRentPaid = (float) $invoice->payments()->sum('amount') - $rentPaid - $depositPaid;
-                $depositCharge = (float) (($invoice->fees ?? [])['Security Deposit'] ?? 0);
-                $otherCharges = (float) $invoice->total_amount - (float) $invoice->rent_amount - $depositCharge;
-                $otherPayment = (float) $data['amount'] - $rent - $deposit;
-                if ($otherPayment < -0.001 || round($rentPaid + $rent, 2) > (float) $invoice->rent_amount || round($nonRentPaid + $otherPayment, 2) > round($otherCharges, 2)) {
-                    throw ValidationException::withMessages(['rent_amount' => 'Payment allocation exceeds rent or other charges. Allocate the correct rent and deposit portions; the remainder covers VAT and other fees.']);
-                }
-            }
+            $allocation = \App\Support\InvoiceSettlement::allocation($invoice);
+            $data['rent_amount'] = $allocation['rent'];
+            $data['deposit_amount'] = $allocation['deposit'];
             $entry = AccountingEntry::create([
                 'entry_no' => $this->nextAccountingEntryNumber(),
                 'entry_date' => $data['payment_date'],
-                'type' => 'income', 'category' => 'rental_income',
-                'accounting_account_id' => AccountingAccount::where('code', '4010')->value('id'),
+                'type' => 'income', 'category' => 'guest_receipt',
+                'accounting_account_id' => AccountingAccount::where('code', '2096')->firstOrFail()->id,
                 'description' => 'Guest payment for '.$invoice->invoice_number,
                 'property_id' => $invoice->booking?->property_id,
                 'landlord_id' => $invoice->booking?->property?->landlord_id,
                 'booking_id' => $invoice->booking_id,
                 'paid_from_account_id' => $data['bank_account_id'] ?? null,
                 'debit' => 0, 'credit' => $data['amount'],
-                'vat_rate' => $invoice->vat_rate, 'vat_amount' => 0,
+                'vat_rate' => $invoice->vat_rate, 'vat_amount' => $allocation['vat'],
                 'net_amount' => $data['amount'], 'gross_amount' => $data['amount'],
                 'payment_method' => $data['payment_method'],
                 'transaction_reference' => ($data['reference'] ?? null) ?: $invoice->invoice_number,
@@ -409,6 +403,7 @@ class BookingController extends Controller
                 'receipt_path' => $this->uploadFile($request, 'receipt', 'booking_payment_proofs'),
                 'notes' => $data['notes'] ?? null, 'accounting_entry_id' => $entry->id, 'created_by' => auth()->id(),
                 'rent_amount' => $invoice->booking->owner_posting_basis === 'receipts' ? $data['rent_amount'] : null,
+                'allocation' => $allocation,
             ]);
 
             if ((float) ($data['deposit_amount'] ?? 0) > 0) {
@@ -417,6 +412,7 @@ class BookingController extends Controller
 
             $paid = $paidBefore + (float) $data['amount'];
             \App\Support\OwnerReceiptPosting::post($payment);
+            \App\Support\InvoiceSettlement::post($payment);
             $invoice->booking->histories()->create(['title' => 'Payment Recorded', 'description' => 'Payment '.$payment->id.' for '.$invoice->invoice_number.': AED '.number_format((float) $payment->amount, 2).'; rent portion '.($payment->rent_amount ?? 'legacy').'; recorded by '.auth()->user()->name.'.']);
             $invoice->update(['status' => $paid >= (float) $invoice->total_amount ? 'paid' : 'partial']);
             $invoice->booking?->update(['invoice_status' => $invoice->booking->invoices()->where('status', '!=', 'paid')->exists() ? 'unpaid' : 'paid']);
@@ -538,6 +534,7 @@ class BookingController extends Controller
 
     public function confirmation(Booking $booking)
     {
+        \App\Support\InvoiceSettlement::assertBookingPaid($booking);
         $booking->load(['property.building', 'agent']);
 
         return PdfRenderer::downloadView('admin.bookings.pdf.confirmation', compact('booking'), $booking->booking_reference.'-confirmation.pdf');
@@ -545,6 +542,7 @@ class BookingController extends Controller
 
     public function invoiceConfirmation(BookingInvoice $invoice)
     {
+        \App\Support\InvoiceSettlement::assertPaid($invoice);
         $invoice->load('booking.property.building', 'booking.agent');
         $booking = $invoice->booking;
 
@@ -757,6 +755,7 @@ class BookingController extends Controller
 
         return [
             'rent_amount' => $baseRent,
+            'agent_commission_percent' => !empty($validatedData['agent_id']) ? ($validatedData['agent_commission_percent'] ?? (float) User::where('role', 'agent')->whereKey($validatedData['agent_id'])->value('agent_commission')) : 0,
             'management_fee_percent' => $managementFeePercent,
             'management_fee_amount' => $managementFeeAmount,
             'owner_rent_income' => $ownerRentIncome,

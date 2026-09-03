@@ -15,6 +15,14 @@ use Illuminate\Http\Response;
 
 class AgentController extends Controller
 {
+    public function commission(Request $request, User $agent)
+    {
+        abort_unless($agent->role === 'agent', 404);
+        $data = $request->validate(['agent_commission' => 'required|numeric|between:0,100']);
+        $agent->update($data);
+        return back()->with('success', 'Default agency-fee commission updated. Existing booking rates are unchanged.');
+    }
+
     public function index(Request $request): Response
     {
         $perPage = $request->input('per_page', 10);

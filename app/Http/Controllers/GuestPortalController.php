@@ -27,6 +27,7 @@ class GuestPortalController extends Controller
     public function confirmation(string $reference)
     {
         $booking = $this->findBooking($reference);
+        \App\Support\InvoiceSettlement::assertBookingPaid($booking);
 
         return PdfRenderer::downloadView('admin.bookings.pdf.confirmation', compact('booking'), $booking->booking_reference . '-confirmation.pdf');
     }

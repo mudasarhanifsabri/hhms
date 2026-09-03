@@ -11,9 +11,10 @@ class BookingInvoicePayment extends BaseModel
         'bank_account_id', 'reference', 'receipt_path', 'notes',
         'accounting_entry_id', 'created_by',
         'rent_amount', 'reversed_at',
+        'allocation', 'allocation_entry_ids',
     ];
 
-    protected $casts = ['payment_date' => 'date', 'amount' => 'decimal:2', 'rent_amount' => 'decimal:2', 'reversed_at' => 'datetime'];
+    protected $casts = ['payment_date' => 'date', 'amount' => 'decimal:2', 'rent_amount' => 'decimal:2', 'reversed_at' => 'datetime', 'allocation' => 'array', 'allocation_entry_ids' => 'array'];
 
     public function invoice(): BelongsTo
     {

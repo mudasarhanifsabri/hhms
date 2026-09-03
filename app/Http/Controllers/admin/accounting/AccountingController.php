@@ -33,10 +33,12 @@ class AccountingController extends Controller
         $from = $month->copy()->startOfMonth();
         $to = $month->copy()->endOfMonth();
 
-        $income = AccountingEntry::where('type', '!=', 'deposit')->whereBetween('entry_date', [$from, $to])->sum('credit');
-        $expenses = AccountingEntry::where('type', '!=', 'deposit')->whereBetween('entry_date', [$from, $to])->sum('debit');
-        $todayIncome = AccountingEntry::where('type', '!=', 'deposit')->whereDate('entry_date', today())->sum('credit');
-        $todayExpenses = AccountingEntry::where('type', '!=', 'deposit')->whereDate('entry_date', today())->sum('debit');
+        $incomeQuery = AccountingEntry::whereIn('approval_status', ['posted', 'approved', 'paid'])->whereHas('accountingAccount', fn($q) => $q->where('type', 'income'));
+        $expenseQuery = AccountingEntry::whereIn('approval_status', ['posted', 'approved', 'paid'])->whereHas('accountingAccount', fn($q) => $q->where('type', 'expense'));
+        $income = (float) (clone $incomeQuery)->whereBetween('entry_date', [$from, $to])->selectRaw('COALESCE(SUM(credit-debit),0) as total')->value('total');
+        $expenses = (float) (clone $expenseQuery)->whereBetween('entry_date', [$from, $to])->selectRaw('COALESCE(SUM(debit-credit),0) as total')->value('total');
+        $todayIncome = (float) (clone $incomeQuery)->whereDate('entry_date', today())->selectRaw('COALESCE(SUM(credit-debit),0) as total')->value('total');
+        $todayExpenses = (float) (clone $expenseQuery)->whereDate('entry_date', today())->selectRaw('COALESCE(SUM(debit-credit),0) as total')->value('total');
         $cashBalance = $this->bankBalanceTotal('cash');
         $bankBalance = $this->bankBalanceTotal('bank');
         $ownerBalances = $this->ownerAccountBalances();
@@ -1025,8 +1027,8 @@ class AccountingController extends Controller
         $from = $month->copy()->startOfMonth();
         $to = $month->copy()->endOfMonth();
         $entries = AccountingEntry::whereBetween('entry_date', [$from, $to])->latest('entry_date')->get();
-        $outputVat = $entries->where('credit', '>', 0)->sum('vat_amount');
-        $inputVat = $entries->where('debit', '>', 0)->sum('vat_amount');
+        $outputVat = $entries->where('type', 'income')->sum('vat_amount');
+        $inputVat = $entries->whereIn('type', ['expense', 'utility'])->sum('vat_amount');
 
         return view('admin.accounting.vat', compact('month', 'entries', 'outputVat', 'inputVat'));
     }

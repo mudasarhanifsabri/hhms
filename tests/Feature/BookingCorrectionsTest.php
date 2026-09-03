@@ -74,13 +74,12 @@ class BookingCorrectionsTest extends TestCase
         [$booking, $invoice, $bank, $owner] = $this->setupInvoice(300);
         $this->assertSame('receipts', $booking->owner_posting_basis);
         $this->assertSame(0, LandlordAccountEntry::count());
-        $this->pay($invoice, $bank, 675, 500, 150)->assertSessionHasNoErrors();
-        $this->assertEquals(500, LandlordAccountEntry::where('type', 'rent_income')->sum('amount'));
-        $this->assertEquals(50, LandlordAccountEntry::where('type', 'management_fee')->sum('amount'));
-        $this->assertEquals(150, \App\Support\DepositWallet::totals($booking)['held']);
-        $this->assertEquals(675, $bank->fresh()->current_balance);
-        $this->pay($invoice, $bank, 675, 675)->assertSessionHasErrors('rent_amount');
-        $this->pay($invoice, $bank, 675, 500, 150)->assertSessionHasNoErrors();
+        $this->pay($invoice, $bank, 675, 500, 150)->assertSessionHasErrors('amount');
+        $this->pay($invoice, $bank, 1350, 1, 1)->assertSessionHasNoErrors();
+        $this->assertEquals(1000, LandlordAccountEntry::where('type', 'rent_income')->sum('amount'));
+        $this->assertEquals(100, LandlordAccountEntry::where('type', 'management_fee')->sum('amount'));
+        $this->assertEquals(300, \App\Support\DepositWallet::totals($booking)['held']);
+        $this->assertEquals(1350, $bank->fresh()->current_balance);
         $this->assertEquals(1000, LandlordAccountEntry::where('type', 'rent_income')->sum('amount'));
         $this->assertSame('paid', $invoice->fresh()->status);
         $payment = $invoice->payments()->firstOrFail();
@@ -96,7 +95,7 @@ class BookingCorrectionsTest extends TestCase
         $this->assertEquals(2100, $invoice->fresh()->total_amount);
         $this->assertEquals(2000, $booking->fresh()->rent_amount);
         $this->assertEquals(0, LandlordAccountEntry::count());
-        $this->pay($invoice, $bank, 1050, 1000)->assertSessionHasNoErrors();
+        $this->pay($invoice, $bank, 2100, 2000)->assertSessionHasNoErrors();
         $this->put(route('admin.booking-invoice.correct', $invoice), $data)->assertSessionHasErrors('correction');
         $this->get(route('admin.booking.history', $booking))->assertOk()->assertSee('Invoice Corrected');
     }
@@ -104,7 +103,7 @@ class BookingCorrectionsTest extends TestCase
     public function test_reversal_preserves_history_reopens_balance_and_reverses_owner_and_bank(): void
     {
         [$booking, $invoice, $bank] = $this->setupInvoice();
-        $this->pay($invoice, $bank, 525, 500)->assertSessionHasNoErrors();
+        $this->pay($invoice, $bank, 1050, 1000)->assertSessionHasNoErrors();
         $payment = $invoice->payments()->firstOrFail();
         $this->put(route('admin.booking-payment.details', $payment), ['reference' => 'CORRECTED-REF', 'notes' => 'Updated', 'reason' => 'Correct reference'])->assertSessionHasNoErrors();
         $this->assertSame('CORRECTED-REF', $payment->fresh()->reference);
@@ -113,9 +112,10 @@ class BookingCorrectionsTest extends TestCase
         $this->assertEquals(0, $bank->fresh()->current_balance);
         $this->assertEquals(1050, $invoice->fresh()->balance_due);
         $this->assertEquals(0, LandlordAccountEntry::get()->sum(fn ($e) => $e->direction === 'credit' ? $e->amount : -$e->amount));
-        $this->assertSame(2, AccountingEntry::count());
+        $entryCount = AccountingEntry::count();
+        $this->assertEquals(0, AccountingEntry::selectRaw('SUM(credit-debit) as total')->value('total'));
         $this->post(route('admin.booking-payment.reverse', $payment), ['reason' => 'Repeated reversal', 'confirm' => 1])->assertSessionHasErrors('correction');
-        $this->assertSame(2, AccountingEntry::count());
+        $this->assertSame($entryCount, AccountingEntry::count());
         $this->pay($invoice, $bank, 1050, 1000)->assertSessionHasNoErrors();
         $this->assertSame('paid', $invoice->fresh()->status);
         $this->assertSame(1, $invoice->payments()->count());
