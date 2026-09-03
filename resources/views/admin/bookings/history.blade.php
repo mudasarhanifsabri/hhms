@@ -4,6 +4,11 @@
 @include('admin.bookings.partials.compact-style')
 <div class="booking-workspace">
 @include('admin.bookings.partials.navigation')
+@if($booking->owner_posting_basis !== 'receipts')
+<div class="alert alert-warning"><strong>Owner posting reconciliation:</strong> {{ $ownerReconciliation['reason'] }}
+@if($ownerReconciliation['eligible']) Eligible for the safe unpaid-booking reconciliation. Run the reconciliation command after deployment. @else This booking has not been converted; its old owner entries remain pending review. @endif
+</div>
+@endif
 @include('admin.bookings.partials.corrections')
 <div class="card">
     <div class="card-header d-flex justify-content-between align-items-center">

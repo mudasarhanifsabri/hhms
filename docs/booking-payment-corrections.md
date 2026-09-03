@@ -23,6 +23,14 @@ Run migration 037 as part of deployment before using these screens. Regression c
 
 ## VAT input and compact booking screens
 
+### Existing unpaid bookings (migration 039)
+
+Migration 039 converts eligible legacy bookings automatically: all saved invoices must be unpaid, with no itemised payment history, payment proof, receipt/bank ledger activity or deposit activity. Owner rows must match recognizable automatic rent/management postings for the same property and current owner; duplicate references or manual differences block conversion. Other owner expenses are untouched.
+
+Each old automatic posting receives an equal opposite owner adjustment on its original date, linked by `RECON-{entry ID}`. Originals remain visible; history records the conversion. No cash, deposit, invoice amount or payment is fabricated. Reruns do not duplicate adjustments. Data corrections are retained on migration rollback.
+
+`php artisan bookings:reconcile-owner-postings` previews eligible and review-required bookings without changes; add `--apply` to apply safe cases. Review reasons also appear in Booking → History & Corrections. Paid, partial and ambiguous bookings remain legacy until their actual rent allocations are reconciled separately. Deploy with a database backup and the normal maintenance/migration workflow.
+
 Migration 038 stores each invoice's VAT input mode. The Edit Invoice popup accepts either rent including VAT or rent before VAT, previews the breakdown, and recalculates it again on the server. Reopening an inclusive invoice restores its gross rent input without adding VAT twice. Existing invoices default to the additive input view of their already-stored net rent; migration does not change their amounts.
 
 Example at 5%: entering AED 10,500 with VAT Included produces net rent 10,000 and VAT 500; Add VAT produces net rent 10,500 and VAT 525. A separate AED 1,500 security deposit results in totals 12,000 and 12,525 respectively. Neither saving action records a payment or posts owner income.

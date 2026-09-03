@@ -1,6 +1,7 @@
 @extends('layouts.app')
 
 @section('content')
+<div class="alert alert-info">Guest profiles are linked from bookings. <strong>Profile pending</strong> means the guest will complete missing details after login. New guests can use <strong>Forgot Password</strong> with their booking email to securely set their password; no plaintext passwords are stored or displayed.</div>
 <div class="row">
     <div class="col-lg-12">
          <div class="card">
@@ -84,7 +85,7 @@
                                        <th>Guest Photo & Name</th>
                                        <th>Email</th>
                                        <th>Contact</th>
-                                       <th>Units</th>
+                                       <th>Bookings</th>
                                        <th>DOB</th>
                                        <th>Status</th>
                                        <th>Action</th>
@@ -100,12 +101,13 @@
                                                  </div>
                                                  <div>
                                                       <a href="{{ route('admin.tenant.show', $tenant->id) }}" class="text-dark fw-medium fs-15">{{ $tenant->name }}</a>
+                                                      @if($tenant->tenant_profile_required)<div><span class="badge bg-warning text-dark">Profile pending</span></div>@endif
                                                  </div>
                                             </div>
                                        </td>
                                        <td>{{ $tenant->email ?? 'N/A' }}</td>
                                        <td>{{ $tenant->phone ?? 'N/A' }}</td>
-                                       <td>3 Units</td>
+                                       <td>{{ $tenant->tenant_bookings_count }}</td>
                                        <td>{{ $tenant->dob ? \Carbon\Carbon::parse($tenant->dob)->format('d M Y') : 'N/A' }}</td>
                                        <td><span class="badge bg-success-subtle text-success py-1 px-2 fs-13">Active</span></td>
                                        <td>

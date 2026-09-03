@@ -110,6 +110,7 @@ class BookingController extends Controller
 
         $this->recordOwnerIncome($booking);
         $this->createBookingInvoice($booking);
+        \App\Support\BookingTenantProfile::sync($booking);
         $this->markPropertyStatus($booking, 'booked');
 
         return redirect()->route('admin.booking.show', $booking->id)
@@ -314,6 +315,7 @@ class BookingController extends Controller
         ]);
         $this->recordOwnerIncomeForInvoice($invoice);
         $this->markPropertyStatus($newBooking, 'booked');
+        \App\Support\BookingTenantProfile::sync($newBooking);
 
         return redirect()->route('admin.booking.show', $newBooking->id)
             ->with('success', 'Booking renewed successfully.');
@@ -435,8 +437,9 @@ class BookingController extends Controller
     public function history(Booking $booking)
     {
         $booking->load(['property', 'agent', 'histories', 'invoices.allPayments.bankAccount']);
+        $ownerReconciliation = \App\Support\LegacyOwnerReconciliation::inspect($booking);
 
-        return view('admin.bookings.history', compact('booking'));
+        return view('admin.bookings.history', compact('booking', 'ownerReconciliation'));
     }
 
     public function attachPaymentProof(Request $request, Booking $booking)

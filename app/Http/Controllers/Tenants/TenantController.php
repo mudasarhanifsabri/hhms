@@ -13,10 +13,27 @@ use Illuminate\Support\Str;
 
 class TenantController extends Controller
 {
+    public function editProfile()
+    {
+        return view('tenant.profile', ['tenant' => Auth::user()]);
+    }
+
+    public function updateProfile(Request $request)
+    {
+        $data = $request->validate([
+            'name'=>'required|string|max:255', 'phone'=>'required|string|max:50',
+            'eid_passport_no'=>'required|string|max:50', 'nationality'=>'required|string|max:100',
+            'dob'=>'required|date|before:today', 'address'=>'required|string|max:255',
+            'emergency_contact_name'=>'nullable|string|max:255', 'emergency_contact_phone'=>'nullable|string|max:50',
+        ]);
+        $request->user()->fill($data)->forceFill(['tenant_profile_required'=>false])->save();
+        return redirect()->route('tenant.dashboard')->with('success','Profile completed. Welcome to your guest app.');
+    }
+
     public function dashboard()
     {
         $bookings = Booking::with('property.building')
-            ->where('guest_email', Auth::user()->email)
+            ->where('tenant_id', Auth::id())
             ->latest()
             ->get();
         $activeBookings = $bookings->whereIn('status', ['confirmed', 'checked_in']);
@@ -183,7 +200,7 @@ class TenantController extends Controller
 
     private function authorizeBooking(Booking $booking): void
     {
-        abort_unless($booking->guest_email === Auth::user()->email, 403);
+        abort_unless($booking->tenant_id === Auth::id(), 403);
     }
 
     private function authorizeInspection(BookingInspection $inspection): void

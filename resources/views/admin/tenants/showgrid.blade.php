@@ -46,6 +46,7 @@
                         <div class="d-block">
                              <a href="{{ route('admin.tenant.show', $tenant->id) }}" class="text-dark fw-medium fs-16">{{ $tenant->name }}</a>
                              <p class="mb-0">{{ $tenant->email }}</p>
+                             @if($tenant->tenant_profile_required)<span class="badge bg-warning text-dark">Profile pending</span>@endif
                              <p class="mb-0 text-primary">{{ $loop->iteration }}</p>
                         </div>
                         <div class="ms-auto">

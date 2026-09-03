@@ -60,6 +60,7 @@ class User extends Authenticatable
     protected function casts(): array
     {
         return [
+            'tenant_profile_required' => 'boolean',
             'email_verified_at' => 'datetime',
             'dob' => 'date',
             'id_issue_date' => 'date',
@@ -103,6 +104,11 @@ public function sharedOwnedProperties(): BelongsToMany
 public function agentBookings(): HasMany
 {
     return $this->hasMany(Booking::class, 'agent_id');
+}
+
+public function tenantBookings(): HasMany
+{
+    return $this->hasMany(Booking::class, 'tenant_id');
 }
 
 }

@@ -12,6 +12,7 @@ class Booking extends BaseModel
 
     protected $fillable = [
         'booking_reference',
+        'tenant_id',
         'owner_posting_basis',
         'renewed_from_booking_id',
         'property_id',

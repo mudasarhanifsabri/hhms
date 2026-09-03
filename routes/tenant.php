@@ -3,7 +3,9 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Tenants\TenantController;
 
-Route::middleware(['auth', 'role:tenant'])->prefix('tenant')->name('tenant.')->group(function () {
+Route::middleware(['auth', 'role:tenant', \App\Http\Middleware\CompleteTenantProfile::class])->prefix('tenant')->name('tenant.')->group(function () {
+    Route::get('/profile', [TenantController::class, 'editProfile'])->name('profile.edit');
+    Route::put('/profile', [TenantController::class, 'updateProfile'])->name('profile.update');
     Route::get('/dashboard', [TenantController::class, 'dashboard'])->name('dashboard');
     Route::get('/bookings/{booking}', [TenantController::class, 'booking'])->name('booking.show');
     Route::post('/bookings/{booking}/inspections/{type}/start', [TenantController::class, 'startInspection'])->name('inspection.start');

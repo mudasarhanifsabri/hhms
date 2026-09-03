@@ -21,7 +21,7 @@ class TenantController extends Controller
     public function index(Request $request): Response
     {
         $perPage = $request->input('per_page', 10);
-        $tenants = User::where('role', 'tenant')->paginate($perPage);
+        $tenants = User::where('role', 'tenant')->withCount('tenantBookings')->paginate($perPage);
         $totalTenants = User::where('role', 'tenant')->count();
 
         return response()->view('admin.tenants.index', compact('tenants', 'totalTenants', 'perPage'));
@@ -39,16 +39,16 @@ class TenantController extends Controller
     public function show($id)
     {
         $tenant = User::where('role', 'tenant')->findOrFail($id);
-        $relatedProperties = Property::latest()->limit(4)->get();
+        $relatedProperties = Property::whereIn('id', $tenant->tenantBookings()->select('property_id'))->latest()->get();
         $profileUser = $tenant;
         $roleLabel = 'Tenant';
         $editRoute = route('admin.tenant.edit', $tenant->id);
         $backRoute = route('admin.tenant.index');
         $bankRoute = route('admin.tenant.updateBank', $tenant->id);
-        $propertiesTitle = 'Recent Units';
+        $propertiesTitle = 'Booked Units';
         $summaryCards = [
             ['label' => 'Profile Status', 'value' => $tenant->is_active ? 'Active' : 'Inactive'],
-            ['label' => 'Bank Details', 'value' => $tenant->bank_account_number ? 'Provided' : 'Missing'],
+            ['label' => 'Profile Completion', 'value' => $tenant->tenant_profile_required ? 'Pending guest information' : 'Complete'],
             ['label' => 'Bank Details', 'value' => $tenant->bank_account_number ? 'Provided' : 'Missing'],
         ];
 
