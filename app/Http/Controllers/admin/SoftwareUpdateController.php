@@ -37,6 +37,9 @@ class SoftwareUpdateController extends Controller
             'Backup local code changes' => ['git', 'stash', 'push', '-m', 'HHMS automatic backup before software update'],
             'Fetch GitHub' => ['git', 'fetch', 'origin'],
             'Pull latest code' => ['git', 'pull', '--ff-only'],
+            // Drop stale route/view caches before a later package or migration step can fail.
+            'Clear old route cache' => [PHP_BINARY, 'artisan', 'route:clear'],
+            'Clear old view cache' => [PHP_BINARY, 'artisan', 'view:clear'],
             'Check PHP version' => [PHP_BINARY, '-r', 'if (PHP_VERSION_ID < 80300) { fwrite(STDERR, "HHMS requires PHP 8.3 or newer. Current PHP: " . PHP_VERSION . PHP_EOL); exit(1); } echo "PHP " . PHP_VERSION . PHP_EOL;'],
             'Check Composer' => [$this->composerBinary(), '--version', '--no-ansi'],
             'Install PHP packages' => [$this->composerBinary(), 'install', '--no-dev', '--prefer-dist', '--optimize-autoloader', '--no-interaction', '--no-progress'],

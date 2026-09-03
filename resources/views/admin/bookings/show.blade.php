@@ -103,7 +103,11 @@
                                         <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#paymentModal{{ $invoice->id }}">Pay</button>
                                     @endif
                                     <div class="dropdown"><button class="btn btn-sm btn-light" data-bs-toggle="dropdown" aria-label="More invoice actions"><iconify-icon icon="solar:menu-dots-bold"></iconify-icon></button><div class="dropdown-menu dropdown-menu-end">
+                                        @if(\Illuminate\Support\Facades\Route::has('admin.booking-invoice.confirmation'))
                                         <a class="dropdown-item" href="{{ route('admin.booking-invoice.confirmation', $invoice) }}"><iconify-icon icon="solar:document-add-broken" class="me-2"></iconify-icon>Period confirmation PDF</a>
+                                        @else
+                                        <span class="dropdown-item-text small text-warning">Period confirmation unavailable: refresh server route cache.</span>
+                                        @endif
                                         <a class="dropdown-item" href="{{ route('admin.accounting.booking-invoices.pdf', $invoice) }}"><iconify-icon icon="solar:bill-list-broken" class="me-2"></iconify-icon>Invoice PDF</a>
                                         @if($invoice->payments->isNotEmpty())<a class="dropdown-item" href="{{ route('admin.booking-invoice.receipt', $invoice) }}"><iconify-icon icon="solar:bill-check-broken" class="me-2"></iconify-icon>Payment receipt</a>@endif
                                         @if($invoice->status==='unpaid' && $invoice->payments->isEmpty())<button type="button" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#correctInvoice{{ $invoice->id }}"><iconify-icon icon="solar:pen-2-broken" class="me-2"></iconify-icon>Edit invoice</button>@endif
@@ -372,7 +376,11 @@
         <tr><td>Balance</td><td class="text-end">AED {{ number_format($invoice->balance_due,2) }}</td></tr>
     </tbody></table><p>Which document would you like?</p>
     <a class="btn btn-primary" href="{{ route('admin.accounting.booking-invoices.pdf', $invoice) }}">Invoice PDF</a>
+    @if(\Illuminate\Support\Facades\Route::has('admin.booking-invoice.confirmation'))
     <a class="btn btn-outline-primary" href="{{ route('admin.booking-invoice.confirmation', $invoice) }}">Period Confirmation</a>
+    @else
+    <p class="small text-warning mt-2">Period confirmation unavailable. Complete the software update and refresh the server route cache.</p>
+    @endif
     @if($invoice->payments->isNotEmpty())<a class="btn btn-outline-success" href="{{ route('admin.booking-invoice.receipt', $invoice) }}">Receipt — Amount Paid</a>@else<p class="small text-muted mt-2">A receipt requires an itemised payment record.</p>@endif
     </div>
 </div></div></div>

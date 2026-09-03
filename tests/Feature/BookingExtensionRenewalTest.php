@@ -74,6 +74,22 @@ class BookingExtensionRenewalTest extends TestCase
         $this->assertDatabaseMissing('booking_invoices', ['invoice_type' => 'extension']);
     }
 
+    public function test_booking_page_survives_a_stale_route_cache_without_period_confirmation(): void
+    {
+        ['admin' => $admin, 'booking' => $booking] = $this->booking();
+        $routes = new \Illuminate\Routing\RouteCollection;
+        foreach (app('router')->getRoutes() as $route) {
+            if ($route->getName() !== 'admin.booking-invoice.confirmation') {
+                $routes->add($route);
+            }
+        }
+        app('router')->setRoutes($routes);
+        app('url')->setRoutes($routes);
+
+        $this->actingAs($admin)->get(route('admin.booking.show', $booking))
+            ->assertOk()->assertSee('Period confirmation unavailable')->assertSee('Guest & Stay', false);
+    }
+
     public function test_invoice_payment_is_separate_and_supports_partial_status(): void
     {
         ['admin' => $admin, 'booking' => $booking] = $this->booking();
