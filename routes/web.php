@@ -15,6 +15,9 @@ Route::get('/', function () {
 });
 
 // ========== Authentication Routes ==========
+Route::get('/guest-access/{property}', [\App\Http\Controllers\Tenants\GuestAccessController::class, 'show'])->name('guest.access');
+Route::post('/guest-access/{property}', [\App\Http\Controllers\Tenants\GuestAccessController::class, 'activate'])->middleware('throttle:5,1')->name('guest.access.activate');
+
 Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthenticatedSessionController::class, 'create'])->name('login');
     Route::post('/login', [AuthenticatedSessionController::class, 'store']);

@@ -25,6 +25,7 @@ use App\Http\Controllers\admin\DocumentOcrController;
 // Admin Routes
 Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->group(function () {
 Route::get('/dashboard', [AdminController::class, 'dashboard'])->name('dashboard');
+Route::get('/properties/{property}/guest-qr', [\App\Http\Controllers\Tenants\GuestAccessController::class, 'poster'])->name('property.guest-qr');
 Route::get('/settings', [SettingsController::class, 'edit'])->name('settings.edit');
 Route::put('/settings', [SettingsController::class, 'update'])->name('settings.update');
 Route::get('/software-update', [SoftwareUpdateController::class, 'index'])->name('software-update.index');

@@ -95,6 +95,7 @@
 @endphp
 
 @include('admin.properties.partials.unit-tabs')
+<div class="mb-3"><a class="btn btn-outline-primary" href="{{ route('admin.property.guest-qr', $property) }}">Guest App QR / Registration Link</a></div>
 
 <div class="row">
     <div class="col-12">
