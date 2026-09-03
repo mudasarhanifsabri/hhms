@@ -17,6 +17,26 @@ class AccountingReportsTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_report_categories_group_tables_and_preserve_the_selected_period(): void
+    {
+        $this->actingAs(User::factory()->create(['role' => 'admin']));
+        foreach (['financial', 'receivables', 'expenses', 'utilities'] as $tab) {
+            $response = $this->get(route('admin.accounting.reports', ['report' => $tab, 'date_from' => '2026-08-01', 'date_to' => '2026-08-31']))
+                ->assertOk()->assertSee('Accounting Reports')->assertSee('Reporting Period')
+                ->assertSee('Expense Register &amp; Downloads', false);
+            $document = new \DOMDocument;
+            $previous = libxml_use_internal_errors(true);
+            $document->loadHTML($response->getContent());
+            libxml_clear_errors();
+            libxml_use_internal_errors($previous);
+            $xpath = new \DOMXPath($document);
+            $this->assertSame(4, $xpath->query('//section[@role="tabpanel"]')->length);
+            $this->assertStringContainsString('show active', $document->getElementById('report-panel-'.$tab)->getAttribute('class'));
+            $this->assertSame('2026-08-01', $document->getElementById('reportFrom')->getAttribute('value'));
+            $this->assertSame(1, $xpath->query('//*[@id="report-panel-receivables"]//*[@id="accounts-receivable"]')->length);
+        }
+    }
+
     public function test_profit_and_loss_and_bank_balances_are_calculated_from_posted_entries(): void
     {
         $admin = User::factory()->create(['role' => 'admin']);
