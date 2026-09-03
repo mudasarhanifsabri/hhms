@@ -1,5 +1,13 @@
 @extends('layouts.app')
 
+@push('styles')
+<style>
+.invoice-hover-preview{display:none;position:fixed;z-index:1080;width:275px;padding:16px;border:1px solid var(--bs-border-color,#e5e5ef);border-radius:8px;background:var(--bs-body-bg,#fff);box-shadow:0 8px 25px #18133b25;font-size:12px;pointer-events:none}
+.invoice-hover-preview div{display:flex;justify-content:space-between;gap:15px;margin-bottom:5px}
+.invoice-preview-wrap:hover .invoice-hover-preview,.invoice-preview-wrap:focus-within .invoice-hover-preview{display:block}
+</style>
+@endpush
+
 @section('content')
 @php
     $contractDays = $booking->nights;
@@ -9,7 +17,7 @@
     $defaultExtensionRent = (float) ($latestInvoice?->rent_amount ?? $booking->rent_amount);
 @endphp
 <div class="row">
-    <div class="col-12 mb-3"><nav class="nav nav-pills gap-2"><a class="nav-link active" href="{{ route('admin.booking.show',$booking) }}">Booking & Invoices</a><a class="nav-link" href="{{ route('admin.booking.deposit-wallet',$booking) }}">Security Deposit Wallet</a></nav></div>
+    <div class="col-12 mb-3"><nav class="nav nav-underline gap-3"><a class="nav-link active" href="{{ route('admin.booking.show',$booking) }}">Overview</a><a class="nav-link" href="#bookingInvoices">Invoices</a><a class="nav-link" href="{{ route('admin.booking.deposit-wallet',$booking) }}">Security Deposit Wallet</a></nav></div>
     <div class="col-xl-8">
         <div class="card">
             <div class="card-header d-flex justify-content-between align-items-center">
@@ -55,7 +63,7 @@
 
         <div class="card">
             <div class="card-header d-flex justify-content-between align-items-center">
-                <h4 class="card-title mb-0">Invoices, Extensions & Renewals</h4>
+                <h4 class="card-title mb-0" id="bookingInvoices">Invoices, Extensions & Renewals</h4>
                 <span class="badge bg-light-subtle text-muted border">{{ $booking->invoices->count() }} records</span>
             </div>
             <div class="card-body p-0">
@@ -65,7 +73,14 @@
                         <tbody>
                         @forelse($booking->invoices->sortBy('created_at') as $invoice)
                             <tr>
-                                <td><strong>{{ $invoice->type_label }}</strong><div><button type="button" class="btn btn-link btn-sm p-0" data-bs-toggle="modal" data-bs-target="#invoiceDetails{{ $invoice->id }}">{{ $invoice->invoice_number }}</button></div></td>
+                                <td><strong>{{ $invoice->type_label }}</strong><div class="invoice-preview-wrap"><button type="button" class="btn btn-link btn-sm p-0" data-bs-toggle="modal" data-bs-target="#invoiceDetails{{ $invoice->id }}" aria-describedby="invoicePreview{{ $invoice->id }}">{{ $invoice->invoice_number }}</button>
+                                    <div class="invoice-hover-preview" role="tooltip" id="invoicePreview{{ $invoice->id }}">
+                                        <div><span>Rent</span><strong>AED {{ number_format((float)$invoice->rent_amount,2) }}</strong></div>
+                                        <div><span>VAT</span><strong>AED {{ number_format((float)$invoice->vat_amount,2) }}</strong></div>
+                                        <div><span>Other fees</span><strong>AED {{ number_format(collect($invoice->fees ?? [])->except('Security Deposit')->sum(),2) }}</strong></div>
+                                        <div><span>Deposit</span><strong>AED {{ number_format((float)(($invoice->fees ?? [])['Security Deposit'] ?? 0),2) }}</strong></div>
+                                        <div class="border-top pt-2 mt-2"><span>Total</span><strong>AED {{ number_format((float)$invoice->total_amount,2) }}</strong></div>
+                                    </div></div></td>
                                 <td>{{ $invoice->period_from?->format('d M Y') }}<br><span class="small text-muted">to {{ $invoice->period_to?->format('d M Y') }}</span></td>
                                 <td>AED {{ number_format((float) $invoice->total_amount, 2) }}</td>
                                 <td class="text-success">AED {{ number_format($invoice->paid_amount, 2) }}</td>
@@ -355,8 +370,15 @@
     <div class="modal-body"><table class="table"><tbody>
         <tr><td>Rent</td><td class="text-end">AED {{ number_format((float)$invoice->rent_amount,2) }}</td></tr>
         <tr><td>VAT recorded ({{ $invoice->vat_rate }}%)</td><td class="text-end">AED {{ number_format((float)$invoice->vat_amount,2) }}</td></tr>
-        @foreach($invoice->fees ?? [] as $label => $amount)<tr><td>{{ $label }}</td><td class="text-end">AED {{ number_format((float)$amount,2) }}</td></tr>@endforeach
-        <tr><th>Total</th><th class="text-end">AED {{ number_format((float)$invoice->total_amount,2) }}</th></tr>
+        @foreach($invoice->fees ?? [] as $label => $amount)
+            @if($label !== 'Security Deposit')
+                <tr><td>{{ $label }}</td><td class="text-end">AED {{ number_format((float)$amount,2) }}</td></tr>
+            @endif
+        @endforeach
+        @php($refundableDeposit = (float)(($invoice->fees ?? [])['Security Deposit'] ?? 0))
+        <tr><th>Charges subtotal</th><th class="text-end">AED {{ number_format((float)$invoice->total_amount-$refundableDeposit,2) }}</th></tr>
+        <tr class="table-primary"><td>Refundable Security Deposit</td><td class="text-end">AED {{ number_format($refundableDeposit,2) }}</td></tr>
+        <tr><th>Total payable</th><th class="text-end">AED {{ number_format((float)$invoice->total_amount,2) }}</th></tr>
         <tr><td>Paid</td><td class="text-end text-success">AED {{ number_format($invoice->paid_amount,2) }}</td></tr>
         <tr><td>Balance</td><td class="text-end">AED {{ number_format($invoice->balance_due,2) }}</td></tr>
     </tbody></table><p>Which document would you like?</p>

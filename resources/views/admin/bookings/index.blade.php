@@ -1,6 +1,7 @@
 @extends('layouts.app')
 
 @section('content')
+@include('admin.bookings.partials.filters')
 <div class="row">
     <div class="col-md-4">
         <div class="card"><div class="card-body d-flex align-items-center justify-content-between">
@@ -28,7 +29,7 @@
             <div class="card-header d-flex justify-content-between align-items-center border-bottom">
                 <h4 class="card-title mb-0">List Of Booking</h4>
                 <div class="d-flex gap-2">
-                    <a href="{{ route('admin.booking.grid') }}" class="btn btn-sm btn-outline-light">Grid View</a>
+                    <a href="{{ route('admin.booking.grid', request()->except('page')) }}" class="btn btn-sm btn-outline-primary">Grid View</a>
                     <a href="{{ route('admin.booking.create') }}" class="btn btn-sm btn-primary">+ Create Booking</a>
                 </div>
             </div>
@@ -63,7 +64,7 @@
                                     {{ $booking->guest_name }}
                                     <p class="text-muted mb-0">{{ $booking->guest_email }}</p>
                                 </td>
-                                <td>{{ $booking->property?->name ?? 'N/A' }}</td>
+                                <td>{{ $booking->property?->name ?? 'N/A' }}<div class="small text-muted">{{ $booking->property?->building?->name }}</div></td>
                                 <td>{{ $booking->agent?->name ?? '-' }}</td>
                                 <td>{{ $booking->check_in?->format('d M Y') }}</td>
                                 <td>{{ $booking->check_out?->format('d M Y') }}</td>

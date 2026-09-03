@@ -5,12 +5,13 @@
     <div class="col-12 d-flex justify-content-between align-items-center">
         <h4 class="card-title mb-0">Booking Grid View</h4>
         <div class="d-flex gap-2">
-            <a href="{{ route('admin.booking.index') }}" class="btn btn-sm btn-outline-light">List View</a>
+            <a href="{{ route('admin.booking.index', request()->except('page')) }}" class="btn btn-sm btn-outline-primary">List View</a>
             <a href="{{ route('admin.booking.create') }}" class="btn btn-sm btn-primary">+ Create Booking</a>
         </div>
     </div>
 </div>
 
+@include('admin.bookings.partials.filters')
 <div class="row">
     @forelse($bookings as $booking)
         <div class="col-lg-4 col-md-6">
@@ -19,7 +20,7 @@
                     <div class="d-flex align-items-center justify-content-between gap-2">
                         <div>
                             <a href="{{ route('admin.booking.show', $booking->id) }}" class="text-dark fw-medium fs-16">{{ $booking->booking_reference }}</a>
-                            <p class="text-muted mb-0">{{ $booking->property?->name ?? 'N/A' }}</p>
+                            <p class="text-muted mb-0">{{ $booking->property?->building?->name }} — {{ $booking->property?->name ?? 'N/A' }}</p>
                         </div>
                         <span class="badge {{ $booking->workflow_status_class }} text-white">{{ $booking->workflow_status_label }}</span>
                     </div>

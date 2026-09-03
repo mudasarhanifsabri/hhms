@@ -52,6 +52,53 @@ class DepositWalletTest extends TestCase
         return ['amount' => $amount, 'entry_date' => today()->toDateString(), 'bank_account_id' => $bank->id, 'payment_method' => 'Bank Transfer', 'recipient' => 'John Smith', 'reference' => 'TRF-REFUND-001', 'proof' => UploadedFile::fake()->create('proof.pdf', 10, 'application/pdf'), 'submission_id' => $submission ?? (string) Str::uuid()];
     }
 
+    public function test_booking_list_and_grid_share_search_filters_and_pagination(): void
+    {
+        ['booking' => $booking] = $this->setupBooking();
+        foreach (['admin.booking.index', 'admin.booking.grid'] as $route) {
+            $this->get(route($route, ['search' => 'John', 'status' => 'confirmed', 'invoice_status' => 'paid', 'from' => '2026-08-01', 'to' => '2026-08-01', 'per_page' => 25]))
+                ->assertOk()->assertViewHas('bookings', fn ($rows) => $rows->total() === 1 && $rows->perPage() === 25)
+                ->assertSee($booking->booking_reference)->assertSee('Apply Filters');
+            $this->get(route($route, ['search' => 'no-such-guest']))->assertOk()
+                ->assertViewHas('bookings', fn ($rows) => $rows->total() === 0);
+            $this->get(route($route, ['status' => 'checked_out']))->assertOk()
+                ->assertViewHas('bookings', fn ($rows) => $rows->total() === 0);
+            $this->getJson(route($route, ['per_page' => 100000]))->assertUnprocessable();
+            $this->getJson(route($route, ['from' => '2026-09-01', 'to' => '2026-08-01']))->assertUnprocessable();
+        }
+    }
+
+    public function test_wallet_actions_are_in_popups_with_summary_and_tables(): void
+    {
+        ['booking' => $booking] = $this->setupBooking();
+        $this->get(route('admin.booking.deposit-wallet', $booking))->assertOk()
+            ->assertSee('Full Refund')->assertSee('With Deductions')
+            ->assertSee('Linked Invoices')->assertSee('View Audit Log');
+        $refund = $this->request($booking);
+        foreach (['pending', 'approved'] as $status) {
+            if ($status === 'approved') {
+                $this->post(route('admin.booking.deposit.review', [$booking, $refund]), ['decision' => 'approved', 'review_notes' => 'Checked for payment'])->assertSessionHasNoErrors();
+            }
+            $response = $this->get(route('admin.booking.deposit-wallet', $booking))->assertOk();
+            $document = new \DOMDocument;
+            $previous = libxml_use_internal_errors(true);
+            $document->loadHTML($response->getContent());
+            libxml_clear_errors();
+            libxml_use_internal_errors($previous);
+            $xpath = new \DOMXPath($document);
+            $this->assertSame(2, $xpath->query('//table[@id="refundTable" or @id="depositTable"]')->length);
+            $forms = $xpath->query('//form[contains(@action,"deposit-wallet")]');
+            $this->assertGreaterThanOrEqual(3, $forms->length);
+            foreach ($forms as $form) {
+                $this->assertSame(1, $xpath->query('ancestor::div[contains(concat(" ",normalize-space(@class)," ")," modal ")]', $form)->length);
+            }
+            foreach ($xpath->query('//button[@data-bs-target and not(@disabled)]') as $button) {
+                $target = substr($button->getAttribute('data-bs-target'), 1);
+                $this->assertNotNull($document->getElementById($target), 'Missing popup: '.$target);
+            }
+        }
+    }
+
     public function test_allocation_does_not_collect_twice_or_change_invoice(): void
     {
         ['booking' => $booking, 'invoice' => $invoice, 'bank' => $bank] = $this->setupBooking(false);

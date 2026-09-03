@@ -25,7 +25,7 @@ class BookingController extends Controller
 {
     public function index(Request $request)
     {
-        $bookings = Booking::with(['property.building', 'agent'])->latest()->paginate($request->input('per_page', 10));
+        $bookings = $this->filteredBookings($request);
         $totalBookings = Booking::count();
         $paidInvoices = Booking::where('invoice_status', 'paid')->count();
         $unpaidInvoices = Booking::where('invoice_status', 'unpaid')->count();
@@ -35,9 +35,48 @@ class BookingController extends Controller
 
     public function grid(Request $request)
     {
-        $bookings = Booking::with(['property.building', 'agent'])->latest()->paginate($request->input('per_page', 12));
+        $bookings = $this->filteredBookings($request);
 
         return view('admin.bookings.grid', compact('bookings'));
+    }
+
+    private function filteredBookings(Request $request)
+    {
+        $filters = $request->validate([
+            'search' => 'nullable|string|max:200',
+            'status' => 'nullable|in:confirmed,checked_in,checked_out',
+            'invoice_status' => 'nullable|in:paid,unpaid,partial',
+            'from' => 'nullable|date_format:Y-m-d',
+            'to' => 'nullable|date_format:Y-m-d'.($request->filled('from') ? '|after_or_equal:from' : ''),
+            'per_page' => 'nullable|integer|in:10,12,25,50,100',
+        ]);
+        $query = Booking::with(['property.building', 'agent']);
+        $search = trim($filters['search'] ?? '');
+        if ($search !== '') {
+            $query->where(function ($query) use ($search) {
+                $term = '%'.$search.'%';
+                $query->where('booking_reference', 'like', $term)
+                    ->orWhere('guest_name', 'like', $term)->orWhere('guest_email', 'like', $term)
+                    ->orWhere('guest_phone', 'like', $term)->orWhere('invoice_number', 'like', $term)
+                    ->orWhereHas('invoices', fn ($q) => $q->where('invoice_number', 'like', $term))
+                    ->orWhereHas('property', fn ($q) => $q->where('name', 'like', $term)
+                        ->orWhereHas('building', fn ($b) => $b->where('name', 'like', $term)))
+                    ->orWhereHas('agent', fn ($q) => $q->where('name', 'like', $term));
+            });
+        }
+        foreach (['status', 'invoice_status'] as $field) {
+            if (!empty($filters[$field])) {
+                $query->where($field, $filters[$field]);
+            }
+        }
+        if (!empty($filters['from'])) {
+            $query->whereDate('check_in', '>=', $filters['from']);
+        }
+        if (!empty($filters['to'])) {
+            $query->whereDate('check_in', '<=', $filters['to']);
+        }
+
+        return $query->latest()->orderByDesc('id')->paginate($filters['per_page'] ?? 12)->withQueryString();
     }
 
     public function create()
