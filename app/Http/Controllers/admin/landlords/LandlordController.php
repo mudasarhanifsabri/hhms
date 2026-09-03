@@ -123,10 +123,11 @@ class LandlordController extends Controller
         $perPage = $request->integer('per_page', 25);
         $perPage = in_array($perPage, [10, 25, 50, 100], true) ? $perPage : 25;
         $accountEntries = $this->accountEntriesQuery($landlord->id, $filters)
-            ->orderByDesc('entry_date')
-            ->orderByDesc('created_at')
+            ->statementOrder()
             ->paginate($perPage)
             ->withQueryString();
+        $statementBalances = LandlordAccountEntry::statementBalancesFor($landlord->id);
+        $accountEntries->getCollection()->each(fn ($entry) => $entry->setAttribute('balance_after', $statementBalances[$entry->id]));
         $accountTotals = $this->accountTotalsFor($landlord->id, $filters);
         $unitTotals = $this->accountEntriesQuery($landlord->id, $filters)->get()
             ->groupBy(fn (LandlordAccountEntry $entry) => $entry->property_id ?: 'general')
@@ -178,8 +179,7 @@ class LandlordController extends Controller
         $landlord = User::where('role', 'landlord')->findOrFail($id);
         $filters = $this->accountStatementFilters($request);
         $accountEntries = $this->accountEntriesQuery($landlord->id, $filters)
-            ->orderBy('entry_date')
-            ->orderBy('created_at')
+            ->statementOrder()
             ->get();
         $accountTotals = $this->accountTotalsFor($landlord->id, $filters);
         $period = $this->statementPeriod($accountEntries, $filters);

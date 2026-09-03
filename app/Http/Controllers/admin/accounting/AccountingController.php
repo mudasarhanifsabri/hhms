@@ -1043,7 +1043,7 @@ class AccountingController extends Controller
             $entries = LandlordAccountEntry::with('property')
                 ->where('landlord_id', $owner->id)
                 ->whereBetween('entry_date', [$from, $to])
-                ->orderBy('entry_date')
+                ->statementOrder()
                 ->get()
                 ->groupBy('property_id');
         }
@@ -1059,7 +1059,7 @@ class AccountingController extends Controller
         $entries = LandlordAccountEntry::with('property')
             ->where('landlord_id', $owner->id)
             ->whereBetween('entry_date', [$from, $to])
-            ->orderBy('entry_date')
+            ->statementOrder()
             ->get()
             ->groupBy('property_id');
 

@@ -75,14 +75,31 @@ class LandlordAccountEntry extends BaseModel
         return array_key_exists($type, self::CREDIT_TYPES) ? 'credit' : 'debit';
     }
 
+    public function scopeStatementOrder($query)
+    {
+        return $query->orderBy('entry_date')->orderBy('reference')
+            ->orderByRaw("CASE WHEN direction = 'credit' THEN 0 WHEN type = 'management_fee' THEN 1 ELSE 2 END")
+            ->orderBy('created_at')->orderBy('id');
+    }
+
+    public static function statementBalancesFor(string $landlordId): array
+    {
+        $balance = 0;
+        $balances = [];
+        foreach (self::where('landlord_id', $landlordId)->statementOrder()->get() as $entry) {
+            $balance += $entry->direction === 'credit' ? (float) $entry->amount : -(float) $entry->amount;
+            $balances[$entry->id] = $balance;
+        }
+
+        return $balances;
+    }
+
     public static function recalculateBalancesFor(string $landlordId): void
     {
         $balance = 0;
 
         self::where('landlord_id', $landlordId)
-            ->orderBy('entry_date')
-            ->orderBy('created_at')
-            ->orderBy('id')
+            ->statementOrder()
             ->get()
             ->each(function (self $entry) use (&$balance) {
                 $amount = (float) $entry->amount;

@@ -60,7 +60,7 @@ class LandlordController extends Controller
             ->get();
         $entries = LandlordAccountEntry::with('property.building')
             ->where('landlord_id', $owner->id)
-            ->latest('entry_date')
+            ->statementOrder()
             ->get();
         $expenses = Expense::with(['property.building', 'vendor'])
             ->where('landlord_id', $owner->id)
