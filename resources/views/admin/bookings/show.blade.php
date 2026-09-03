@@ -17,7 +17,15 @@
     $defaultExtensionRent = (float) ($latestInvoice?->rent_amount ?? $booking->rent_amount);
 @endphp
 <div class="row">
-    <div class="col-12 mb-3"><nav class="nav nav-underline gap-3"><a class="nav-link active" href="{{ route('admin.booking.show',$booking) }}">Overview</a><a class="nav-link" href="#bookingInvoices">Invoices</a><a class="nav-link" href="{{ route('admin.booking.deposit-wallet',$booking) }}">Security Deposit Wallet</a></nav></div>
+    <div class="col-12 mb-3"><nav class="nav nav-underline gap-3"><a class="nav-link active" href="{{ route('admin.booking.show',$booking) }}">Overview</a><a class="nav-link" href="#bookingInvoices">Invoices</a><a class="nav-link" href="{{ route('admin.booking.deposit-wallet',$booking) }}">Security Deposit Wallet</a><a class="nav-link" href="{{ route('admin.booking.history',$booking) }}">History & Corrections</a></nav></div>
+    <div class="col-12"><div class="alert alert-info">
+        @if($booking->owner_posting_basis === 'receipts')
+            Owner rent posts only from the rent portion of actual payments. Expected rent not yet collected: AED {{ number_format(max(0, $booking->invoices->sum('rent_amount') - $booking->invoices->sum(fn($invoice) => $invoice->payments->sum('rent_amount'))), 2) }}.
+        @else
+            Legacy booking: existing owner entries have not been converted to receipt-based posting. Reconciliation is required before changing that basis.
+        @endif
+        Security deposits belong to the management-company deposit wallet, never to owner payable.
+    </div></div>
     <div class="col-xl-8">
         <div class="card">
             <div class="card-header d-flex justify-content-between align-items-center">
@@ -400,6 +408,9 @@
                     <div class="col-md-6"><label class="form-label">Payment Method</label><select name="payment_method" class="form-select" required><option>Bank Transfer</option><option>Cash</option><option>Card</option><option>Cheque</option><option>Online Payment</option></select></div>
                     <div class="col-md-6"><label class="form-label">Deposit To Account</label><select name="bank_account_id" class="form-select"><option value="">Not selected</option>@foreach($bankAccounts as $account)<option value="{{ $account->id }}">{{ $account->name }}</option>@endforeach</select></div>
                     <div class="col-md-6"><label class="form-label">Of this payment: security deposit (AED)</label><input name="deposit_amount" type="number" class="form-control" min="0" step="0.01" value="0"><small class="text-muted">Included in the payment, not an additional charge. Allocates this portion to the deposit wallet.</small></div>
+                    @if($booking->owner_posting_basis === 'receipts')
+                    <div class="col-md-6"><label class="form-label">Of this payment: rent only (AED)</label><input name="rent_amount" type="number" class="form-control" min="0" step="0.01" max="{{ max(0,(float)$invoice->rent_amount-(float)$invoice->payments->sum('rent_amount')) }}" required><small class="text-muted">Exclude VAT, fees and deposit. Only this amount credits the owner, followed by the management-fee deduction. The remainder covers VAT and other charges.</small></div>
+                    @endif
                     <div class="col-md-6"><label class="form-label">Reference</label><input name="reference" class="form-control"></div>
                     <div class="col-md-6"><label class="form-label">Upload Receipt</label><input type="file" name="receipt" class="form-control" accept=".pdf,.jpg,.jpeg,.png"></div>
                     <div class="col-12"><label class="form-label">Notes</label><textarea name="notes" class="form-control" rows="2"></textarea></div>

@@ -1,6 +1,7 @@
 @extends('layouts.app')
 
 @section('content')
+@include('admin.bookings.partials.corrections')
 <div class="card">
     <div class="card-header d-flex justify-content-between align-items-center">
         <h4 class="card-title mb-0">History - {{ $booking->booking_reference }}</h4>
@@ -17,7 +18,7 @@
                         <tr>
                             <td>{{ $history->created_at->format('d M Y h:i A') }}</td>
                             <td>{{ $history->title }}</td>
-                            <td>{{ $history->description ?? '-' }}</td>
+                            <td class="text-wrap text-break" style="min-width:300px">{{ $history->description ?? '-' }}</td>
                         </tr>
                     @empty
                         <tr><td colspan="3" class="text-center text-muted py-4">No history found.</td></tr>

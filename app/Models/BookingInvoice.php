@@ -47,6 +47,11 @@ class BookingInvoice extends BaseModel
 
     public function payments(): HasMany
     {
+        return $this->hasMany(BookingInvoicePayment::class)->whereNull('reversed_at');
+    }
+
+    public function allPayments(): HasMany
+    {
         return $this->hasMany(BookingInvoicePayment::class);
     }
 

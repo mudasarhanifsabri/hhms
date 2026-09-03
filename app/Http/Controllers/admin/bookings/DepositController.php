@@ -40,7 +40,7 @@ class DepositController extends Controller
             'submission_id' => 'required|uuid',
         ]);
         $invoice = BookingInvoice::findOrFail($data['invoice_id']);
-        $request->merge(['deposit_amount' => $request->input('amount'), 'deposit_submission_id' => $data['submission_id']]);
+        $request->merge(['deposit_amount' => $request->input('amount'), 'rent_amount' => 0, 'deposit_submission_id' => $data['submission_id']]);
 
         return app(BookingController::class)->recordInvoicePayment($request, $invoice);
     }

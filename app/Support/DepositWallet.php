@@ -57,6 +57,7 @@ class DepositWallet
             $booking = Booking::whereKey($booking->id)->lockForUpdate()->firstOrFail();
             $invoice = BookingInvoice::whereKey($payment->booking_invoice_id)->where('booking_id', $booking->id)->lockForUpdate()->firstOrFail();
             $payment = BookingInvoicePayment::whereKey($payment->id)->lockForUpdate()->firstOrFail();
+            if ($payment->reversed_at) self::fail('A reversed payment cannot be allocated.');
             if ($existing = BookingDepositEntry::where('submission_id', $submission)->first()) {
                 if ($existing->booking_invoice_payment_id !== $payment->id || self::cents($existing->amount) !== self::cents($amount)) {
                     self::fail('This submission has already been used.');
@@ -67,6 +68,9 @@ class DepositWallet
             $allocatedInvoice = BookingDepositEntry::where('booking_invoice_id', $invoice->id)->where('kind', 'received')->sum('amount');
             $allocatedPayment = BookingDepositEntry::where('booking_invoice_payment_id', $payment->id)->where('kind', 'received')->sum('amount');
             $required = (float) (($invoice->fees ?? [])['Security Deposit'] ?? 0);
+            if ($payment->rent_amount !== null && self::cents($amount) + self::cents($allocatedPayment) + self::cents($payment->rent_amount) > self::cents($payment->amount)) {
+                self::fail('This allocation would consume rent already credited to the owner. Correct the rent allocation first.');
+            }
             if (self::cents($amount) <= 0 || self::cents($amount) > self::cents($required) - self::cents($allocatedInvoice) || self::cents($amount) > self::cents($payment->amount) - self::cents($allocatedPayment)) {
                 self::fail('The allocation exceeds the recorded payment or the invoice deposit charge.');
             }
