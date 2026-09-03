@@ -14,6 +14,7 @@ class AccountingEntry extends BaseModel
         'owner' => 'Owner Ledger',
         'adjustment' => 'Adjustment',
         'transfer' => 'Account Transfer',
+        'deposit' => 'Guest Deposit',
     ];
 
     protected $fillable = [

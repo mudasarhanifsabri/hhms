@@ -12,6 +12,7 @@ use App\Http\Controllers\admin\properties\PropertyOwnerDocumentController;
 use App\Http\Controllers\admin\properties\UnitDocumentController;
 use App\Http\Controllers\admin\properties\BuildingController;
 use App\Http\Controllers\admin\bookings\BookingController;
+use App\Http\Controllers\admin\bookings\DepositController;
 use App\Http\Controllers\admin\tasks\TaskController;
 use App\Http\Controllers\admin\inspections\InspectionController;
 use App\Http\Controllers\admin\accounting\AccountingController;
@@ -166,6 +167,14 @@ Route::post('/booking-invoices/{invoice}/payments', [BookingController::class, '
 Route::get('/booking-invoices/{invoice}/receipt', [BookingController::class, 'paymentReceipt'])->name('booking-invoice.receipt');
 Route::post('/bookings/{booking}/prepare-checkout', [BookingController::class, 'prepareCheckout'])->name('booking.prepare-checkout');
 Route::post('/bookings/{booking}/reverse-checkout', [BookingController::class, 'reverseCheckout'])->name('booking.reverse-checkout');
+Route::get('/bookings/{booking}/deposit-wallet', [DepositController::class, 'index'])->name('booking.deposit-wallet');
+Route::post('/bookings/{booking}/deposit-wallet/collect', [DepositController::class, 'collect'])->name('booking.deposit.collect');
+Route::post('/bookings/{booking}/deposit-wallet/allocate', [DepositController::class, 'allocate'])->name('booking.deposit.allocate');
+Route::post('/bookings/{booking}/deposit-wallet/refunds', [DepositController::class, 'requestRefund'])->name('booking.deposit.request');
+Route::post('/bookings/{booking}/deposit-wallet/refunds/{refund}/review', [DepositController::class, 'review'])->name('booking.deposit.review');
+Route::post('/bookings/{booking}/deposit-wallet/refunds/{refund}/pay', [DepositController::class, 'pay'])->name('booking.deposit.pay');
+Route::post('/bookings/{booking}/deposit-wallet/carry', [DepositController::class, 'carry'])->name('booking.deposit.carry');
+Route::get('/bookings/{booking}/deposit-wallet/receipt/{entry}', [DepositController::class, 'receipt'])->name('booking.deposit.receipt');
 Route::get('/bookings/{booking}/invoice', [BookingController::class, 'invoice'])->name('booking.invoice');
 Route::get('/bookings/{booking}/confirmation', [BookingController::class, 'confirmation'])->name('booking.confirmation');
 

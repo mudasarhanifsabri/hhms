@@ -116,6 +116,9 @@ class BookingController extends Controller
 
     public function destroy(Booking $booking)
     {
+        if (\App\Models\BookingDepositEntry::where('booking_id', $booking->id)->exists() || \App\Models\BookingDepositRefund::where('booking_id', $booking->id)->exists()) {
+            return back()->withErrors(['deposit' => 'This booking has deposit audit records and cannot be deleted.']);
+        }
         $reference = $booking->booking_reference;
         $landlordId = $booking->property?->landlord_id;
 
@@ -275,6 +278,8 @@ class BookingController extends Controller
         $data = $request->validate([
             'payment_date' => 'required|date',
             'amount' => 'required|numeric|min:0.01',
+            'deposit_amount' => 'nullable|numeric|min:0|decimal:0,2|lte:amount',
+            'deposit_submission_id' => 'nullable|uuid',
             'payment_method' => 'required|string|max:100',
             'bank_account_id' => 'nullable|exists:bank_accounts,id',
             'reference' => 'nullable|string|max:150',
@@ -283,12 +288,19 @@ class BookingController extends Controller
         ]);
 
         $invoice->load('payments', 'booking.property');
-        if ((float) $data['amount'] > $invoice->balance_due + 0.001) {
-            throw ValidationException::withMessages(['amount' => 'Payment cannot exceed the invoice balance of AED ' . number_format($invoice->balance_due, 2) . '.']);
-        }
-
-        $paidBefore = $invoice->paid_amount;
-        DB::transaction(function () use ($request, $invoice, $data, $paidBefore) {
+        DB::transaction(function () use ($request, $invoice, $data) {
+            Booking::whereKey($invoice->booking_id)->lockForUpdate()->firstOrFail();
+            $invoice = BookingInvoice::whereKey($invoice->id)->lockForUpdate()->firstOrFail();
+            if (! empty($data['deposit_submission_id']) && ($existing = \App\Models\BookingDepositEntry::where('submission_id', $data['deposit_submission_id'])->first())) {
+                if ($existing->booking_invoice_id !== $invoice->id || \App\Support\DepositWallet::cents($existing->amount) !== \App\Support\DepositWallet::cents($data['deposit_amount'] ?? 0)) {
+                    throw ValidationException::withMessages(['deposit' => 'This deposit submission has already been used.']);
+                }
+                return;
+            }
+            $paidBefore = $invoice->paid_amount;
+            if (\App\Support\DepositWallet::cents($data['amount']) > \App\Support\DepositWallet::cents($invoice->balance_due)) {
+                throw ValidationException::withMessages(['amount' => 'Payment exceeds the current invoice balance.']);
+            }
             $entry = AccountingEntry::create([
                 'entry_no' => $this->nextAccountingEntryNumber(),
                 'entry_date' => $data['payment_date'],
@@ -307,7 +319,7 @@ class BookingController extends Controller
                 'status' => 'posted', 'approval_status' => 'posted', 'created_by' => auth()->id(),
             ]);
 
-            BookingInvoicePayment::create([
+            $payment = BookingInvoicePayment::create([
                 'booking_invoice_id' => $invoice->id,
                 'payment_date' => $data['payment_date'], 'amount' => $data['amount'],
                 'payment_method' => $data['payment_method'], 'bank_account_id' => $data['bank_account_id'] ?? null,
@@ -316,12 +328,16 @@ class BookingController extends Controller
                 'notes' => $data['notes'] ?? null, 'accounting_entry_id' => $entry->id, 'created_by' => auth()->id(),
             ]);
 
+            if ((float) ($data['deposit_amount'] ?? 0) > 0) {
+                \App\Support\DepositWallet::allocate($invoice->booking, $payment, (float) $data['deposit_amount'], $data['deposit_submission_id'] ?? 'payment:'.$payment->id);
+            }
+
             $paid = $paidBefore + (float) $data['amount'];
             $invoice->update(['status' => $paid >= (float) $invoice->total_amount ? 'paid' : 'partial']);
             $invoice->booking?->update(['invoice_status' => $invoice->booking->invoices()->where('status', '!=', 'paid')->exists() ? 'unpaid' : 'paid']);
             if ($data['bank_account_id'] ?? null) {
-                $account = BankAccount::find($data['bank_account_id']);
-                $account?->forceFill(['current_balance' => (float) $account->current_balance + (float) $data['amount']])->save();
+                $account = BankAccount::whereKey($data['bank_account_id'])->lockForUpdate()->first();
+                $account?->forceFill(['current_balance' => (float) $account->opening_balance + (float) $account->entries()->whereIn('approval_status', ['posted', 'approved', 'paid'])->selectRaw('COALESCE(SUM(credit - debit),0) as movement')->value('movement')])->save();
             }
         });
 

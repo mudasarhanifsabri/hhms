@@ -33,10 +33,10 @@ class AccountingController extends Controller
         $from = $month->copy()->startOfMonth();
         $to = $month->copy()->endOfMonth();
 
-        $income = AccountingEntry::whereBetween('entry_date', [$from, $to])->sum('credit');
-        $expenses = AccountingEntry::whereBetween('entry_date', [$from, $to])->sum('debit');
-        $todayIncome = AccountingEntry::whereDate('entry_date', today())->sum('credit');
-        $todayExpenses = AccountingEntry::whereDate('entry_date', today())->sum('debit');
+        $income = AccountingEntry::where('type', '!=', 'deposit')->whereBetween('entry_date', [$from, $to])->sum('credit');
+        $expenses = AccountingEntry::where('type', '!=', 'deposit')->whereBetween('entry_date', [$from, $to])->sum('debit');
+        $todayIncome = AccountingEntry::where('type', '!=', 'deposit')->whereDate('entry_date', today())->sum('credit');
+        $todayExpenses = AccountingEntry::where('type', '!=', 'deposit')->whereDate('entry_date', today())->sum('debit');
         $cashBalance = $this->bankBalanceTotal('cash');
         $bankBalance = $this->bankBalanceTotal('bank');
         $ownerBalances = $this->ownerAccountBalances();

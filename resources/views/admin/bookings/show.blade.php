@@ -9,6 +9,7 @@
     $defaultExtensionRent = (float) ($latestInvoice?->rent_amount ?? $booking->rent_amount);
 @endphp
 <div class="row">
+    <div class="col-12 mb-3"><nav class="nav nav-pills gap-2"><a class="nav-link active" href="{{ route('admin.booking.show',$booking) }}">Booking & Invoices</a><a class="nav-link" href="{{ route('admin.booking.deposit-wallet',$booking) }}">Security Deposit Wallet</a></nav></div>
     <div class="col-xl-8">
         <div class="card">
             <div class="card-header d-flex justify-content-between align-items-center">
@@ -317,6 +318,7 @@
                         <div class="col-lg-4">
                             <label for="renew_security_deposit" class="form-label">Security Deposit</label>
                             <input type="number" step="0.01" min="0" id="renew_security_deposit" name="security_deposit" class="form-control" value="{{ old('security_deposit', $booking->security_deposit) }}">
+                            <small class="text-muted">Set to 0 if carrying an existing deposit forward from the Deposit Wallet.</small>
                         </div>
                         <div class="col-lg-12">
                             <label for="renew_notes" class="form-label">Notes</label>
@@ -375,6 +377,7 @@
                     <div class="col-md-6"><label class="form-label">Amount (AED)</label><input type="number" name="amount" class="form-control" step="0.01" min="0.01" max="{{ $invoice->balance_due }}" value="{{ $invoice->balance_due }}" required></div>
                     <div class="col-md-6"><label class="form-label">Payment Method</label><select name="payment_method" class="form-select" required><option>Bank Transfer</option><option>Cash</option><option>Card</option><option>Cheque</option><option>Online Payment</option></select></div>
                     <div class="col-md-6"><label class="form-label">Deposit To Account</label><select name="bank_account_id" class="form-select"><option value="">Not selected</option>@foreach($bankAccounts as $account)<option value="{{ $account->id }}">{{ $account->name }}</option>@endforeach</select></div>
+                    <div class="col-md-6"><label class="form-label">Of this payment: security deposit (AED)</label><input name="deposit_amount" type="number" class="form-control" min="0" step="0.01" value="0"><small class="text-muted">Included in the payment, not an additional charge. Allocates this portion to the deposit wallet.</small></div>
                     <div class="col-md-6"><label class="form-label">Reference</label><input name="reference" class="form-control"></div>
                     <div class="col-md-6"><label class="form-label">Upload Receipt</label><input type="file" name="receipt" class="form-control" accept=".pdf,.jpg,.jpeg,.png"></div>
                     <div class="col-12"><label class="form-label">Notes</label><textarea name="notes" class="form-control" rows="2"></textarea></div>
