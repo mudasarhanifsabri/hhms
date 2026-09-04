@@ -120,6 +120,10 @@ class TenantController extends Controller
     public function storeArea(Request $request, BookingInspection $inspection, string $area)
     {
         $this->authorizeInspection($inspection);
+        abort_unless($inspection->status === 'draft', 409, 'Inspection is already submitted.');
+        if ($request->has('draft_revision')) {
+            abort_unless((int) $request->input('draft_revision') === (int) $inspection->draft_revision, 409, 'A newer draft exists. Reload before editing.');
+        }
         $validated = $request->validate([
             'items' => 'required|array',
             'items.*.condition' => 'required|in:good,issue,na',
@@ -200,7 +204,7 @@ class TenantController extends Controller
 
     private function authorizeBooking(Booking $booking): void
     {
-        abort_unless($booking->tenant_id === Auth::id(), 403);
+        abort_unless($booking->tenant_id !== null && (string) $booking->tenant_id === (string) Auth::id(), 403);
     }
 
     private function authorizeInspection(BookingInspection $inspection): void

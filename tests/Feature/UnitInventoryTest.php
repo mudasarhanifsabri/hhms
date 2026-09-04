@@ -30,6 +30,36 @@ class UnitInventoryTest extends TestCase
         return compact('admin', 'employee', 'owner', 'property', 'item', 'task');
     }
 
+    public function test_inspection_draft_resumes_and_photos_are_idempotent(): void
+    {
+        extract($this->setupInventory());
+        $this->actingAs($employee)->get(route('maintainer.task.inspection.form', $task))->assertOk();
+        $inspection=$task->inspection->fresh();
+        $check=$inspection->items->first();
+        $draft=['revision'=>0,'step'=>1,'items'=>[$check->id=>['condition'=>'issue','comment'=>'Resume this inspection']]];
+        $this->postJson(route('maintainer.task.inspection.draft',$task),$draft)->assertOk()->assertJsonPath('revision',1);
+        $this->assertSame('draft',$inspection->fresh()->status);
+        $this->get(route('maintainer.task.inspection.form',$task))->assertOk()->assertSee('Resume this inspection');
+        $this->postJson(route('maintainer.task.inspection.draft',$task),$draft)->assertStatus(409);
+        config(['hhms.media_disk'=>'s3']);
+        \Illuminate\Support\Facades\Storage::fake('s3');
+        $photo=['upload_id'=>(string)\Illuminate\Support\Str::uuid(),'item_id'=>$check->id,'photo'=>\Illuminate\Http\UploadedFile::fake()->image('evidence.jpg')];
+        $this->postJson(route('maintainer.task.inspection.photo',$task),$photo)->assertOk();
+        $this->postJson(route('maintainer.task.inspection.photo',$task),$photo)->assertOk();
+        $this->assertCount(1,$check->fresh()->pictures);
+        \Illuminate\Support\Facades\Storage::disk('s3')->assertExists(\App\Support\MediaStorage::path($check->fresh()->pictures[0]));
+        $other=User::factory()->create(['role'=>'maintainer','is_active'=>true]);
+        $this->actingAs($other)->postJson(route('maintainer.task.inspection.draft',$task),array_replace($draft,['revision'=>1]))->assertForbidden();
+        $tenant=User::factory()->create(['role'=>'tenant','is_active'=>true]);
+        $booking=\App\Models\Booking::create(['tenant_id'=>$tenant->id,'property_id'=>$property->id,'booking_reference'=>'BK-DRAFT','invoice_number'=>'INV-DRAFT','guest_name'=>'Guest','guest_email'=>'guest@example.com','guest_phone'=>'123','guest_passport_id_no'=>'PASS','check_in'=>'2026-09-01','check_out'=>'2026-09-30','rent_amount'=>100,'total_amount'=>100,'status'=>'confirmed']);
+        $inspection->update(['booking_id'=>$booking->id]);
+        $this->actingAs($tenant)->postJson(route('tenant.inspection.draft',$inspection),array_replace($draft,['revision'=>1]))->assertOk()->assertJsonPath('revision',2);
+        $this->get(route('tenant.inspection.inspect',[$inspection,$check->area]))->assertOk()->assertSee('Resume this inspection')->assertSee('Choose photos');
+        $this->actingAs($other)->postJson(route('tenant.inspection.draft',$inspection),array_replace($draft,['revision'=>2]))->assertForbidden();
+        $inspection->update(['status'=>'submitted']);
+        $this->actingAs($employee)->postJson(route('maintainer.task.inspection.draft',$task),array_replace($draft,['revision'=>1]))->assertStatus(409);
+    }
+
     public function test_office_request_mobile_counts_and_approval(): void
     {
         extract($this->setupInventory());

@@ -1,7 +1,7 @@
 @extends('layouts.app')
 
 @section('content')
-<style>#inspection-wizard [hidden]{display:none!important}#inspection-wizard progress{accent-color:#6844e8}#inspection-wizard .pwa-inspection-item{margin-bottom:16px}</style>
+<style>#inspection-wizard [hidden]{display:none!important}#inspection-wizard progress{accent-color:#6844e8}#inspection-wizard .pwa-inspection-item{margin-bottom:16px}#inspection-wizard input:not([type=radio]):not([type=file]),#inspection-wizard textarea{font-size:16px;max-width:100%;box-sizing:border-box}#inspection-wizard .pwa-inspection-item{padding:12px;border:1px solid #e5e7ef;border-radius:12px;min-width:0}#inspection-wizard button,#inspection-wizard .btn{min-height:44px}#inspection-wizard [data-photo-list] img{border-radius:8px;object-fit:cover}#wizard-navigation{padding:10px 0}</style>
 <div class="pwa-screen">
     @include('maintainer.partials.pwa-header', ['title' => 'Inspection', 'back' => route('maintainer.task.show', $task->id)])
 
@@ -13,10 +13,12 @@
         <h2 class="pwa-title">{{ $task->title }}</h2>
         <p class="pwa-subtitle">{{ $inspection->property?->building?->building_name ?? $task->booking?->property?->building?->name ?? 'Property' }} • {{ $inspection->property?->name ?? $task->booking?->property?->name ?? 'Unit' }}</p>
 
-        <form action="{{ route('maintainer.task.inspection.submit', $task->id) }}" method="POST" enctype="multipart/form-data" class="pwa-form" id="inspection-wizard">
+        <form data-draft-url="{{ route('maintainer.task.inspection.draft', $task) }}" data-photo-url="{{ route('maintainer.task.inspection.photo', $task) }}" data-scope="{{ auth()->id() }}:{{ $inspection->id }}" data-revision="{{ $inspection->draft_revision }}" data-step="{{ $draft['step'] ?? 0 }}" action="{{ route('maintainer.task.inspection.submit', $task->id) }}" method="POST" enctype="multipart/form-data" class="pwa-form" id="inspection-wizard">
             <div id="wizard-progress" class="pwa-section" hidden><strong id="wizard-step" aria-live="polite"></strong><progress id="wizard-bar" max="100" value="0" style="width:100%" aria-label="Inspection progress"></progress></div>
             <section data-wizard-step data-step-title="Rooms" class="pwa-section"><h3>Rooms to inspect</h3><p>Work through each room, record condition and photos, then count inventory.</p><ul>@foreach($inspection->items->groupBy('area') as $area => $roomItems)<li>{{ $area }} · {{ $roomItems->count() }} checks</li>@endforeach</ul><small>Nothing is marked Good automatically. All rooms must be reviewed.</small></section>
             @csrf
+<input type="hidden" name="draft_revision" value="{{ $inspection->draft_revision }}">
+<div class="pwa-section"><strong id="draft-status" role="status">Draft ready</strong><p class="small">Photos upload automatically. Camera access is used only when you choose Take photo.</p><button type="button" id="draft-save" class="pwa-secondary-button">Save draft</button></div>
             @foreach($inspection->items->groupBy('area') as $area => $items)
                 <section data-wizard-step data-step-title="{{ $area }}" class="pwa-section pwa-inspection-area">
                     <h3>{{ $area }}</h3>
@@ -26,14 +28,14 @@
                             <div class="pwa-segment pwa-condition-segment">
                                 @foreach(['good' => 'Good', 'issue' => 'Issue', 'na' => 'N/A'] as $key => $label)
                                     <label>
-                                        <input type="radio" name="items[{{ $item->id }}][condition]" value="{{ $key }}" @checked(old('items.'.$item->id.'.condition') === $key) required>
+                                        <input type="radio" name="items[{{ $item->id }}][condition]" value="{{ $key }}" @checked(old('items.'.$item->id.'.condition', data_get($draft, 'items.'.$item->id.'.condition')) === $key) required>
                                         <span>{{ $label }}</span>
                                     </label>
                                 @endforeach
                             </div>
                             <div class="pwa-field">
                                 <label>Remark</label>
-                                <textarea name="items[{{ $item->id }}][comment]" rows="2" placeholder="Add issue details if needed.">{{ old('items.'.$item->id.'.comment', $item->comment) }}</textarea>
+                                <textarea name="items[{{ $item->id }}][comment]" rows="2" placeholder="Add issue details if needed.">{{ old('items.'.$item->id.'.comment', data_get($draft, 'items.'.$item->id.'.comment', $item->comment)) }}</textarea>
                             </div>
                             @include('maintainer.tasks.inspection-photos')
                         </div>
@@ -45,15 +47,15 @@
             <section data-wizard-step data-step-title="Inventory" class="pwa-section"><h3>Inventory counts</h3><p>Count all items present. Damaged is included in Found. Office approval updates stock.</p>
             @foreach($inventoryRows as $row)
             <div class="pwa-inspection-item"><strong>{{ $row['room'] }} — {{ $row['name'] }}</strong><p>Required {{ $row['required'] }} · Previous count {{ $row['before'] }}</p>
-                <div class="row g-2"><div class="col-6"><label>Found<input class="form-control" type="number" min="0" max="100000" name="inventory[{{ $row['id'] }}][found]" value="{{ old('inventory.'.$row['id'].'.found') }}" required></label></div>
-                <div class="col-6"><label>Damaged<input class="form-control" type="number" min="0" name="inventory[{{ $row['id'] }}][damaged]" value="{{ old('inventory.'.$row['id'].'.damaged') }}" required></label></div></div>
-                <label>Evidence / notes<textarea class="form-control" name="inventory[{{ $row['id'] }}][notes]" placeholder="Describe damage; attach photos under the room checklist below">{{ old('inventory.'.$row['id'].'.notes') }}</textarea></label>
+                <div class="row g-2"><div class="col-6"><label>Found<input class="form-control" type="number" min="0" max="100000" name="inventory[{{ $row['id'] }}][found]" value="{{ old('inventory.'.$row['id'].'.found', data_get($draft, 'inventory.'.$row['id'].'.found')) }}" required></label></div>
+                <div class="col-6"><label>Damaged<input class="form-control" type="number" min="0" name="inventory[{{ $row['id'] }}][damaged]" value="{{ old('inventory.'.$row['id'].'.damaged', data_get($draft, 'inventory.'.$row['id'].'.damaged')) }}" required></label></div></div>
+                <label>Evidence / notes<textarea class="form-control" name="inventory[{{ $row['id'] }}][notes]" placeholder="Describe damage; attach photos under the room checklist below">{{ old('inventory.'.$row['id'].'.notes', data_get($draft, 'inventory.'.$row['id'].'.notes')) }}</textarea></label>
             </div>
             @endforeach</section>
             @endif
             <section data-wizard-step data-step-title="Review & Submit" class="pwa-section"><h3>Review inspection</h3><div id="wizard-review" aria-live="polite"></div><p>Submitting completes the task. Inventory counts still need office approval.</p><div class="pwa-field">
                 <label for="notes">Final Notes</label>
-                <textarea id="notes" name="notes" rows="4" placeholder="Overall inspection notes.">{{ old('notes', $inspection->notes) }}</textarea>
+                <textarea id="notes" name="notes" rows="4" placeholder="Overall inspection notes.">{{ old('notes', $draft['notes'] ?? $inspection->notes) }}</textarea>
             </div>
 
             </section><div id="wizard-navigation" class="d-flex gap-2" hidden><button type="button" id="wizard-back" class="pwa-secondary-button">Back</button><button type="button" id="wizard-next" class="pwa-primary-button purple">Next</button></div>
@@ -65,33 +67,10 @@
 document.addEventListener('DOMContentLoaded', () => {
     const form = document.getElementById('inspection-wizard');
     if (!form) return;
-    form.querySelectorAll('[data-inspection-photos]').forEach(picker => {
-        let files = [], urls = [];
-        const stored = picker.querySelector('[data-photo-files]'), list = picker.querySelector('[data-photo-list]'), message = picker.querySelector('[data-photo-message]');
-        function render() {
-            urls.forEach(url => URL.revokeObjectURL(url)); urls = []; list.replaceChildren();
-            const transfer = new DataTransfer(); files.forEach(file => transfer.items.add(file)); stored.files = transfer.files;
-            files.forEach((file,index) => {
-                const wrapper = document.createElement('div'), img = document.createElement('img'), remove = document.createElement('button');
-                const url = URL.createObjectURL(file); urls.push(url); img.src = url; img.alt = file.name; img.width=72; img.height=72; img.style.objectFit='cover';
-                remove.type='button'; remove.className='btn btn-light btn-sm'; remove.textContent='Remove'; remove.setAttribute('aria-label','Remove '+file.name);
-                remove.addEventListener('click', () => { files.splice(index,1); render(); });
-                wrapper.append(img,remove); list.append(wrapper);
-            });
-            message.textContent = files.length+' of 5 photos selected';
-        }
-        picker.querySelectorAll('[data-photo-pick]').forEach(input => input.addEventListener('change', () => {
-            const added = [...input.files]; input.value='';
-            if (files.length+added.length > 5 || added.some(f => f.size > 5*1024*1024 || !['image/jpeg','image/png','image/webp'].includes(f.type))) {
-                message.textContent='Choose up to 5 JPG, PNG or WebP photos, each no larger than 5 MB.'; return;
-            }
-            files.push(...added); render();
-        }));
-    });
     const steps = [...form.querySelectorAll('[data-wizard-step]')];
     const next = document.getElementById('wizard-next'), back = document.getElementById('wizard-back');
     const submit = document.getElementById('wizard-submit');
-    let current = 0;
+    let current = Math.min(Number(form.dataset.step) || 0, steps.length - 1);
     form.noValidate = true;
     document.getElementById('wizard-progress').hidden = false;
     document.getElementById('wizard-navigation').hidden = false;
@@ -113,6 +92,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     function show(scroll = false) {
+        form.dataset.step = current;
         steps.forEach((s,i) => { s.hidden = i !== current; });
         document.getElementById('wizard-step').textContent = 'Step ' + (current+1) + ' of ' + steps.length + ' — ' + steps[current].dataset.stepTitle;
         document.getElementById('wizard-bar').value = (current+1)/steps.length*100;
@@ -132,16 +112,17 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         return true;
     }
-    next.addEventListener('click', () => { if (valid(steps[current])) { current++; show(true); } });
-    back.addEventListener('click', () => { current--; show(true); });
+    next.addEventListener('click', () => { if (valid(steps[current])) { current++; show(true); form.dispatchEvent(new Event('input')); } });
+    back.addEventListener('click', () => { current--; show(true); form.dispatchEvent(new Event('input')); });
     form.addEventListener('submit', event => {
         for (let i=0;i<steps.length;i++) {
             current=i; show();
             if (!valid(steps[i])) { event.preventDefault(); return; }
         }
-        submit.disabled=true; submit.textContent='Submitting…';
+        event.preventDefault(); form.dispatchEvent(new Event('inspection-ready'));
     });
     show();
 });
 </script>
+<script src="{{ asset('assets/js/inspection-draft.js') }}" defer></script>
 @endsection

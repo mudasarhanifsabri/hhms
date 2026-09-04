@@ -11,6 +11,8 @@ Route::middleware(['auth', 'role:tenant', \App\Http\Middleware\CompleteTenantPro
     Route::post('/maintenance', [\App\Http\Controllers\Tenants\MaintenanceController::class, 'store'])->middleware('throttle:10,1')->name('maintenance.store');
     Route::get('/bookings/{booking}', [TenantController::class, 'booking'])->name('booking.show');
     Route::post('/bookings/{booking}/inspections/{type}/start', [TenantController::class, 'startInspection'])->name('inspection.start');
+    Route::post('/inspections/{inspection}/draft', [\App\Http\Controllers\Maintainers\InspectionDraftController::class, 'tenantSave'])->name('inspection.draft');
+    Route::post('/inspections/{inspection}/photo', [\App\Http\Controllers\Maintainers\InspectionDraftController::class, 'tenantPhoto'])->name('inspection.photo');
     Route::get('/inspections/{inspection}/areas', [TenantController::class, 'areas'])->name('inspection.areas');
     Route::post('/inspections/{inspection}/areas', [TenantController::class, 'storeAreas'])->name('inspection.areas.store');
     Route::get('/inspections/{inspection}/inspect/{area}', [TenantController::class, 'inspectArea'])->name('inspection.inspect');

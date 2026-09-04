@@ -220,7 +220,8 @@ class MaintainerController extends Controller
 
         abort_unless($inspection->status === 'draft' && !in_array($task->status, ['completed', 'closed', 'cancelled']), 422, 'This inspection is closed.');
         $inventoryRows = \App\Support\UnitInventory::snapshot($inspection);
-        return view('maintainer.tasks.inspection', compact('task', 'inspection', 'inventoryRows'));
+        $draft = json_decode($inspection->draft_payload ?? '{}', true) ?: [];
+        return view('maintainer.tasks.inspection', compact('task', 'inspection', 'inventoryRows', 'draft'));
     }
 
     public function submitInspection(Request $request, BookingTask $task)
@@ -232,6 +233,7 @@ class MaintainerController extends Controller
 
         $inspection = $this->ensureInspectionForTask($task);
         abort_unless($inspection->status === 'draft' && !in_array($task->status, ['completed', 'closed', 'cancelled']), 422, 'This inspection is closed.');
+        if ($request->has('draft_revision')) abort_unless((int)$request->input('draft_revision') === (int)$inspection->draft_revision,409,'Draft changed in another tab. Reload before submitting.');
         $validatedData = $request->validate([
             'items' => 'required|array',
             'items.*.condition' => 'required|in:good,issue,na',
@@ -255,6 +257,7 @@ class MaintainerController extends Controller
             }
 
             $pictures = (array) $item->pictures;
+            if (count($pictures)+count((array)$request->file("pictures.$itemId",[])) > 5) throw \Illuminate\Validation\ValidationException::withMessages(['pictures'=>'Maximum 5 photos per item.']);
             if ($request->hasFile("pictures.$itemId")) {
                 foreach ((array) $request->file("pictures.$itemId") as $file) {
                     $pictures[] = $this->uploadOptimizedFile($file, 'booking_inspection_pictures');

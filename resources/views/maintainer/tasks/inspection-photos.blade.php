@@ -1,4 +1,4 @@
-<div data-inspection-photos class="pwa-field">
+<div data-inspection-photos data-item-id="{{ $item->id }}" data-saved="{{ json_encode(collect($item->pictures ?? [])->map(fn ($path) => ['path' => $path, 'url' => \App\Support\MediaStorage::url($path)])->values()) }}" class="pwa-field">
     <label>Item photos · up to 5, 5 MB each</label>
     <div class="d-flex gap-2 flex-wrap">
         <label class="btn btn-outline-primary btn-sm">Take photo<input data-photo-pick type="file" accept="image/jpeg,image/png,image/webp" capture="environment" class="visually-hidden"></label>
