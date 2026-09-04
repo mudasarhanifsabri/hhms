@@ -493,6 +493,10 @@ public function update(Request $request, $id)
 
         public function genratePdf(Request $request)
         {
+            // Keep exports available during deployments with an older route cache.
+            if ($request->input('format') === 'csv') {
+                return $this->exportExcel($request);
+            }
             $rows = $this->ownerExportRows($request);
             $totalLandlords = $rows->pluck('owner_id')->unique()->count();
 

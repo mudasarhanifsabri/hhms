@@ -78,7 +78,7 @@
                         </a>
                         <div class="dropdown-menu dropdown-menu-end">
                             <a href="{{ route('admin.landlord.pdf.list', request()->only('search', 'status')) }}" class="dropdown-item">PDF</a>
-                            <a href="{{ route('admin.landlord.excel.list', request()->only('search', 'status')) }}" class="dropdown-item">Excel (CSV)</a>
+                            <a href="{{ \Illuminate\Support\Facades\Route::has('admin.landlord.excel.list') ? route('admin.landlord.excel.list', request()->only('search', 'status')) : route('admin.landlord.pdf.list', array_merge(request()->only('search', 'status'), ['format' => 'csv'])) }}" class="dropdown-item">Excel (CSV)</a>
                         </div>
                     </div>
                 </div>

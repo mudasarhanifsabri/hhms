@@ -12,6 +12,24 @@ class OwnerExportTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_stale_route_cache_keeps_owner_page_and_csv_export_available(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        User::factory()->create(['role' => 'landlord', 'name' => 'Fallback Owner']);
+        $routes = new \Illuminate\Routing\RouteCollection;
+        foreach (app('router')->getRoutes() as $route) {
+            if ($route->getName() !== 'admin.landlord.excel.list') {
+                $routes->add($route);
+            }
+        }
+        app('router')->setRoutes($routes);
+        app('url')->setRoutes($routes);
+        $this->actingAs($admin)->get(route('admin.landlord.index'))->assertOk()->assertSee('format=csv');
+        $response = $this->get(route('admin.landlord.pdf.list', ['format' => 'csv']));
+        $response->assertOk()->assertDownload();
+        $this->assertStringContainsString('Fallback Owner', $response->streamedContent());
+    }
+
     public function test_export_includes_each_unit_and_respects_search(): void
     {
         $admin = User::factory()->create(['role' => 'admin']);
