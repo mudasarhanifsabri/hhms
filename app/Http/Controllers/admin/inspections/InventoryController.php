@@ -23,9 +23,10 @@ class InventoryController extends Controller
         $maintainers = User::where('role', 'maintainer')->where('is_active', true)->orderBy('name')->get();
         $bookings = \App\Models\Booking::where('property_id', $property?->id)->latest()->get();
         $templates = DB::table('unit_inventory_templates')->orderBy('name')->get();
+        $inventoryTasks = \App\Models\BookingTask::where('property_id', $property?->id)->where('category', 'inventory')->with('assignedUser')->latest()->limit(30)->get();
         $summaries = UnitInventoryItem::selectRaw('property_id, COUNT(*) as item_types, SUM(required) as required_total, SUM(present) as present_total, SUM(damaged) as damaged_total, SUM(CASE WHEN required > present THEN required - present ELSE 0 END) as missing_total')->groupBy('property_id')->get()->keyBy('property_id');
 
-        return view('admin.inspections.inventory', compact('properties', 'property', 'items', 'movements', 'maintainers', 'bookings', 'templates', 'summaries'));
+        return view('admin.inspections.inventory', compact('properties', 'property', 'items', 'movements', 'maintainers', 'bookings', 'templates', 'summaries', 'inventoryTasks'));
     }
 
     public function store(Request $request)
@@ -76,7 +77,7 @@ class InventoryController extends Controller
 
     public function move(Request $request, UnitInventoryItem $item)
     {
-        $data = $request->validate(['type' => 'required|in:receive,dispose,repair,transfer', 'quantity' => 'required|integer|min:1|max:100000', 'reason' => 'required|string|min:5|max:1000', 'target_property_id' => 'nullable|required_if:type,transfer|exists:properties,id']);
+        $data = $request->validate(['type' => 'required|in:receive,dispose,repair,replace,transfer', 'quantity' => 'required|integer|min:1|max:100000', 'reason' => 'required|string|min:5|max:1000', 'target_property_id' => 'nullable|required_if:type,transfer|exists:properties,id']);
         DB::transaction(function () use ($item, $data) {
             // Global inventory movement lock order starts with properties.
             Property::whereIn('id', array_filter([$item->property_id, $data['target_property_id'] ?? null]))->orderBy('id')->lockForUpdate()->get();
@@ -92,6 +93,9 @@ class InventoryController extends Controller
                 $target = UnitInventoryItem::firstOrCreate(['property_id' => $data['target_property_id'], 'room' => $item->room, 'name' => $item->name], ['required' => 0, 'replacement_cost' => $item->replacement_cost]);
                 UnitInventory::movement($target, $q, 0, 'transfer_in', $data['reason'].' / From unit '.$item->property_id);
                 UnitInventory::movement($item, -$q, 0, 'transfer_out', $data['reason'].' / To unit '.$target->property_id);
+            } elseif ($data['type'] === 'replace') {
+                UnitInventory::movement($item, -$q, -$q, 'replace_disposal', $data['reason']);
+                UnitInventory::movement($item, $q, 0, 'replace_receipt', $data['reason']);
             } else {
                 $delta = match ($data['type']) {
                     'receive' => $q, 'dispose' => -$q, default => 0
@@ -117,11 +121,64 @@ class InventoryController extends Controller
         return DB::transaction(fn () => app(\App\Http\Controllers\admin\tasks\TaskController::class)->store($request));
     }
 
+    public function editTemplate(Request $request, string $template)
+    {
+        $data = $request->validate(['rows' => 'required|array|min:1|max:300', 'rows.*.room' => 'required|string|max:100', 'rows.*.name' => 'required|string|max:150', 'rows.*.required' => 'required|integer|min:0|max:100000', 'rows.*.replacement_cost' => 'required|numeric|min:0|max:99999999|decimal:0,2']);
+        abort_unless(DB::table('unit_inventory_templates')->where('id', $template)->exists(), 404);
+        $rows = collect($data['rows'])->map(fn ($r) => collect($r)->only(['room', 'name', 'required', 'replacement_cost'])->all())->values();
+        if ($rows->unique(fn ($r) => $r['room'].'|'.$r['name'])->count() !== $rows->count()) {
+            return back()->withErrors(['rows' => 'Duplicate room/item in template.']);
+        }
+        DB::table('unit_inventory_templates')->where('id', $template)->update(['rows' => $rows->toJson(), 'updated_at' => now()]);
+
+        return back()->with('success', 'Template updated. Existing apartments are unchanged.');
+    }
+
     public function approve(Request $request, BookingInspection $inspection)
     {
         $data = $request->validate(['notes' => 'required|string|min:5|max:2000', 'create_task' => 'nullable|boolean']);
         UnitInventory::approve($inspection, $data['notes'], $request->boolean('create_task'));
 
         return back()->with('success', 'Inventory approved. No guest charges or accounting entries were created.');
+    }
+
+    public function assess(Request $request, BookingInspection $inspection)
+    {
+        $data = $request->validate(['reason' => 'required|string|min:5|max:2000', 'charges' => 'required|array|max:100', 'charges.*.amount' => 'required|numeric|min:0|max:999999|decimal:0,2', 'charges.*.reason' => 'nullable|string|max:500', 'charges.*.evidence' => 'nullable|file|mimes:pdf,jpg,jpeg,png,webp|max:10240']);
+        abort_unless($inspection->type === 'check_out' && $inspection->booking_id, 422, 'A booking checkout is required.');
+
+        return DB::transaction(function () use ($request, $inspection, $data) {
+            $booking = \App\Models\Booking::whereKey($inspection->booking_id)->lockForUpdate()->firstOrFail();
+            $review = DB::table('unit_inventory_reviews')->where('inspection_id', $inspection->id)->lockForUpdate()->first();
+            abort_unless($review && $review->status === 'approved', 422, 'Approve the inventory review first.');
+            if (\App\Models\BookingDepositRefund::where('inspection_id', $inspection->id)->where('status', '!=', 'rejected')->exists()) {
+                throw \Illuminate\Validation\ValidationException::withMessages(['charges' => 'This inspection already has a deposit proposal. Open the deposit wallet to review it.']);
+            }
+            $rows = collect(json_decode($review->rows, true))->keyBy('id');
+            $deductions = [];
+            foreach ($data['charges'] as $id => $charge) {
+                $row = $rows->get($id);
+                if (! $row) {
+                    abort(422, 'Unknown inventory item.');
+                }
+                if ((float) $charge['amount'] <= 0) {
+                    continue;
+                }
+                if (! isset($row['estimate']) || ($row['new_missing'] + $row['new_damaged']) <= 0) {
+                    abort(422, 'Only new loss/damage with an approved baseline can be proposed.');
+                }
+                if (blank($charge['reason'] ?? null) || ! $request->hasFile("charges.$id.evidence")) {
+                    throw \Illuminate\Validation\ValidationException::withMessages(['charges' => 'Every proposed charge requires a reason and evidence attachment.']);
+                }
+                $deductions[] = ['description' => $row['room'].' / '.$row['name'].': '.$charge['reason'], 'amount' => round((float) $charge['amount'], 2), 'estimated_amount' => $row['estimate'], 'item_id' => $id,
+                    'evidence' => \App\Support\MediaStorage::store($request->file("charges.$id.evidence"), 'deposit_evidence')];
+            }
+            if (! $deductions) {
+                throw \Illuminate\Validation\ValidationException::withMessages(['charges' => 'Enter at least one proposed deduction.']);
+            }
+            \App\Support\DepositWallet::requestRefund($booking, ['reason' => $data['reason'], 'inspection_id' => $inspection->id, 'deductions' => $deductions]);
+
+            return redirect()->route('admin.booking.deposit-wallet', $booking)->with('success', 'Proposal sent for deposit approval. No money has moved.');
+        });
     }
 }

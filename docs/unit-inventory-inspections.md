@@ -1,5 +1,13 @@
 # Unit inventory and office inspection requests
 
+## Compact screens update
+
+Inventory now has All Apartments, Unit Inventory, Items & Templates, and Tasks & History tabs. The existing staff inspection and office review screens remain the entry points for inspection work. The review includes a Damage Assessment popup for approved booking checkouts.
+
+Studio, 1 BHK and 2 BHK starter templates contain suggested quantities, with zero replacement prices until the office enters actual costs. They are editable and never overwrite existing apartments automatically. The Replace damaged stock movement records disposal and receipt together, atomically, without creating a purchase payment.
+
+From Damage Assessment, enter proposed per-item repair/replacement amounts, reasons and evidence. The original estimate is retained alongside the proposal. Positive proposals require a recorded new loss/damage against an approved same-booking baseline. Submission creates a pending request in the existing deposit wallet, not a charge. The existing deposit review is the separate approval action. Requests cannot exceed held funds or duplicate a non-rejected proposal for the same inspection.
+
 Deploy the code and run `php artisan migrate --force`, then clear/rebuild route and view caches through the normal updater. No existing inventory quantities are inferred from expenses or old inspection text.
 
 ## Office workflow

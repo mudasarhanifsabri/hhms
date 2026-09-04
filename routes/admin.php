@@ -202,6 +202,8 @@ Route::put('/unit-inventory/{item}', [\App\Http\Controllers\admin\inspections\In
 Route::post('/unit-inventory/{item}/movement', [\App\Http\Controllers\admin\inspections\InventoryController::class, 'move'])->name('inventory.move');
 Route::post('/inspection-requests', [\App\Http\Controllers\admin\inspections\InventoryController::class, 'requestInspection'])->name('inspection.request');
 Route::post('/inventory-templates', [\App\Http\Controllers\admin\inspections\InventoryController::class, 'template'])->name('inventory.template');
+Route::put('/inventory-templates/{template}', [\App\Http\Controllers\admin\inspections\InventoryController::class, 'editTemplate'])->name('inventory.template.update');
+Route::post('/inspections/{inspection}/damage-assessment', [\App\Http\Controllers\admin\inspections\InventoryController::class, 'assess'])->name('inventory.assess');
 Route::post('/inspections/{inspection}/inventory-approval', [\App\Http\Controllers\admin\inspections\InventoryController::class, 'approve'])->name('inventory.approve');
 
 

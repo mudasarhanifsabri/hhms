@@ -82,8 +82,8 @@ class UnitInventoryTest extends TestCase
     public function test_templates_do_not_copy_stock_or_overwrite_requirements(): void
     {
         extract($this->setupInventory());
-        $this->post(route('admin.inventory.template'), ['property_id' => $property->id, 'action' => 'save', 'name' => '1 BHK'])->assertRedirect()->assertSessionHasNoErrors();
-        $template = DB::table('unit_inventory_templates')->first();
+        $this->post(route('admin.inventory.template'), ['property_id' => $property->id, 'action' => 'save', 'name' => 'Custom 1 BHK'])->assertRedirect()->assertSessionHasNoErrors();
+        $template = DB::table('unit_inventory_templates')->where('name', 'Custom 1 BHK')->first();
         $target = Property::create(['landlord_id' => $owner->id, 'name' => '504']);
         $data = ['property_id' => $target->id, 'action' => 'apply', 'template_id' => $template->id];
         $this->post(route('admin.inventory.template'), $data)->assertSessionHasNoErrors();
@@ -113,5 +113,35 @@ class UnitInventoryTest extends TestCase
         $this->assertSame(1, $row['new_damaged']);
         $this->assertEquals(40, $row['estimate']);
         $this->assertSame(1, BookingTask::where('category', 'inventory')->count());
+        \Illuminate\Support\Facades\Storage::fake('public');
+        \App\Models\BookingDepositEntry::create(['booking_id' => $booking->id, 'kind' => 'received', 'amount' => 100, 'entry_date' => today(), 'submission_id' => 'test-held']);
+        $this->get(route('admin.inspection.show', $checkout))->assertOk()->assertSee('Assess damage');
+        $payload = ['reason' => 'Reviewed guest responsibility', 'charges' => [$item->id => ['amount' => 25, 'reason' => 'Repair cost lower than replacement']]];
+        $this->post(route('admin.inventory.assess', $checkout), $payload)->assertSessionHasErrors('charges');
+        $payload['charges'][$item->id]['evidence'] = \Illuminate\Http\UploadedFile::fake()->create('damage.pdf', 10, 'application/pdf');
+        $this->post(route('admin.inventory.assess', $checkout), $payload)->assertRedirect()->assertSessionHasNoErrors();
+        $proposal = \App\Models\BookingDepositRefund::firstOrFail();
+        $this->assertSame('pending', $proposal->status);
+        $this->assertEquals(25, $proposal->deduction_amount);
+        $this->assertEquals(40, $proposal->deductions[0]['estimated_amount']);
+        $this->assertEquals(100, \App\Support\DepositWallet::totals($booking)['held']);
+        $this->post(route('admin.inventory.assess', $checkout), $payload)->assertSessionHasErrors('charges');
+        $this->assertSame(1, \App\Models\BookingDepositRefund::count());
+    }
+
+    public function test_compact_screens_templates_and_replacement(): void
+    {
+        extract($this->setupInventory());
+        foreach (['apartments', 'unit', 'templates', 'history'] as $screen) {
+            $this->get(route('admin.inventory.index', ['screen' => $screen]))->assertOk();
+        }
+        $this->assertSame(3, DB::table('unit_inventory_templates')->count());
+        $item->update(['damaged' => 2]);
+        $this->post(route('admin.inventory.move', $item), ['type' => 'replace', 'quantity' => 1, 'reason' => 'Replace broken glass'])->assertSessionHasNoErrors();
+        $this->assertSame(6, $item->fresh()->present);
+        $this->assertSame(1, $item->fresh()->damaged);
+        $this->assertSame(2, DB::table('unit_inventory_movements')->count());
+        $this->post(route('admin.inventory.move', $item), ['type' => 'replace', 'quantity' => 2, 'reason' => 'Too many replacements'])->assertSessionHasErrors();
+        $this->assertSame(2,DB::table('unit_inventory_movements')->count());
     }
 }

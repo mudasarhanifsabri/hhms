@@ -56,6 +56,8 @@ class UnitInventory
 
         return array_map(function ($row) use ($before) {
             $base = $before->get($row['id']);
+            $row['baseline_found'] = $base['found'] ?? null;
+            $row['baseline_damaged'] = $base['damaged'] ?? null;
             $row['new_missing'] = $base ? max(0, $base['found'] - $row['found']) : null;
             $row['new_damaged'] = $base ? max(0, $row['damaged'] - $base['damaged']) : null;
             $row['estimate'] = $base ? round(($row['new_missing'] + $row['new_damaged']) * $row['cost'], 2) : null;
