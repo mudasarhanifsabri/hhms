@@ -455,13 +455,48 @@ public function update(Request $request, $id)
     }
 }
 
-        public function genratePdf()
+        private function ownerExportRows(Request $request)
         {
-            // Fetch all landlords
-            $landlords = User::where('role', 'landlord')->get();
-            $totalLandlords = $landlords->count();
+            $search = trim((string) $request->input('search'));
+            $owners = User::where('role', 'landlord')
+                ->when($search !== '', fn ($q) => $q->where(fn ($q) => $q->where('name', 'like', "%{$search}%")->orWhere('email', 'like', "%{$search}%")->orWhere('phone', 'like', "%{$search}%")->orWhere('eid_passport_no', 'like', "%{$search}%")))
+                ->when(in_array($request->input('status'), ['active', 'inactive'], true), fn ($q) => $q->where('is_active', $request->input('status') === 'active'))
+                ->orderBy('name')->get();
+            return $owners->flatMap(function ($owner) {
+                $units = $this->ownerUnitsQuery($owner->id)->orderBy('name')->get();
+                return ($units->isEmpty() ? collect([null]) : $units)->map(fn ($unit) => [
+                    'owner_id' => $owner->id, 'name' => $owner->name, 'email' => $owner->email,
+                    'phone' => $owner->phone, 'address' => $owner->address,
+                    'building' => $unit?->building?->building_name ?? 'Not assigned',
+                    'unit' => $unit?->name ?? 'Not assigned',
+                ]);
+            });
+        }
 
-            return PdfRenderer::downloadView('admin.pdf.landlords.list', compact('landlords', 'totalLandlords'), 'landlords_list.pdf');
+        public function exportExcel(Request $request)
+        {
+            $rows = $this->ownerExportRows($request);
+            return response()->streamDownload(function () use ($rows) {
+                $output = fopen('php://output', 'wb');
+                fwrite($output, "\xEF\xBB\xBF");
+                fputcsv($output, ['Owner', 'Email', 'Phone', 'Address', 'Building', 'Unit No.']);
+                foreach ($rows as $row) {
+                    $values = array_map(function ($value) {
+                        $value = (string) $value;
+                        return preg_match('/^[\s]*[=+@-]/u', $value) ? "'".$value : $value;
+                    }, array_values(array_diff_key($row, ['owner_id' => true])));
+                    fputcsv($output, $values);
+                }
+                fclose($output);
+            }, 'owners-'.now()->format('Y-m-d').'.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
+        }
+
+        public function genratePdf(Request $request)
+        {
+            $rows = $this->ownerExportRows($request);
+            $totalLandlords = $rows->pluck('owner_id')->unique()->count();
+
+            return PdfRenderer::downloadView('admin.pdf.landlords.list', compact('rows', 'totalLandlords'), 'landlords_list.pdf', ['format' => 'A4-L']);
         }
 
 

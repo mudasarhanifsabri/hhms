@@ -77,7 +77,8 @@
                             Export
                         </a>
                         <div class="dropdown-menu dropdown-menu-end">
-                            <a href="{{ route('admin.landlord.pdf.list') }}" class="dropdown-item">Pdf</a>
+                            <a href="{{ route('admin.landlord.pdf.list', request()->only('search', 'status')) }}" class="dropdown-item">PDF</a>
+                            <a href="{{ route('admin.landlord.excel.list', request()->only('search', 'status')) }}" class="dropdown-item">Excel (CSV)</a>
                         </div>
                     </div>
                 </div>

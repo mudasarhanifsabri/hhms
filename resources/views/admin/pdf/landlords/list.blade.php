@@ -70,16 +70,20 @@
                         <th>Email</th>
                         <th>Phone</th>
                         <th>Address</th>
+                        <th>Building</th>
+                        <th>Unit No.</th>
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach ($landlords as $index => $landlord)
+                    @foreach ($rows as $index => $row)
                     <tr>
                         <td>{{ $index + 1 }}</td>
-                        <td>{{ $landlord->name }}</td>
-                        <td>{{ $landlord->email }}</td>
-                        <td>{{ $landlord->phone }}</td>
-                        <td>{{ $landlord->address }}</td>
+                        <td>{{ $row['name'] }}</td>
+                        <td>{{ $row['email'] }}</td>
+                        <td>{{ $row['phone'] }}</td>
+                        <td>{{ $row['address'] }}</td>
+                        <td>{{ $row['building'] }}</td>
+                        <td>{{ $row['unit'] }}</td>
                     </tr>
                     @endforeach
                 </tbody>

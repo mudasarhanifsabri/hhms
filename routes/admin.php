@@ -208,6 +208,7 @@ Route::get('/buildings/by-landlord/{landlord}', [BuildingController::class, 'byL
 // To download the PDF list of all landlords
 
 Route::get('/landlords/pdf/list', [LandlordController::class, 'genratePdf'])->name('landlord.pdf.list');
+Route::get('/landlords/excel/list', [LandlordController::class, 'exportExcel'])->name('landlord.excel.list');
 Route::get('/tenants/pdf/list', [TenantController::class, 'genratePdf'])->name('tenant.pdf.list');
 Route::get('/agents/pdf/list', [AgentController::class, 'genratePdf'])->name('agent.pdf.list');
 Route::get('/maintainers/pdf/list', [MaintainerController::class, 'genratePdf'])->name('maintainer.pdf.list');
