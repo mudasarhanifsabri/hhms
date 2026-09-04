@@ -11,6 +11,7 @@ Route::middleware(['auth', 'role:maintainer'])->prefix('maintainer')->name('main
     Route::get('/tasks/live', [MaintainerController::class, 'liveTasks'])->name('task.live');
     Route::get('/tasks/grid', [MaintainerController::class, 'taskGrid'])->name('task.grid');
     Route::get('/tasks/{task}', [MaintainerController::class, 'showTask'])->name('task.show');
+    Route::post('/tasks/{task}/expense-request', [\App\Http\Controllers\Maintainers\TaskExpenseController::class, 'store'])->name('task.expense-request');
     Route::get('/tasks/{task}/accept', [MaintainerController::class, 'acceptForm'])->name('task.accept.form');
     Route::post('/tasks/{task}/accept', [MaintainerController::class, 'acceptTask'])->name('task.accept');
     Route::get('/tasks/{task}/remarks/create', [MaintainerController::class, 'remarkForm'])->name('task.remark.form');

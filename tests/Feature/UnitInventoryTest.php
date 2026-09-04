@@ -35,10 +35,16 @@ class UnitInventoryTest extends TestCase
         extract($this->setupInventory());
         $this->get(route('admin.inventory.index'))->assertOk()->assertSee('Glass');
         $this->actingAs($employee)->get(route('maintainer.task.index', ['inspections_only' => 1]))->assertOk()->assertSee($task->title);
-        $this->get(route('maintainer.task.inspection.form', $task))->assertOk()->assertSee('Inventory counts');
+        $this->get(route('maintainer.task.inspection.form', $task))->assertOk()->assertSee('Inventory counts')->assertSee('Rooms to inspect')->assertSee('wizard-next')->assertSee('Choose photos');
+        $this->post(route('maintainer.task.complete',$task),[])->assertSessionHasErrors('inspection');
+        \Illuminate\Support\Facades\Storage::fake('public');
         $inspection = $task->inspection->fresh();
         $payload = ['items' => $inspection->items->mapWithKeys(fn ($i) => [$i->id => ['condition' => 'good']])->all(), 'inventory' => [$item->id => ['found' => 5, 'damaged' => 1, 'notes' => 'One chipped glass']]];
+        $photoItem = $inspection->items->first();
+        $payload['pictures'] = [$photoItem->id => [\Illuminate\Http\UploadedFile::fake()->image('front.jpg'), \Illuminate\Http\UploadedFile::fake()->image('side.jpg')]];
         $this->post(route('maintainer.task.inspection.submit', $task), $payload)->assertSessionHasNoErrors();
+        $this->assertCount(2,$photoItem->fresh()->pictures);
+        $this->get(route('maintainer.task.show',$task))->assertOk()->assertSee('Task history')->assertSee('View submitted inspection')->assertDontSee('Add Cost')->assertDontSee('Add Remark')->assertDontSee('Start Inspection');
         $this->assertSame(6, $item->fresh()->present);
         $this->post(route('maintainer.task.inspection.submit', $task), $payload)->assertStatus(422);
         $this->post(route('admin.inventory.approve', $inspection), ['notes' => 'Checked evidence'])->assertForbidden();

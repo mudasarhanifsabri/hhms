@@ -236,6 +236,8 @@ class MaintainerController extends Controller
             'items' => 'required|array',
             'items.*.condition' => 'required|in:good,issue,na',
             'items.*.comment' => 'nullable|string|max:1000',
+            'pictures' => 'nullable|array',
+            'pictures.*' => 'nullable|array|max:5',
             'pictures.*.*' => 'nullable|file|mimes:jpg,jpeg,png,webp|max:5120',
             'notes' => 'nullable|string|max:3000',
             'gps_latitude' => 'nullable|numeric',
@@ -289,6 +291,7 @@ class MaintainerController extends Controller
     public function completeForm(BookingTask $task)
     {
         $this->authorizeAssignedTask($task);
+        if ($task->isInspectionTask()) return redirect()->route('maintainer.task.inspection.form', $task);
         $task->load('costItems');
 
         return view('maintainer.tasks.complete', compact('task'));
@@ -312,6 +315,9 @@ class MaintainerController extends Controller
     public function completeTask(Request $request, BookingTask $task)
     {
         $this->authorizeAssignedTask($task);
+        if ($task->isInspectionTask()) {
+            throw \Illuminate\Validation\ValidationException::withMessages(['inspection' => 'Submit the inspection checklist to complete this task.']);
+        }
         $validatedData = $request->validate([
             'completion_notes' => 'required|string|max:3000',
             'final_remark' => 'required|string|max:2000',
@@ -368,6 +374,9 @@ class MaintainerController extends Controller
     public function addRemark(Request $request, BookingTask $task)
     {
         $this->authorizeAssignedTask($task);
+        if ($task->isInspectionTask() && $request->input('status_update') === 'completed') {
+            throw \Illuminate\Validation\ValidationException::withMessages(['inspection' => 'Submit the inspection checklist to complete this task.']);
+        }
 
         $validatedData = $request->validate([
             'remark' => 'required|string|max:2000',

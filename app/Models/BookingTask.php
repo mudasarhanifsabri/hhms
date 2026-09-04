@@ -110,6 +110,11 @@ class BookingTask extends BaseModel
         return $this->hasOne(BookingInspection::class, 'booking_task_id');
     }
 
+    public function expenseRequests(): HasMany
+    {
+        return $this->hasMany(Expense::class, 'booking_task_id');
+    }
+
     public function isInspectionTask(): bool
     {
         return in_array($this->type, ['inspection', 'checkout_inspection'], true);

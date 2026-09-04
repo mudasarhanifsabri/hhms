@@ -1,6 +1,7 @@
 @extends('layouts.app')
 
 @section('content')
+<div class="card"><div class="card-body"><h5>Staff expense / payment requests</h5><p class="text-muted">Review supplier invoices and staff payment proof before approving. Unpaid requests need office payment; staff-paid requests need reimbursement review.</p><a class="btn btn-outline-primary btn-sm" href="{{ route('admin.accounting.expenses',['task_id'=>$task->id]) }}">Review linked expenses & payment account</a></div></div>
 <div class="row">
     <div class="col-xl-8">
         <div class="card">
@@ -120,7 +121,7 @@
                         <p class="text-muted small mb-2">{{ $remark->user?->name ?? 'System' }} | {{ $remark->created_at?->format('d M Y H:i') }} @if($remark->status_update) | {{ ucfirst(str_replace('_', ' ', $remark->status_update)) }} @endif</p>
                         <div class="d-flex flex-wrap gap-2">
                             @foreach((array) $remark->pictures as $picture)
-                                <a href="{{ asset($picture) }}" target="_blank" class="badge bg-light-subtle text-muted border">Attachment</a>
+                                <a href="{{ \App\Support\MediaStorage::url($picture) }}" target="_blank" class="badge bg-light-subtle text-muted border">Attachment</a>
                             @endforeach
                         </div>
                     </div>
@@ -174,14 +175,14 @@
             <div class="card-header"><h4 class="card-title mb-0">Attachments</h4></div>
             <div class="card-body d-flex flex-wrap gap-2">
                 @foreach((array) $task->pictures as $picture)
-                    <a href="{{ asset($picture) }}" target="_blank" class="badge bg-light-subtle text-muted border">Task Image</a>
+                    <a href="{{ \App\Support\MediaStorage::url($picture) }}" target="_blank" class="badge bg-light-subtle text-muted border">Task Image</a>
                 @endforeach
                 @foreach((array) $task->final_images as $picture)
-                    <a href="{{ asset($picture) }}" target="_blank" class="badge bg-success-subtle text-success border">Final Image</a>
+                    <a href="{{ \App\Support\MediaStorage::url($picture) }}" target="_blank" class="badge bg-success-subtle text-success border">Final Image</a>
                 @endforeach
-                @if($task->invoice_attachment)<a href="{{ asset($task->invoice_attachment) }}" target="_blank" class="badge bg-primary-subtle text-primary border">Invoice</a>@endif
-                @if($task->receipt_attachment)<a href="{{ asset($task->receipt_attachment) }}" target="_blank" class="badge bg-success-subtle text-success border">Receipt</a>@endif
-                @if($task->warranty_attachment)<a href="{{ asset($task->warranty_attachment) }}" target="_blank" class="badge bg-warning-subtle text-warning border">Warranty</a>@endif
+                @if($task->invoice_attachment)<a href="{{ \App\Support\MediaStorage::url($task->invoice_attachment) }}" target="_blank" class="badge bg-primary-subtle text-primary border">Invoice</a>@endif
+                @if($task->receipt_attachment)<a href="{{ \App\Support\MediaStorage::url($task->receipt_attachment) }}" target="_blank" class="badge bg-success-subtle text-success border">Receipt</a>@endif
+                @if($task->warranty_attachment)<a href="{{ \App\Support\MediaStorage::url($task->warranty_attachment) }}" target="_blank" class="badge bg-warning-subtle text-warning border">Warranty</a>@endif
                 @if(! $task->pictures && ! $task->final_images && ! $task->invoice_attachment && ! $task->receipt_attachment && ! $task->warranty_attachment)
                     <p class="text-muted mb-0">No attachments.</p>
                 @endif

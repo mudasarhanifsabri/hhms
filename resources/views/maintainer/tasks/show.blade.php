@@ -1,6 +1,7 @@
 @extends('layouts.app')
 
 @section('content')
+@php($finished = in_array($task->status, ['completed','closed','cancelled'], true))
 <div class="pwa-screen">
     @include('maintainer.partials.pwa-header', ['title' => 'Task Details', 'back' => route('maintainer.task.index')])
 
@@ -10,7 +11,7 @@
             <span class="pwa-priority high">{{ $task->priority_label }}</span>
         </div>
         <h2 class="pwa-title">{{ $task->title }}</h2>
-        <p class="pwa-subtitle">{{ $task->booking?->property?->building?->name ?? 'Property' }} • {{ $task->booking?->property?->name ?? 'Unit' }}</p>
+        <p class="pwa-subtitle">{{ $task->property?->building?->building_name ?? $task->booking?->property?->building?->building_name ?? 'Property' }} • {{ $task->property?->name ?? $task->booking?->property?->name ?? 'Unit' }}</p>
 
         <div class="pwa-info-grid">
             <span>Category</span><strong>{{ $task->type_label }}</strong>
@@ -26,18 +27,23 @@
             <p>{{ $task->description ?: 'Please check and update this task as soon as possible.' }}</p>
         </section>
 
+        @if(count((array) $task->pictures))
         <section class="pwa-section">
             <h3>Photos ({{ count((array) $task->pictures) }})</h3>
             <div class="pwa-photo-row">
                 @forelse((array) $task->pictures as $picture)
-                    <a href="{{ asset($picture) }}" target="_blank" class="pwa-photo-thumb real" style="background-image:url('{{ asset($picture) }}')"></a>
+                    <a href="{{ \App\Support\MediaStorage::url($picture) }}" target="_blank" class="pwa-photo-thumb real" style="background-image:url('{{ \App\Support\MediaStorage::url($picture) }}')"></a>
                 @empty
                     <div class="pwa-photo-thumb"></div>
                     <div class="pwa-photo-thumb is-alt"></div>
                 @endforelse
             </div>
         </section>
+        @endif
 
+        @if($finished)
+            @include('maintainer.tasks.completed-history')
+        @else
         <div class="pwa-action-stack">
             @if(in_array($task->status, ['new', 'open', 'assigned'], true))
                 <a href="{{ route('maintainer.task.accept.form', $task->id) }}" class="pwa-primary-button green">Accept Task</a>
@@ -48,10 +54,14 @@
             <a href="{{ route('maintainer.task.remark.form', $task->id) }}" class="pwa-secondary-button">Add Remark</a>
             <a href="{{ route('maintainer.task.timeline', $task->id) }}" class="pwa-secondary-button">Timeline</a>
             <a href="{{ route('maintainer.task.cost.form', $task->id) }}" class="pwa-secondary-button">Add Cost</a>
-            @if(! in_array($task->status, ['completed', 'closed', 'cancelled'], true))
+            @if(! $task->isInspectionTask() && ! in_array($task->status, ['completed', 'closed', 'cancelled'], true))
                 <a href="{{ route('maintainer.task.complete.form', $task->id) }}" class="pwa-primary-button green">Complete Task</a>
             @endif
         </div>
+        @endif
+    @if(\Illuminate\Support\Facades\Route::has('maintainer.task.expense-request'))
+        @include('maintainer.tasks.expense-requests')
+    @endif
     </div>
     @include('maintainer.partials.mobile-nav')
 </div>

@@ -210,6 +210,7 @@ class AccountingController extends Controller
     private function filteredExpenses(Request $request)
     {
         return Expense::with(['property.building', 'landlord', 'booking', 'vendor', 'paidFromAccount'])
+            ->when($request->filled('task_id'), fn($query) => $query->where('booking_task_id', $request->input('task_id')))
             ->when($request->filled('category'), fn ($query) => $query->where('category', $request->input('category')))
             ->when($request->filled('property_id'), fn ($query) => $query->where('property_id', $request->input('property_id')))
             ->when($request->filled('approval_status'), fn ($query) => $query->where('approval_status', $request->input('approval_status')))

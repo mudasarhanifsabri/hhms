@@ -45,7 +45,7 @@
                                         <td>{{ $item->comment ?: '-' }}</td>
                                         <td>
                                             @foreach((array) $item->pictures as $picture)
-                                                <a href="{{ asset($picture) }}" target="_blank" class="badge bg-light-subtle text-muted border">Photo</a>
+                                                <a href="{{ \App\Support\MediaStorage::url($picture) }}" target="_blank" class="badge bg-light-subtle text-muted border">Photo</a>
                                             @endforeach
                                         </td>
                                     </tr>

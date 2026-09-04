@@ -19,11 +19,12 @@ class MediaStorage
     {
         $folder = self::datedFolder($folder);
 
-        Storage::disk(self::disk())->putFileAs(
+        $stored = Storage::disk(self::disk())->putFileAs(
             self::path($folder),
             $file,
             $filename = self::trackedFilename($file)
         );
+        if ($stored === false) throw new \RuntimeException('Media upload failed. Please retry; the file was not saved.');
 
         return trim($folder . '/' . $filename, '/');
     }

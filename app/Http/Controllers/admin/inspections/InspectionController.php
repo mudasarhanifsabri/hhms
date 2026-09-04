@@ -43,8 +43,12 @@ class InspectionController extends Controller
     {
         $inspection->load(['booking.property.building', 'property.building', 'submittedBy', 'task', 'items']);
         $comparison = $this->comparisonFor($inspection);
+        $photoGroups = $inspection->items->filter(fn($item) => count((array)$item->pictures))->map(function($item) {
+            return ['area'=>$item->area,'item'=>$item->item,'condition'=>$item->condition,'comment'=>$item->comment,
+                'photos'=>collect($item->pictures)->map(fn($path)=>\App\Support\InspectionPhotos::thumbnail($path))->all()];
+        });
 
-        return PdfRenderer::downloadView('admin.inspections.pdf.report', compact('inspection', 'comparison'), $inspection->inspection_number . '.pdf');
+        return PdfRenderer::downloadView('admin.inspections.pdf.report', compact('inspection', 'comparison', 'photoGroups'), $inspection->inspection_number . '.pdf');
     }
 
     private function comparisonFor(BookingInspection $inspection): array

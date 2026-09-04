@@ -20,6 +20,7 @@ class Expense extends BaseModel
     ];
 
     protected $fillable = [
+        'booking_task_id', 'staff_payment_status', 'staff_submission_id',
         'expense_no',
         'expense_date',
         'category',
