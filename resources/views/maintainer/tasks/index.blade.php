@@ -33,7 +33,9 @@
     </div>
 
     <div class="pwa-content pwa-list-content">
+        @if(request()->boolean('inspections_only'))<h3>My Inspections</h3><p class="text-muted">Office requests assigned to you. Open a task to start its checklist.</p>@endif
         <form action="{{ route('maintainer.task.index') }}" method="GET" class="pwa-search-row">
+            @if(request()->boolean('inspections_only'))<input type="hidden" name="inspections_only" value="1">@endif
             <div class="pwa-search">
                 <i class="ri-search-line"></i>
                 <input type="search" name="q" value="{{ request('q') }}" placeholder="Search tasks...">
@@ -42,10 +44,10 @@
         </form>
 
         <div class="pwa-tabs">
-            <a href="{{ route('maintainer.task.index') }}" class="{{ !request('status') ? 'active' : '' }}">All</a>
-            <a href="{{ route('maintainer.task.index', ['status' => 'assigned']) }}" class="{{ request('status') === 'assigned' ? 'active' : '' }}">Assigned</a>
-            <a href="{{ route('maintainer.task.index', ['status' => 'in_progress']) }}" class="{{ request('status') === 'in_progress' ? 'active' : '' }}">In Progress</a>
-            <a href="{{ route('maintainer.task.index', ['status' => 'completed']) }}" class="{{ request('status') === 'completed' ? 'active' : '' }}">Completed</a>
+            <a href="{{ route('maintainer.task.index', request()->only('inspections_only')) }}" class="{{ !request('status') ? 'active' : '' }}">All</a>
+            <a href="{{ route('maintainer.task.index', array_merge(request()->only('inspections_only'), ['status' => 'assigned'])) }}" class="{{ request('status') === 'assigned' ? 'active' : '' }}">Assigned</a>
+            <a href="{{ route('maintainer.task.index', array_merge(request()->only('inspections_only'), ['status' => 'in_progress'])) }}" class="{{ request('status') === 'in_progress' ? 'active' : '' }}">In Progress</a>
+            <a href="{{ route('maintainer.task.index', array_merge(request()->only('inspections_only'), ['status' => 'completed'])) }}" class="{{ request('status') === 'completed' ? 'active' : '' }}">Completed</a>
         </div>
 
         <div class="pwa-task-list">

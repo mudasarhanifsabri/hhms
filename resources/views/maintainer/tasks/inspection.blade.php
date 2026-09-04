@@ -14,6 +14,16 @@
 
         <form action="{{ route('maintainer.task.inspection.submit', $task->id) }}" method="POST" enctype="multipart/form-data" class="pwa-form">
             @csrf
+            @if(count($inventoryRows))
+            <section class="pwa-section"><h3>Inventory counts</h3><p>Count all items present. Damaged is included in Found. Office approval updates stock.</p>
+            @foreach($inventoryRows as $row)
+            <div class="pwa-inspection-item"><strong>{{ $row['room'] }} — {{ $row['name'] }}</strong><p>Required {{ $row['required'] }} · Previous count {{ $row['before'] }}</p>
+                <div class="row g-2"><div class="col-6"><label>Found<input class="form-control" type="number" min="0" max="100000" name="inventory[{{ $row['id'] }}][found]" value="{{ old('inventory.'.$row['id'].'.found') }}" required></label></div>
+                <div class="col-6"><label>Damaged<input class="form-control" type="number" min="0" name="inventory[{{ $row['id'] }}][damaged]" value="{{ old('inventory.'.$row['id'].'.damaged') }}" required></label></div></div>
+                <label>Evidence / notes<textarea class="form-control" name="inventory[{{ $row['id'] }}][notes]" placeholder="Describe damage; attach photos under the room checklist below">{{ old('inventory.'.$row['id'].'.notes') }}</textarea></label>
+            </div>
+            @endforeach</section>
+            @endif
             @foreach($inspection->items->groupBy('area') as $area => $items)
                 <section class="pwa-section pwa-inspection-area">
                     <h3>{{ $area }}</h3>

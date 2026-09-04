@@ -8,9 +8,9 @@
         <i class="ri-list-check-2"></i>
         <span>Tasks</span>
     </a>
-    <a href="{{ route('maintainer.task.index') }}" class="center">
-        <i class="ri-add-line"></i>
-        <span></span>
+    <a href="{{ route('maintainer.task.index', ['inspections_only' => 1]) }}" class="center">
+        <i class="ri-clipboard-line"></i>
+        <span>Inspect</span>
     </a>
     <a href="{{ route('maintainer.notifications') }}" class="{{ request()->routeIs('maintainer.notifications') ? 'active' : '' }}">
         <i class="ri-notification-3-line"></i>

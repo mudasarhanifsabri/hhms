@@ -9,6 +9,7 @@
     </div>
     <nav>
         <a href="{{ route('maintainer.task.index') }}"><i class="ri-list-check-2"></i> My Tasks</a>
+        <a href="{{ route('maintainer.task.index', ['inspections_only' => 1]) }}"><i class="ri-clipboard-line"></i> My Inspections</a>
         <a href="{{ route('maintainer.notifications') }}"><i class="ri-notification-3-line"></i> Notifications</a>
         <a href="{{ route('maintainer.profile') }}"><i class="ri-user-line"></i> Profile</a>
         <button type="button" data-install-pwa><i class="ri-download-cloud-2-line"></i> Install App</button>

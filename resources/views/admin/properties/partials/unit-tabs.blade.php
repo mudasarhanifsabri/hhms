@@ -3,3 +3,4 @@
     @if(Route::has('admin.property.document-wallet.index'))<li class="nav-item"><a class="nav-link {{ request()->routeIs('admin.property.document-wallet.*') ? 'active' : '' }}" href="{{ route('admin.property.document-wallet.index',$property) }}"><i class="ri-folder-shield-2-line me-1"></i>Document Wallet</a></li>@endif
     <li class="nav-item"><a class="nav-link {{ request()->routeIs('admin.property.owner-documents.*') ? 'active' : '' }}" href="{{ route('admin.property.owner-documents.index',$property) }}"><i class="ri-file-sign-line me-1"></i>Agreement Signing</a></li>
 </ul></div></div>
+@if(Route::has('admin.inventory.index'))<a class="btn btn-outline-primary btn-sm mb-3" href="{{ route('admin.inventory.index', ['property_id' => $property->id]) }}"><i class="ri-archive-line me-1"></i>Unit Inventory & Inspections</a>@endif

@@ -33,7 +33,10 @@ class InspectionController extends Controller
         $inspection->load(['booking.property.building', 'property.building', 'submittedBy', 'task', 'items']);
         $comparison = $this->comparisonFor($inspection);
 
-        return view('admin.inspections.show', compact('inspection', 'comparison'));
+        $inventoryReview = \Illuminate\Support\Facades\DB::table('unit_inventory_reviews')->where('inspection_id', $inspection->id)->first();
+        $inventoryRows = $inventoryReview ? json_decode($inventoryReview->rows, true) : [];
+        if ($inventoryReview?->status === 'submitted') $inventoryRows = \App\Support\UnitInventory::assessment($inspection, $inventoryRows);
+        return view('admin.inspections.show', compact('inspection', 'comparison', 'inventoryReview', 'inventoryRows'));
     }
 
     public function pdf(BookingInspection $inspection)

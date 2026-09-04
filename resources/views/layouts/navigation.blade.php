@@ -113,6 +113,7 @@
                 <div class="collapse" id="sidebarInspections">
                     <ul class="nav sub-navbar-nav">
                         <li class="sub-nav-item"><a class="sub-nav-link" href="{{ route('admin.inspection.index') }}">Tracking</a></li>
+                        @if(\Illuminate\Support\Facades\Route::has('admin.inventory.index'))<li class="sub-nav-item"><a class="sub-nav-link" href="{{ route('admin.inventory.index') }}">Unit Inventory</a></li>@endif
                     </ul>
                 </div>
             </li>

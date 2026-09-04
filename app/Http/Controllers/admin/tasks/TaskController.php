@@ -45,7 +45,7 @@ class TaskController extends Controller
             'property_id' => 'required_without:booking_id|nullable|exists:properties,id',
             'assigned_to' => 'nullable|exists:users,id',
             'type' => 'required|in:' . implode(',', array_keys(BookingTask::TYPES)),
-            'inspection_type' => 'nullable|required_if:type,inspection|required_if:type,checkout_inspection|in:check_out,routine,maintenance,cleaning',
+            'inspection_type' => 'nullable|required_if:type,inspection|required_if:type,checkout_inspection|in:check_in,check_out,routine,maintenance,cleaning',
             'priority' => 'required|in:' . implode(',', array_keys(BookingTask::PRIORITIES)),
             'due_date' => 'nullable|date',
             'title' => 'required|string|max:255',

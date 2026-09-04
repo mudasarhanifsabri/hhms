@@ -196,6 +196,13 @@ Route::get('/task-manager/{task}', [TaskController::class, 'show'])->name('task.
 Route::get('/inspections', [InspectionController::class, 'index'])->name('inspection.index');
 Route::get('/inspections/{inspection}', [InspectionController::class, 'show'])->name('inspection.show');
 Route::get('/inspections/{inspection}/pdf', [InspectionController::class, 'pdf'])->name('inspection.pdf');
+Route::get('/unit-inventory', [\App\Http\Controllers\admin\inspections\InventoryController::class, 'index'])->name('inventory.index');
+Route::post('/unit-inventory', [\App\Http\Controllers\admin\inspections\InventoryController::class, 'store'])->name('inventory.store');
+Route::put('/unit-inventory/{item}', [\App\Http\Controllers\admin\inspections\InventoryController::class, 'update'])->name('inventory.update');
+Route::post('/unit-inventory/{item}/movement', [\App\Http\Controllers\admin\inspections\InventoryController::class, 'move'])->name('inventory.move');
+Route::post('/inspection-requests', [\App\Http\Controllers\admin\inspections\InventoryController::class, 'requestInspection'])->name('inspection.request');
+Route::post('/inventory-templates', [\App\Http\Controllers\admin\inspections\InventoryController::class, 'template'])->name('inventory.template');
+Route::post('/inspections/{inspection}/inventory-approval', [\App\Http\Controllers\admin\inspections\InventoryController::class, 'approve'])->name('inventory.approve');
 
 
 

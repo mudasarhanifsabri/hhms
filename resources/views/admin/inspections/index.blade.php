@@ -5,7 +5,7 @@
     <div class="card-header border-bottom">
         <div class="d-flex justify-content-between align-items-center gap-2 mb-3">
             <h4 class="card-title mb-0">Inspection Management</h4>
-            <span class="badge bg-primary-subtle text-primary">Tracking Only</span>
+            @if(\Illuminate\Support\Facades\Route::has('admin.inventory.index'))<a class="btn btn-primary btn-sm" href="{{ route('admin.inventory.index') }}">Inventory / Request inspection</a>@endif
         </div>
         <form action="{{ route('admin.inspection.index') }}" method="GET" class="row g-2">
             <div class="col-lg-4"><input type="search" name="q" value="{{ request('q') }}" class="form-control form-control-sm" placeholder="Search inspection, booking, guest"></div>
@@ -14,6 +14,7 @@
                     <option value="">All Types</option>
                     <option value="check_in" @selected(request('type') === 'check_in')>Check In</option>
                     <option value="check_out" @selected(request('type') === 'check_out')>Check Out</option>
+                    @foreach(['routine','maintenance','cleaning'] as $kind)<option value="{{ $kind }}" @selected(request('type') === $kind)>{{ ucfirst($kind) }}</option>@endforeach
                 </select>
             </div>
             <div class="col-lg-2">

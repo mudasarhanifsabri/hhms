@@ -44,12 +44,16 @@ class MaintainerController extends Controller
     public function tasks(Request $request)
     {
         $baseQuery = $this->assignedTaskQuery();
+        if ($request->boolean('inspections_only')) {
+            $baseQuery->whereIn('type', ['inspection', 'checkout_inspection']);
+        }
+        $statsQuery = clone $baseQuery;
         $tasks = $this->filterTasks($baseQuery, $request)->paginate($request->input('per_page', 10))->withQueryString();
         $stats = [
-            'total' => $this->assignedTaskQuery()->count(),
-            'in_progress' => $this->assignedTaskQuery()->where('status', 'in_progress')->count(),
-            'completed' => $this->assignedTaskQuery()->whereIn('status', ['completed', 'closed'])->count(),
-            'overdue' => $this->assignedTaskQuery()
+            'total' => (clone $statsQuery)->count(),
+            'in_progress' => (clone $statsQuery)->where('status', 'in_progress')->count(),
+            'completed' => (clone $statsQuery)->whereIn('status', ['completed', 'closed'])->count(),
+            'overdue' => (clone $statsQuery)
                 ->whereNotIn('status', ['completed', 'closed', 'cancelled'])
                 ->whereDate('due_date', '<', now()->toDateString())
                 ->count(),
@@ -214,15 +218,20 @@ class MaintainerController extends Controller
         $task->load(['booking.property.building', 'property.building', 'inspection.items']);
         $inspection = $this->ensureInspectionForTask($task);
 
-        return view('maintainer.tasks.inspection', compact('task', 'inspection'));
+        abort_unless($inspection->status === 'draft' && !in_array($task->status, ['completed', 'closed', 'cancelled']), 422, 'This inspection is closed.');
+        $inventoryRows = \App\Support\UnitInventory::snapshot($inspection);
+        return view('maintainer.tasks.inspection', compact('task', 'inspection', 'inventoryRows'));
     }
 
     public function submitInspection(Request $request, BookingTask $task)
     {
+        return \Illuminate\Support\Facades\DB::transaction(function () use ($request, $task) {
+        $task = BookingTask::whereKey($task->id)->lockForUpdate()->firstOrFail();
         $this->authorizeAssignedTask($task);
         abort_unless($task->isInspectionTask(), 404);
 
         $inspection = $this->ensureInspectionForTask($task);
+        abort_unless($inspection->status === 'draft' && !in_array($task->status, ['completed', 'closed', 'cancelled']), 422, 'This inspection is closed.');
         $validatedData = $request->validate([
             'items' => 'required|array',
             'items.*.condition' => 'required|in:good,issue,na',
@@ -233,6 +242,10 @@ class MaintainerController extends Controller
             'gps_longitude' => 'nullable|numeric',
         ]);
 
+        if (array_diff($inspection->items->pluck('id')->all(), array_keys($validatedData['items']))) {
+            throw \Illuminate\Validation\ValidationException::withMessages(['items' => 'Complete every inspection item before submitting.']);
+        }
+        \App\Support\UnitInventory::submit($inspection, (array) $request->input('inventory', []));
         foreach ($validatedData['items'] as $itemId => $payload) {
             $item = $inspection->items()->whereKey($itemId)->first();
             if (! $item) {
@@ -270,6 +283,7 @@ class MaintainerController extends Controller
         $this->recordActivity($task, 'Inspection Submitted', $task->completion_notes, $request);
 
         return redirect()->route('maintainer.task.index')->with('success', 'Inspection submitted and task completed.');
+        });
     }
 
     public function completeForm(BookingTask $task)
@@ -392,7 +406,7 @@ class MaintainerController extends Controller
     {
         return BookingTask::with(['booking.property.building', 'assignedUser', 'remarks.user'])
             ->where('assigned_to', Auth::id())
-            ->orderByRaw("FIELD(status, 'assigned', 'new', 'open', 'accepted', 'in_progress', 'waiting_approval', 'completed', 'closed', 'cancelled')")
+            ->orderByRaw("CASE status WHEN 'assigned' THEN 1 WHEN 'new' THEN 2 WHEN 'open' THEN 3 WHEN 'accepted' THEN 4 WHEN 'in_progress' THEN 5 WHEN 'waiting_approval' THEN 6 WHEN 'completed' THEN 7 WHEN 'closed' THEN 8 WHEN 'cancelled' THEN 9 ELSE 0 END")
             ->orderByRaw('due_date IS NULL, due_date ASC')
             ->latest();
     }
@@ -417,7 +431,7 @@ class MaintainerController extends Controller
 
     private function authorizeAssignedTask(BookingTask $task): void
     {
-        abort_unless($task->assigned_to === Auth::id(), 403);
+        abort_unless($task->assigned_to !== null && (string) $task->assigned_to === (string) Auth::id(), 403);
     }
 
     private function recordActivity(BookingTask $task, string $action, ?string $comment, Request $request): void
