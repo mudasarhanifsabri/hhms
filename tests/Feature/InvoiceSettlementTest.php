@@ -10,6 +10,7 @@ use App\Models\BookingInvoicePayment;
 use App\Models\Property;
 use App\Models\User;
 use App\Support\DepositWallet;
+use App\Support\InvoiceAllocationRebuilder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -140,5 +141,36 @@ class InvoiceSettlementTest extends TestCase
         $this->assertSame(2, BookingInvoicePayment::count());
         $this->assertSame(1, AccountingEntry::where('category', 'guest_receipt')->count());
         $this->post(route('admin.booking-payment.reverse', $payments[0]), ['confirm' => 1, 'reason' => 'Wrong combined transfer'])->assertSessionHasErrors('correction');
+    }
+
+    public function test_deposit_is_allocated_before_rent_and_existing_allocations_can_be_rebuilt(): void
+    {
+        [$booking, $invoice, $bank] = $this->setupInvoice(1500);
+        $booking->update(['rent_amount' => 8000, 'management_fee_percent' => 12]);
+        $invoice->update([
+            'rent_amount' => 8000, 'vat_amount' => 400,
+            'fees' => ['Agency Fee' => 1500, 'DTCM Fee' => 600, 'Security Deposit' => 1500],
+            'total_amount' => 12000,
+        ]);
+
+        $this->pay($invoice->fresh(), $bank, 1500)->assertSessionHasNoErrors();
+        $depositPayment = BookingInvoicePayment::firstOrFail();
+        $this->assertEquals(1500, $depositPayment->allocation['deposit']);
+        $this->assertEquals(0, $depositPayment->allocation['rent']);
+        $this->assertSame(0, \App\Models\LandlordAccountEntry::count());
+
+        $this->pay($invoice->fresh(), $bank, 10500)->assertSessionHasNoErrors();
+        $rentPayment = BookingInvoicePayment::where('amount', 10500)->firstOrFail();
+        $this->assertEquals(8000, $rentPayment->allocation['rent']);
+        $this->assertEquals(400, $rentPayment->allocation['vat']);
+        $this->assertEquals(1500, $rentPayment->allocation['agency']);
+        $this->assertEquals(600, $rentPayment->allocation['tourism']);
+        $this->assertEquals(1500, DepositWallet::totals($booking)['held']);
+        $this->assertSame('12000.00', $bank->fresh()->current_balance);
+
+        $this->assertTrue(InvoiceAllocationRebuilder::rebuild($booking));
+        $this->assertEquals(1500, $depositPayment->fresh()->allocation['deposit']);
+        $this->assertEquals(8000, $rentPayment->fresh()->allocation['rent']);
+        $this->assertSame('12000.00', $bank->fresh()->current_balance);
     }
 }

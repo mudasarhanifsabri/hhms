@@ -54,9 +54,9 @@ class BookingExtensionRenewalTest extends TestCase
             'invoice' => $invoice,
         ])->render();
         $this->assertStringContainsString($invoice->invoice_number, $confirmation);
-        $this->assertStringContainsString('Extension', $confirmation);
-        $this->assertStringContainsString('23-03-2026', $confirmation);
-        $this->assertStringContainsString('27-03-2026', $confirmation);
+        $this->assertStringContainsString('EXTENSION', $confirmation);
+        $this->assertStringContainsString('23 Mar 2026', $confirmation);
+        $this->assertStringContainsString('27 Mar 2026', $confirmation);
         $this->assertStringContainsString('4,825.00', $confirmation);
         $this->assertStringNotContainsString('18,900.00', $confirmation);
 
@@ -146,6 +146,6 @@ class BookingExtensionRenewalTest extends TestCase
         $this->assertStringContainsString('2,500.00', $html);
         $this->assertStringContainsString('16,400.00', $html);
         $this->assertStringContainsString('101001557300003', $html);
-        $this->assertStringContainsString('Sultan Sameer Saleh Yaslam Alhemeiri', $html);
+        $this->assertStringContainsString('PATTERN Vacation Homes Rental', $html);
     }
 }

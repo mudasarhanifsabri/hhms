@@ -36,20 +36,26 @@ class InvoiceSettlement
         }
 
         $paymentAmount ??= array_sum($parts);
+
+        return self::allocateAmounts($parts, $paymentAmount);
+    }
+
+    public static function allocateAmounts(array $parts, float $paymentAmount): array
+    {
         $remainingTotal = round(array_sum($parts), 2);
         if (DepositWallet::cents($paymentAmount) <= 0 || DepositWallet::cents($paymentAmount) > DepositWallet::cents($remainingTotal)) {
             throw ValidationException::withMessages(['amount' => 'Payment must be greater than zero and cannot exceed the outstanding invoice balance.']);
         }
 
-        // Allocate each receipt proportionally across every remaining invoice charge.
-        // The last non-zero component absorbs rounding so allocations always equal the receipt.
+        // Guest deposits are normally collected first. Once held, subsequent receipts settle
+        // rent and then the remaining invoice charges in a predictable waterfall.
         $allocated = array_fill_keys(array_keys($parts), 0.0);
         $left = round($paymentAmount, 2);
-        $nonZero = array_keys(array_filter($parts, fn ($value) => $value > 0));
-        foreach ($nonZero as $index => $key) {
-            $amount = $index === array_key_last($nonZero)
-                ? $left
-                : min((float) $parts[$key], round($paymentAmount * (float) $parts[$key] / $remainingTotal, 2));
+        foreach (['deposit', 'rent', 'vat', 'tourism', 'cleaning', 'agency', 'other'] as $key) {
+            if ($left <= 0) {
+                break;
+            }
+            $amount = min((float) $parts[$key], $left);
             $allocated[$key] = $amount;
             $left = round($left - $amount, 2);
         }

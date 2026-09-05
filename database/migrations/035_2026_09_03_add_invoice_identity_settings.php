@@ -9,7 +9,7 @@ return new class extends Migration
     {
         foreach ([
             'invoice_establishment_name' => 'PATTERN VACATION HOMES RENTAL',
-            'invoice_legal_name' => 'Sultan Sameer Saleh Yaslam Alhemeiri',
+            'invoice_legal_name' => 'PATTERN Vacation Homes Rental',
             'invoice_trn' => '101001557300003',
             'invoice_address' => 'Ab center building 413, Sheikh zayed road, Al barsha, Dubai, 0000, Dubai',
         ] as $key => $value) {
