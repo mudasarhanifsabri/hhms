@@ -12,7 +12,7 @@ use Illuminate\Validation\ValidationException;
 
 class InvoiceSettlement
 {
-    public static function allocation(BookingInvoice $invoice): array
+    public static function allocation(BookingInvoice $invoice, ?float $paymentAmount = null): array
     {
         $parts = ['rent' => (float) $invoice->rent_amount, 'vat' => (float) $invoice->vat_amount,
             'deposit' => (float) (($invoice->fees ?? [])['Security Deposit'] ?? 0),
@@ -35,7 +35,26 @@ class InvoiceSettlement
             throw ValidationException::withMessages(['amount' => 'Existing allocations exceed invoice charges. Reconciliation is required.']);
         }
 
-        return $parts;
+        $paymentAmount ??= array_sum($parts);
+        $remainingTotal = round(array_sum($parts), 2);
+        if (DepositWallet::cents($paymentAmount) <= 0 || DepositWallet::cents($paymentAmount) > DepositWallet::cents($remainingTotal)) {
+            throw ValidationException::withMessages(['amount' => 'Payment must be greater than zero and cannot exceed the outstanding invoice balance.']);
+        }
+
+        // Allocate each receipt proportionally across every remaining invoice charge.
+        // The last non-zero component absorbs rounding so allocations always equal the receipt.
+        $allocated = array_fill_keys(array_keys($parts), 0.0);
+        $left = round($paymentAmount, 2);
+        $nonZero = array_keys(array_filter($parts, fn ($value) => $value > 0));
+        foreach ($nonZero as $index => $key) {
+            $amount = $index === array_key_last($nonZero)
+                ? $left
+                : min((float) $parts[$key], round($paymentAmount * (float) $parts[$key] / $remainingTotal, 2));
+            $allocated[$key] = $amount;
+            $left = round($left - $amount, 2);
+        }
+
+        return $allocated;
     }
 
     public static function assertPaid(BookingInvoice $invoice): void

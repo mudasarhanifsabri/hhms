@@ -63,18 +63,23 @@ class InvoiceSettlementTest extends TestCase
         $this->put(route('admin.booking.agent-commission', $booking), ['agent_commission_percent' => 90, 'reason' => 'Rate change'])->assertSessionHasErrors('agent_commission_percent');
     }
 
-    public function test_partial_is_rejected_and_booking_override_is_applied(): void
+    public function test_partial_payments_are_itemised_and_booking_override_is_applied(): void
     {
         [$booking, $invoice, $bank] = $this->setupInvoice(0);
-        $this->pay($invoice, $bank, 500)->assertSessionHasErrors('amount');
-        $this->assertSame(0, BookingInvoicePayment::count());
         $this->put(route('admin.booking.agent-commission', $booking), ['agent_commission_percent' => 10, 'reason' => 'Agreed special rate'])->assertSessionHasNoErrors();
-        $this->pay($invoice, $bank)->assertSessionHasNoErrors();
-        $payment = BookingInvoicePayment::sole();
-        $this->assertEquals(20, $payment->allocation['agent_commission']);
-        $this->post(route('admin.booking-payment.reverse', $payment), ['confirm' => 1, 'reason' => 'Incorrect receipt'])->assertSessionHasNoErrors();
-        $this->assertSame('0.00', $bank->fresh()->current_balance);
-        $this->assertEquals(0, AccountingEntry::selectRaw('SUM(credit-debit) as total')->value('total'));
+        $this->pay($invoice, $bank, 500)->assertSessionHasNoErrors();
+        $first = BookingInvoicePayment::sole();
+        $this->assertSame('partial', $invoice->fresh()->status);
+        $this->assertEquals(500, $bank->fresh()->current_balance);
+        $this->assertEquals(500, array_sum(collect($first->allocation)->only(['rent', 'vat', 'deposit', 'cleaning', 'agency', 'tourism', 'other'])->all()));
+        $this->get(route('admin.booking-invoice.confirmation', $invoice))->assertStatus(422);
+        $this->pay($invoice->fresh(), $bank, 880)->assertSessionHasNoErrors();
+        $this->assertSame(2, BookingInvoicePayment::count());
+        $this->assertSame('paid', $invoice->fresh()->status);
+        $this->assertSame('1380.00', $bank->fresh()->current_balance);
+        $this->get(route('admin.booking-invoice.confirmation', $invoice))->assertOk();
+        $this->post(route('admin.booking-payment.reverse', $first), ['confirm' => 1, 'reason' => 'Incorrect receipt'])->assertSessionHasNoErrors();
+        $this->assertSame('880.00', $bank->fresh()->current_balance);
         $this->get(route('admin.booking-invoice.confirmation', $invoice))->assertStatus(422);
     }
 

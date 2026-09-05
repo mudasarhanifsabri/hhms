@@ -91,13 +91,14 @@ class BookingController extends Controller
         $data = $request->validate(['agent_commission_percent' => 'required|numeric|between:0,100', 'reason' => 'required|string|min:5|max:500']);
         DB::transaction(function () use ($booking, $data) {
             $booking = Booking::whereKey($booking->id)->lockForUpdate()->firstOrFail();
-            if (!$booking->agent_id || BookingInvoicePayment::whereHas('invoice', fn ($q) => $q->where('booking_id', $booking->id))->exists()) {
+            if (! $booking->agent_id || BookingInvoicePayment::whereHas('invoice', fn ($q) => $q->where('booking_id', $booking->id))->exists()) {
                 throw ValidationException::withMessages(['agent_commission_percent' => 'Assign an agent first. Commission is locked once payment history exists.']);
             }
             $before = $booking->agent_commission_percent ?? $booking->agent?->agent_commission ?? 0;
             $booking->update(['agent_commission_percent' => $data['agent_commission_percent']]);
             $booking->histories()->create(['title' => 'Agent Commission Updated', 'description' => $before.'% → '.$data['agent_commission_percent'].'% of agency fee by '.auth()->user()->name.'. '.$data['reason']]);
         });
+
         return back()->with('success', 'Booking agent commission updated.');
     }
 
@@ -371,10 +372,10 @@ class BookingController extends Controller
             Booking::whereKey($invoice->booking_id)->lockForUpdate()->firstOrFail();
             $invoice = BookingInvoice::whereKey($invoice->id)->lockForUpdate()->firstOrFail();
             $paidBefore = $invoice->paid_amount;
-            if (\App\Support\DepositWallet::cents($data['amount']) !== \App\Support\DepositWallet::cents($invoice->balance_due)) {
-                throw ValidationException::withMessages(['amount' => 'Record the full outstanding invoice balance. Partial payments and overpayments are not allowed.']);
+            if (\App\Support\DepositWallet::cents($data['amount']) > \App\Support\DepositWallet::cents($invoice->balance_due)) {
+                throw ValidationException::withMessages(['amount' => 'Payment cannot exceed the outstanding invoice balance of AED '.number_format($invoice->balance_due, 2).'.']);
             }
-            $allocation = \App\Support\InvoiceSettlement::allocation($invoice);
+            $allocation = \App\Support\InvoiceSettlement::allocation($invoice, (float) $data['amount']);
             $data['rent_amount'] = $allocation['rent'];
             $data['deposit_amount'] = $allocation['deposit'];
             $entry = AccountingEntry::create([
@@ -755,7 +756,7 @@ class BookingController extends Controller
 
         return [
             'rent_amount' => $baseRent,
-            'agent_commission_percent' => !empty($validatedData['agent_id']) ? ($validatedData['agent_commission_percent'] ?? (float) User::where('role', 'agent')->whereKey($validatedData['agent_id'])->value('agent_commission')) : 0,
+            'agent_commission_percent' => ! empty($validatedData['agent_id']) ? ($validatedData['agent_commission_percent'] ?? (float) User::where('role', 'agent')->whereKey($validatedData['agent_id'])->value('agent_commission')) : 0,
             'management_fee_percent' => $managementFeePercent,
             'management_fee_amount' => $managementFeeAmount,
             'owner_rent_income' => $ownerRentIncome,

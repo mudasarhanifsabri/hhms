@@ -74,8 +74,9 @@ class BookingCorrectionsTest extends TestCase
         [$booking, $invoice, $bank, $owner] = $this->setupInvoice(300);
         $this->assertSame('receipts', $booking->owner_posting_basis);
         $this->assertSame(0, LandlordAccountEntry::count());
-        $this->pay($invoice, $bank, 675, 500, 150)->assertSessionHasErrors('amount');
-        $this->pay($invoice, $bank, 1350, 1, 1)->assertSessionHasNoErrors();
+        $this->pay($invoice, $bank, 675, 500, 150)->assertSessionHasNoErrors();
+        $this->assertSame('partial', $invoice->fresh()->status);
+        $this->pay($invoice->fresh(), $bank, 675, 1, 1)->assertSessionHasNoErrors();
         $this->assertEquals(1000, LandlordAccountEntry::where('type', 'rent_income')->sum('amount'));
         $this->assertEquals(100, LandlordAccountEntry::where('type', 'management_fee')->sum('amount'));
         $this->assertEquals(300, \App\Support\DepositWallet::totals($booking)['held']);
