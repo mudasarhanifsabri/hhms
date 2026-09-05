@@ -40,7 +40,7 @@
     </table>
 </div>
 @if($allInvoicesPaid)
-    <a class="btn btn-success w-100" href="{{ route('guest.booking.confirmation', $booking->booking_reference) }}">Download full booking confirmation</a>
+    <div class="d-flex gap-2 flex-wrap"><a class="btn btn-outline-success flex-fill" href="{{ route('guest.booking.confirmation', $booking->booking_reference) }}">Booking confirmation</a><a class="btn btn-success flex-fill" href="{{ route('guest.booking.complete-pack', $booking->booking_reference) }}">Complete booking pack</a></div>
 @elseif($booking->invoices->isNotEmpty())
     <p class="small text-warning mb-0">Full booking confirmation is locked until all invoice balances are paid.</p>
 @endif

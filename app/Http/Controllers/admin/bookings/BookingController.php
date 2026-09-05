@@ -627,6 +627,14 @@ class BookingController extends Controller
         return PdfRenderer::downloadView('admin.bookings.pdf.confirmation', compact('booking'), $booking->booking_reference.'-confirmation.pdf');
     }
 
+    public function completePack(Booking $booking)
+    {
+        $booking->load(['property.building', 'agent', 'invoices.payments.bankAccount']);
+        \App\Support\InvoiceSettlement::assertBookingPaid($booking);
+
+        return PdfRenderer::downloadView('admin.bookings.pdf.complete-pack', compact('booking'), $booking->booking_reference.'-complete-booking-pack.pdf');
+    }
+
     public function invoiceConfirmation(BookingInvoice $invoice)
     {
         \App\Support\InvoiceSettlement::assertPaid($invoice);

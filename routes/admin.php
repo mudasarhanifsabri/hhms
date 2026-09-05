@@ -185,6 +185,7 @@ Route::post('/bookings/{booking}/deposit-wallet/carry', [DepositController::clas
 Route::get('/bookings/{booking}/deposit-wallet/receipt/{entry}', [DepositController::class, 'receipt'])->name('booking.deposit.receipt');
 Route::get('/bookings/{booking}/invoice', [BookingController::class, 'invoice'])->name('booking.invoice');
 Route::get('/bookings/{booking}/confirmation', [BookingController::class, 'confirmation'])->name('booking.confirmation');
+Route::get('/bookings/{booking}/complete-pack', [BookingController::class, 'completePack'])->name('booking.complete-pack');
 
 // AdminTaskManager Routes
 Route::get('/task-manager', [TaskController::class, 'index'])->name('task.index');

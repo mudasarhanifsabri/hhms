@@ -34,6 +34,14 @@ class GuestPortalController extends Controller
         return PdfRenderer::downloadView('admin.bookings.pdf.confirmation', compact('booking'), $booking->booking_reference.'-confirmation.pdf');
     }
 
+    public function completePack(string $reference)
+    {
+        $booking = $this->findBooking($reference);
+        InvoiceSettlement::assertBookingPaid($booking);
+
+        return PdfRenderer::downloadView('admin.bookings.pdf.complete-pack', compact('booking'), $booking->booking_reference.'-complete-booking-pack.pdf');
+    }
+
     public function invoiceDocument(string $reference, BookingInvoice $invoice)
     {
         $booking = $this->findBooking($reference);
