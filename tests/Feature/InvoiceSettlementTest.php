@@ -73,11 +73,21 @@ class InvoiceSettlementTest extends TestCase
         $this->assertEquals(500, $bank->fresh()->current_balance);
         $this->assertEquals(500, array_sum(collect($first->allocation)->only(['rent', 'vat', 'deposit', 'cleaning', 'agency', 'tourism', 'other'])->all()));
         $this->get(route('admin.booking-invoice.confirmation', $invoice))->assertStatus(422);
+        $this->get(route('guest.booking.show', $booking->booking_reference))->assertOk()
+            ->assertSee('Partial')->assertSee('AED 880.00')->assertSee('Payments received')
+            ->assertSee('Confirmation available after full payment.');
+        $tenant = User::factory()->create(['role' => 'tenant', 'is_active' => true, 'tenant_profile_required' => false]);
+        $booking->update(['tenant_id' => $tenant->id]);
+        $this->actingAs($tenant)->get(route('tenant.booking.show', $booking))->assertOk()
+            ->assertSee('Invoices & Payments', false)->assertSee('AED 500.00')->assertSee('AED 880.00');
+        $this->actingAs(User::factory()->create(['role' => 'admin']));
         $this->pay($invoice->fresh(), $bank, 880)->assertSessionHasNoErrors();
         $this->assertSame(2, BookingInvoicePayment::count());
         $this->assertSame('paid', $invoice->fresh()->status);
         $this->assertSame('1380.00', $bank->fresh()->current_balance);
         $this->get(route('admin.booking-invoice.confirmation', $invoice))->assertOk();
+        $this->get(route('guest.booking.show', $booking->booking_reference))->assertOk()
+            ->assertSee('Download full booking confirmation')->assertSee('AED 0.00');
         $this->post(route('admin.booking-payment.reverse', $first), ['confirm' => 1, 'reason' => 'Incorrect receipt'])->assertSessionHasNoErrors();
         $this->assertSame('880.00', $bank->fresh()->current_balance);
         $this->get(route('admin.booking-invoice.confirmation', $invoice))->assertStatus(422);
@@ -92,5 +102,40 @@ class InvoiceSettlementTest extends TestCase
         $invoice->payments()->create(['amount' => 100, 'payment_date' => today(), 'payment_method' => 'Cash']);
         $this->pay($invoice, $bank, 1580)->assertSessionHasErrors('amount');
         $this->assertSame(1, BookingInvoicePayment::count());
+    }
+
+    public function test_one_bank_transfer_is_allocated_across_multiple_invoices(): void
+    {
+        [$booking, $first, $bank] = $this->setupInvoice(0);
+        $second = BookingInvoice::create([
+            'booking_id' => $booking->id, 'invoice_number' => 'INV-SETTLE-EXT', 'invoice_type' => 'extension',
+            'issue_date' => '2026-10-01', 'period_from' => '2026-10-01', 'period_to' => '2026-10-15',
+            'rent_amount' => 500, 'vat_amount' => 25, 'vat_rate' => 5, 'fees' => [], 'total_amount' => 525, 'status' => 'unpaid',
+        ]);
+        $this->get(route('admin.booking.show', $booking))->assertOk()->assertSee('Combined payment');
+
+        $payload = [
+            'payment_date' => '2026-10-02', 'amount' => 1600, 'payment_method' => 'Bank Transfer',
+            'bank_account_id' => $bank->id, 'reference' => 'BANK-COMBINED-001', 'submission_id' => (string) \Illuminate\Support\Str::uuid(),
+        ];
+        $this->post(route('admin.booking.combined-payment', $booking), $payload)->assertSessionHasNoErrors();
+
+        $payments = BookingInvoicePayment::orderBy('created_at')->get();
+        $this->assertCount(2, $payments);
+        $this->assertEquals(1380, (float) $payments[0]->amount);
+        $this->assertEquals(220, (float) $payments[1]->amount);
+        $this->assertNotNull($payments[0]->payment_batch_id);
+        $this->assertSame($payments[0]->payment_batch_id, $payments[1]->payment_batch_id);
+        $this->assertSame($payments[0]->accounting_entry_id, $payments[1]->accounting_entry_id);
+        $this->assertSame('paid', $first->fresh()->status);
+        $this->assertSame('partial', $second->fresh()->status);
+        $this->assertEquals(305, $second->fresh()->balance_due);
+        $this->assertSame('1600.00', $bank->fresh()->current_balance);
+        $this->assertSame(1, AccountingEntry::where('category', 'guest_receipt')->count());
+        $this->assertDatabaseHas('booking_payment_batches', ['id' => $payload['submission_id'], 'amount' => 1600]);
+        $this->post(route('admin.booking.combined-payment', $booking), $payload)->assertSessionHasNoErrors();
+        $this->assertSame(2, BookingInvoicePayment::count());
+        $this->assertSame(1, AccountingEntry::where('category', 'guest_receipt')->count());
+        $this->post(route('admin.booking-payment.reverse', $payments[0]), ['confirm' => 1, 'reason' => 'Wrong combined transfer'])->assertSessionHasErrors('correction');
     }
 }

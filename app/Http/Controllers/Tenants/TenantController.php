@@ -1,11 +1,10 @@
 <?php
 
-
 namespace App\Http\Controllers\Tenants;
+
 use App\Http\Controllers\Controller;
 use App\Models\Booking;
 use App\Models\BookingInspection;
-use App\Models\BookingInspectionItem;
 use App\Support\MediaStorage;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -21,13 +20,14 @@ class TenantController extends Controller
     public function updateProfile(Request $request)
     {
         $data = $request->validate([
-            'name'=>'required|string|max:255', 'phone'=>'required|string|max:50',
-            'eid_passport_no'=>'required|string|max:50', 'nationality'=>'required|string|max:100',
-            'dob'=>'required|date|before:today', 'address'=>'required|string|max:255',
-            'emergency_contact_name'=>'nullable|string|max:255', 'emergency_contact_phone'=>'nullable|string|max:50',
+            'name' => 'required|string|max:255', 'phone' => 'required|string|max:50',
+            'eid_passport_no' => 'required|string|max:50', 'nationality' => 'required|string|max:100',
+            'dob' => 'required|date|before:today', 'address' => 'required|string|max:255',
+            'emergency_contact_name' => 'nullable|string|max:255', 'emergency_contact_phone' => 'nullable|string|max:50',
         ]);
-        $request->user()->fill($data)->forceFill(['tenant_profile_required'=>false])->save();
-        return redirect()->route('tenant.dashboard')->with('success','Profile completed. Welcome to your guest app.');
+        $request->user()->fill($data)->forceFill(['tenant_profile_required' => false])->save();
+
+        return redirect()->route('tenant.dashboard')->with('success', 'Profile completed. Welcome to your guest app.');
     }
 
     public function dashboard()
@@ -44,7 +44,7 @@ class TenantController extends Controller
     public function booking(Booking $booking)
     {
         $this->authorizeBooking($booking);
-        $booking->load(['property.building', 'inspections.items']);
+        $booking->load(['property.building', 'inspections.items', 'invoices.payments.bankAccount']);
 
         return view('tenant.bookings.show', compact('booking'));
     }
@@ -98,7 +98,7 @@ class TenantController extends Controller
         $areas = array_keys($this->inspectionTemplate($inspection->booking));
         $validated = $request->validate([
             'areas' => 'required|array|min:1',
-            'areas.*' => 'in:' . implode(',', $areas),
+            'areas.*' => 'in:'.implode(',', $areas),
         ]);
 
         $inspection->update(['selected_areas' => $validated['areas']]);
@@ -188,8 +188,8 @@ class TenantController extends Controller
         ]);
 
         $inspection->booking->histories()->create([
-            'title' => $inspection->type_label . ' Inspection Submitted',
-            'description' => $inspection->inspection_number . ' submitted with ' . $inspection->issue_items . ' issue(s).',
+            'title' => $inspection->type_label.' Inspection Submitted',
+            'description' => $inspection->inspection_number.' submitted with '.$inspection->issue_items.' issue(s).',
         ]);
 
         return redirect()->route('tenant.inspection.submitted', $inspection->id);
@@ -227,12 +227,12 @@ class TenantController extends Controller
             $areas['Studio Sleeping Area'] = ['Bed/Mattress', 'Wardrobe', 'Bed Linen', 'Lights', 'AC/Cooling'];
         } else {
             for ($i = 1; $i <= $bedrooms; $i++) {
-                $areas['Bedroom ' . $i] = ['Bed/Mattress', 'Wardrobe', 'Bed Linen', 'Lights', 'AC/Cooling'];
+                $areas['Bedroom '.$i] = ['Bed/Mattress', 'Wardrobe', 'Bed Linen', 'Lights', 'AC/Cooling'];
             }
         }
 
         for ($i = 1; $i <= $bathrooms; $i++) {
-            $areas['Bathroom ' . $i] = ['Shower', 'Toilet', 'Wash Basin', 'Mirror', 'Water Pressure'];
+            $areas['Bathroom '.$i] = ['Shower', 'Toilet', 'Wash Basin', 'Mirror', 'Water Pressure'];
         }
 
         $featureText = strtolower(json_encode([
@@ -253,6 +253,7 @@ class TenantController extends Controller
     private function nextArea(array $areas, string $current): ?string
     {
         $index = array_search($current, $areas, true);
+
         return $index === false ? null : ($areas[$index + 1] ?? null);
     }
 
@@ -270,7 +271,7 @@ class TenantController extends Controller
     private function nextInspectionNumber(): string
     {
         do {
-            $number = 'INSP-' . now()->format('Ymd') . '-' . strtoupper(substr((string) Str::uuid(), 0, 4));
+            $number = 'INSP-'.now()->format('Ymd').'-'.strtoupper(substr((string) Str::uuid(), 0, 4));
         } while (BookingInspection::where('inspection_number', $number)->exists());
 
         return $number;
@@ -311,16 +312,16 @@ class TenantController extends Controller
                 }
 
                 $filename = MediaStorage::trackedFilename($file, 'webp');
-                imagewebp($image, $destination . DIRECTORY_SEPARATOR . $filename, 78);
+                imagewebp($image, $destination.DIRECTORY_SEPARATOR.$filename, 78);
                 imagedestroy($image);
 
-                return $datedFolder . '/' . $filename;
+                return $datedFolder.'/'.$filename;
             }
         }
 
         $filename = MediaStorage::trackedFilename($file, $extension);
         $file->move($destination, $filename);
 
-        return $datedFolder . '/' . $filename;
+        return $datedFolder.'/'.$filename;
     }
 }

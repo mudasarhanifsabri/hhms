@@ -44,6 +44,9 @@ Route::get('/owner-documents/{token}/pdf', [OwnerDocumentSigningController::clas
 Route::get('/guest/bookings/{reference}', [GuestPortalController::class, 'show'])->name('guest.booking.show');
 Route::get('/guest/bookings/{reference}/invoice', [GuestPortalController::class, 'invoice'])->name('guest.booking.invoice');
 Route::get('/guest/bookings/{reference}/confirmation', [GuestPortalController::class, 'confirmation'])->name('guest.booking.confirmation');
+Route::get('/guest/bookings/{reference}/invoices/{invoice}', [GuestPortalController::class, 'invoiceDocument'])->name('guest.booking.invoice-document');
+Route::get('/guest/bookings/{reference}/invoices/{invoice}/payments', [GuestPortalController::class, 'invoiceReceipt'])->name('guest.booking.invoice-receipt');
+Route::get('/guest/bookings/{reference}/invoices/{invoice}/confirmation', [GuestPortalController::class, 'invoiceConfirmation'])->name('guest.booking.invoice-confirmation');
 Route::get('/webhooks/whatsapp', [WhatsappWebhookController::class, 'verify'])->name('webhooks.whatsapp.verify');
 Route::post('/webhooks/whatsapp', [WhatsappWebhookController::class, 'receive'])->name('webhooks.whatsapp.receive');
 

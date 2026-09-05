@@ -25,9 +25,13 @@
     <section class="portal-card">
         <h4>Documents</h4>
         <div class="portal-list">
-            <a class="portal-list-item" href="{{ route('guest.booking.confirmation', $booking->booking_reference) }}"><strong>Booking Confirmation</strong><i class="ri-download-line"></i></a>
-            <a class="portal-list-item" href="{{ route('guest.booking.invoice', $booking->booking_reference) }}"><strong>Invoice</strong><i class="ri-download-line"></i></a>
+            <a class="portal-list-item" href="#invoices-payments"><strong>Invoices, receipts and confirmations</strong><i class="ri-arrow-down-line"></i></a>
         </div>
     </section>
 </div>
+
+<section class="portal-card mt-3" id="invoices-payments">
+    <h4>Invoices & Payments</h4>
+    @include('guest.partials.invoice-payment-status')
+</section>
 @endsection

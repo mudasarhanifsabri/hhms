@@ -26,6 +26,7 @@
     $totalPaid = (float) $booking->invoices->sum(fn ($invoice) => $invoice->paid_amount);
     $totalOutstanding = max(0, $totalInvoiced - $totalPaid);
     $expectedRentOutstanding = max(0, $booking->invoices->sum('rent_amount') - $booking->invoices->sum(fn($invoice) => $invoice->payments->sum('rent_amount')));
+    $outstandingInvoices = $booking->invoices->filter(fn ($invoice) => $invoice->balance_due > 0)->sortBy('issue_date');
 @endphp
 <div class="booking-page-head" role="region" aria-label="Booking details and actions">
     <div><h3>{{ $booking->booking_reference }}</h3><div class="breadcrumb-note"><a href="{{ route('admin.booking.index') }}">Bookings</a> / Booking details</div></div>
@@ -33,6 +34,7 @@
         <div class="dropdown"><button class="btn btn-light dropdown-toggle" data-bs-toggle="dropdown"><iconify-icon icon="solar:documents-broken" class="align-middle fs-18"></iconify-icon> Documents</button><div class="dropdown-menu dropdown-menu-end"><a href="{{ route('admin.booking.invoice', $booking) }}" class="dropdown-item">Original booking invoice</a><a href="{{ route('admin.booking.confirmation', $booking) }}" class="dropdown-item">Overall booking confirmation</a><a href="{{ route('admin.booking.history', $booking) }}" class="dropdown-item">History & corrections</a></div></div>
         <a href="{{ route('admin.booking.edit', $booking) }}" class="btn btn-outline-dark"><iconify-icon icon="solar:pen-2-broken" class="align-middle fs-18"></iconify-icon> Edit booking</a>
         @if($latestInvoice && $latestInvoice->balance_due > 0)<button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#paymentModal{{ $latestInvoice->id }}"><iconify-icon icon="solar:card-transfer-broken" class="align-middle fs-18"></iconify-icon> Record payment</button>@endif
+        @if($outstandingInvoices->count() > 1)<button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#combinedPaymentModal"><iconify-icon icon="solar:layers-minimalistic-broken" class="align-middle fs-18"></iconify-icon> Combined payment</button>@endif
         <div class="dropdown"><button class="btn btn-light" data-bs-toggle="dropdown" aria-label="More booking actions"><iconify-icon icon="solar:menu-dots-bold"></iconify-icon></button><div class="dropdown-menu dropdown-menu-end"><a class="dropdown-item" href="{{ route('admin.booking.history', $booking) }}">View history</a><div class="dropdown-divider"></div><form action="{{ route('admin.booking.destroy', $booking) }}" method="POST" onsubmit="return confirm('Delete this booking? Bookings with financial or deposit history cannot be deleted.');">@csrf @method('DELETE')<button class="dropdown-item text-danger">Delete booking</button></form></div></div>
     </div>
 </div>
@@ -421,11 +423,23 @@
                     <div class="col-12"><label class="form-label">Notes</label><textarea name="notes" class="form-control" rows="2"></textarea></div>
                 </div>
             </div>
-            <div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-primary" @disabled($allocationError)>Record Full Payment</button></div>
+            <div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-primary" @disabled($allocationError)>Record Payment</button></div>
         </form>
     </div></div>
 </div>
 @endforeach
+
+@if($outstandingInvoices->count() > 1)
+<div class="modal fade" id="combinedPaymentModal" tabindex="-1" aria-hidden="true"><div class="modal-dialog modal-lg modal-dialog-scrollable"><form class="modal-content" method="POST" enctype="multipart/form-data" action="{{ route('admin.booking.combined-payment', $booking) }}">@csrf
+<input type="hidden" name="submission_id" value="{{ (string) \Illuminate\Support\Str::uuid() }}">
+<div class="modal-header"><div><h5 class="modal-title">One Transfer Across Invoices</h5><small class="text-muted">Oldest outstanding invoice is allocated first.</small></div><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+<div class="modal-body"><div class="alert alert-info">One bank transaction is recorded, with separate payment allocations under each invoice.</div>
+<div class="table-responsive"><table class="table table-sm"><thead><tr><th>Order</th><th>Invoice</th><th>Period</th><th class="text-end">Outstanding</th></tr></thead><tbody>@foreach($outstandingInvoices as $openInvoice)<tr><td>{{ $loop->iteration }}</td><td>{{ $openInvoice->invoice_number }}</td><td>{{ $openInvoice->period_from?->format('d M') }} – {{ $openInvoice->period_to?->format('d M Y') }}</td><td class="text-end">AED {{ number_format($openInvoice->balance_due,2) }}</td></tr>@endforeach<tr class="table-light fw-bold"><td colspan="3">Combined outstanding</td><td class="text-end">AED {{ number_format($outstandingInvoices->sum(fn($item) => $item->balance_due),2) }}</td></tr></tbody></table></div>
+<div class="row g-3"><div class="col-md-6"><label class="form-label">Transfer date</label><input class="form-control" type="date" name="payment_date" value="{{ today()->toDateString() }}" required></div><div class="col-md-6"><label class="form-label">Amount received (AED)</label><input class="form-control" type="number" name="amount" min="0.01" max="{{ $outstandingInvoices->sum(fn($item) => $item->balance_due) }}" step="0.01" required></div>
+<div class="col-md-6"><label class="form-label">Payment method</label><select class="form-select" name="payment_method" required><option>Bank Transfer</option><option>Cash</option><option>Card</option><option>Cheque</option><option>Online Payment</option></select></div><div class="col-md-6"><label class="form-label">Received into account</label><select class="form-select" name="bank_account_id" required><option value="">Select bank / cash account</option>@foreach($bankAccounts as $account)<option value="{{ $account->id }}">{{ $account->name }}</option>@endforeach</select></div>
+<div class="col-md-6"><label class="form-label">Bank transaction reference</label><input class="form-control" name="reference" required maxlength="150"></div><div class="col-md-6"><label class="form-label">Transfer proof</label><input class="form-control" type="file" name="receipt" accept=".pdf,.jpg,.jpeg,.png"></div><div class="col-12"><label class="form-label">Notes</label><textarea class="form-control" name="notes" rows="2"></textarea></div></div></div>
+<div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button><button class="btn btn-success">Record & Allocate Transfer</button></div></form></div></div>
+@endif
 
 <div class="modal fade" id="checkoutConfirmModal" tabindex="-1" aria-hidden="true"><div class="modal-dialog modal-dialog-centered"><div class="modal-content">
     <form method="POST" action="{{ route('admin.booking.check-out', $booking) }}">@csrf

@@ -40,9 +40,8 @@
         </section>
 
         <section class="tenant-section">
-            <h3>Documents</h3>
-            <a class="tenant-list-link" href="{{ route('guest.booking.confirmation', $booking->booking_reference) }}">Booking Confirmation <i class="ri-download-line"></i></a>
-            <a class="tenant-list-link" href="{{ route('guest.booking.invoice', $booking->booking_reference) }}">Invoice <i class="ri-download-line"></i></a>
+            <h3>Invoices & Payments</h3>
+            @include('guest.partials.invoice-payment-status')
         </section>
     </main>
     @include('tenant.partials.bottom-nav')

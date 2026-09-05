@@ -84,10 +84,18 @@ class BookingCorrectionController extends Controller
                 $this->fail('Reversed payments are read-only.');
             }
             $before = $payment->only(['reference', 'notes']);
-            $payment->update(['reference' => $data['reference'] ?? null, 'notes' => $data['notes'] ?? null]);
-            AccountingEntry::whereKey($payment->accounting_entry_id)->update(['transaction_reference' => $payment->reference ?: $payment->invoice->invoice_number]);
-            AccountingEntry::whereIn('id', $payment->allocation_entry_ids ?? [])->update(['transaction_reference' => $payment->reference ?: $payment->invoice->invoice_number]);
-            BookingDepositEntry::where('booking_invoice_payment_id', $payment->id)->where('kind', 'received')->update(['reference' => $payment->reference]);
+            $relatedPayments = $payment->payment_batch_id
+                ? BookingInvoicePayment::where('payment_batch_id', $payment->payment_batch_id)->lockForUpdate()->get()
+                : collect([$payment]);
+            foreach ($relatedPayments as $relatedPayment) {
+                $relatedPayment->update(['reference' => $data['reference'] ?? null, 'notes' => $data['notes'] ?? null]);
+                AccountingEntry::whereIn('id', $relatedPayment->allocation_entry_ids ?? [])->update(['transaction_reference' => $data['reference'] ?: $relatedPayment->invoice->invoice_number]);
+                BookingDepositEntry::where('booking_invoice_payment_id', $relatedPayment->id)->where('kind', 'received')->update(['reference' => $data['reference']]);
+            }
+            AccountingEntry::whereKey($payment->accounting_entry_id)->update(['transaction_reference' => $data['reference'] ?: $payment->invoice->invoice_number]);
+            if ($payment->payment_batch_id) {
+                DB::table('booking_payment_batches')->where('id', $payment->payment_batch_id)->update(['reference' => $data['reference'], 'updated_at' => now()]);
+            }
             $booking->histories()->create(['title' => 'Payment Details Corrected', 'description' => $payment->id.' by '.auth()->user()->name.'. Reason: '.$data['reason'].' | Before: '.json_encode($before).' | After: '.json_encode($payment->only(['reference', 'notes']))]);
         });
 
@@ -103,6 +111,9 @@ class BookingCorrectionController extends Controller
             $payment = BookingInvoicePayment::whereKey($payment->id)->lockForUpdate()->firstOrFail();
             if ($payment->reversed_at) {
                 $this->fail('This payment has already been reversed.');
+            }
+            if ($payment->payment_batch_id) {
+                $this->fail('This payment belongs to a combined bank transfer. Reverse or correct the complete transfer as one batch; an individual invoice allocation cannot be reversed.');
             }
             if ($booking->owner_posting_basis !== 'receipts') {
                 $this->fail('Legacy owner postings require reconciliation before reversing money. You can correct the reference and notes now.');

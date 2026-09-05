@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class BookingInvoicePayment extends BaseModel
 {
     protected $fillable = [
-        'booking_invoice_id', 'payment_date', 'amount', 'payment_method',
+        'booking_invoice_id', 'payment_batch_id', 'payment_date', 'amount', 'payment_method',
         'bank_account_id', 'reference', 'receipt_path', 'notes',
         'accounting_entry_id', 'created_by',
         'rent_amount', 'reversed_at',

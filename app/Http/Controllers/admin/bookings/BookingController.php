@@ -434,6 +434,92 @@ class BookingController extends Controller
         return PdfRenderer::downloadView('admin.bookings.pdf.payment-receipt', compact('invoice'), $invoice->invoice_number.'-receipt.pdf');
     }
 
+    public function recordCombinedPayment(Request $request, Booking $booking)
+    {
+        $data = $request->validate([
+            'payment_date' => 'required|date',
+            'amount' => 'required|numeric|decimal:0,2|min:0.01',
+            'payment_method' => 'required|string|max:100',
+            'bank_account_id' => 'required|exists:bank_accounts,id,is_active,1',
+            'reference' => 'required|string|max:150',
+            'receipt' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:10240',
+            'notes' => 'nullable|string|max:2000',
+            'submission_id' => 'required|uuid',
+        ]);
+        if (DB::table('booking_payment_batches')->where('id', $data['submission_id'])->exists()) {
+            return back()->with('success', 'This combined payment was already recorded.');
+        }
+        $receiptPath = $this->uploadFile($request, 'receipt', 'booking_payment_proofs');
+
+        DB::transaction(function () use ($booking, $data, $receiptPath) {
+            $booking = Booking::whereKey($booking->id)->lockForUpdate()->firstOrFail();
+            $invoices = BookingInvoice::where('booking_id', $booking->id)->whereIn('status', ['unpaid', 'partial'])
+                ->orderBy('issue_date')->orderBy('created_at')->lockForUpdate()->get();
+            $outstanding = round($invoices->sum(fn ($invoice) => $invoice->balance_due), 2);
+            if ($invoices->count() < 2) {
+                throw ValidationException::withMessages(['amount' => 'Combined payment requires at least two outstanding invoices.']);
+            }
+            if (\App\Support\DepositWallet::cents($data['amount']) <= \App\Support\DepositWallet::cents($invoices->first()->balance_due)) {
+                throw ValidationException::withMessages(['amount' => 'This amount reaches only the oldest invoice. Use its Record Payment button, or enter an amount that also reaches the next invoice.']);
+            }
+            if (\App\Support\DepositWallet::cents($data['amount']) > \App\Support\DepositWallet::cents($outstanding)) {
+                throw ValidationException::withMessages(['amount' => 'Payment cannot exceed the combined outstanding balance of AED '.number_format($outstanding, 2).'.']);
+            }
+
+            $batchId = $data['submission_id'];
+            $entry = AccountingEntry::create([
+                'entry_no' => $this->nextAccountingEntryNumber(), 'entry_date' => $data['payment_date'],
+                'type' => 'income', 'category' => 'guest_receipt',
+                'accounting_account_id' => AccountingAccount::where('code', '2096')->firstOrFail()->id,
+                'description' => 'Combined guest payment for '.$booking->booking_reference,
+                'property_id' => $booking->property_id, 'landlord_id' => $booking->property?->landlord_id,
+                'booking_id' => $booking->id, 'paid_from_account_id' => $data['bank_account_id'],
+                'debit' => 0, 'credit' => $data['amount'], 'vat_rate' => 0, 'vat_amount' => 0,
+                'net_amount' => $data['amount'], 'gross_amount' => $data['amount'],
+                'payment_method' => $data['payment_method'], 'transaction_reference' => $data['reference'],
+                'status' => 'posted', 'approval_status' => 'posted', 'created_by' => auth()->id(),
+            ]);
+            DB::table('booking_payment_batches')->insert([
+                'id' => $batchId, 'booking_id' => $booking->id, 'accounting_entry_id' => $entry->id,
+                'amount' => $data['amount'], 'reference' => $data['reference'], 'created_by' => auth()->id(),
+                'created_at' => now(), 'updated_at' => now(),
+            ]);
+
+            $remaining = round((float) $data['amount'], 2);
+            $summary = [];
+            foreach ($invoices as $invoice) {
+                if ($remaining <= 0) {
+                    break;
+                }
+                $amount = min($remaining, $invoice->balance_due);
+                $allocation = \App\Support\InvoiceSettlement::allocation($invoice, $amount);
+                $payment = BookingInvoicePayment::create([
+                    'booking_invoice_id' => $invoice->id, 'payment_batch_id' => $batchId,
+                    'payment_date' => $data['payment_date'], 'amount' => $amount,
+                    'payment_method' => $data['payment_method'], 'bank_account_id' => $data['bank_account_id'],
+                    'reference' => $data['reference'], 'receipt_path' => $receiptPath, 'notes' => $data['notes'] ?? null,
+                    'accounting_entry_id' => $entry->id, 'created_by' => auth()->id(),
+                    'rent_amount' => $booking->owner_posting_basis === 'receipts' ? $allocation['rent'] : null,
+                    'allocation' => $allocation,
+                ]);
+                if ($allocation['deposit'] > 0) {
+                    \App\Support\DepositWallet::allocate($booking, $payment, $allocation['deposit'], 'batch:'.$batchId.':'.$invoice->id);
+                }
+                \App\Support\OwnerReceiptPosting::post($payment);
+                \App\Support\InvoiceSettlement::post($payment);
+                $invoice->update(['status' => $invoice->fresh()->balance_due <= 0 ? 'paid' : 'partial']);
+                $summary[] = $invoice->invoice_number.' AED '.number_format($amount, 2);
+                $remaining = round($remaining - $amount, 2);
+            }
+            $booking->update(['invoice_status' => $booking->invoices()->where('status', '!=', 'paid')->exists() ? 'unpaid' : 'paid']);
+            $booking->histories()->create(['title' => 'Combined Payment Recorded', 'description' => 'Transfer '.$data['reference'].' allocated: '.implode('; ', $summary).'.']);
+            $account = BankAccount::whereKey($data['bank_account_id'])->lockForUpdate()->first();
+            $account?->forceFill(['current_balance' => (float) $account->opening_balance + (float) $account->entries()->whereIn('approval_status', ['posted', 'approved', 'paid'])->selectRaw('COALESCE(SUM(credit - debit),0) as movement')->value('movement')])->save();
+        });
+
+        return back()->with('success', 'Combined payment recorded and allocated across outstanding invoices.');
+    }
+
     public function history(Booking $booking)
     {
         $booking->load(['property', 'agent', 'histories', 'invoices.allPayments.bankAccount']);
