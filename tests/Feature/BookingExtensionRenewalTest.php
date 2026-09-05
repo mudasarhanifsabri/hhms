@@ -79,7 +79,7 @@ class BookingExtensionRenewalTest extends TestCase
         ['admin' => $admin, 'booking' => $booking] = $this->booking();
         $routes = new \Illuminate\Routing\RouteCollection;
         foreach (app('router')->getRoutes() as $route) {
-            if ($route->getName() !== 'admin.booking-invoice.confirmation') {
+            if (! in_array($route->getName(), ['admin.booking-invoice.confirmation', 'admin.booking.complete-pack'], true)) {
                 $routes->add($route);
             }
         }
