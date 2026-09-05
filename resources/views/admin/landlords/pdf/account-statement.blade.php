@@ -1,29 +1,112 @@
 @php
-    $logo = public_path('assets/images/pattern-bilingual-logo.png');
-    $expenseLabels = ['dewa'=>'DEWA Bill','gas'=>'Gas Bill','internet'=>'Internet Bill','chiller'=>'Chiller Bill','cleaning'=>'Cleaning Expense','maintenance'=>'Maintenance Expense','furnishing'=>'Furnishing Expense','other_expense'=>'Other Expense','payout'=>'Owner Payout'];
+    $logo = public_path('assets/images/logo-dark.png');
 @endphp
-<!doctype html><html><head><meta charset="utf-8"><style>
-@page{margin:13mm 12mm 17mm;footer:html_footer}body{font-family:DejaVu Sans,Arial,sans-serif;color:#18243a;font-size:9px}.header{width:100%;border-bottom:3px solid #102f62;padding-bottom:8px}.header td{border:0;vertical-align:middle}.logo{width:190px;height:auto}.title{color:#102f62;text-align:right;font-size:20px;font-weight:700;line-height:1.15}.title-sub{color:#b68b43;font-size:8px;letter-spacing:1px}.owner-card{background:#102f62;color:#fff;margin:11px 0;padding:11px 13px}.owner-card table,.owner-card td{border:0;color:#fff}.owner-name{font-size:15px;font-weight:700}.muted-light{color:#d7e1f2}.period{text-align:right;line-height:1.5}.summary{width:100%;border-collapse:collapse;margin-bottom:13px}.summary td{border:1px solid #d5deec;text-align:center;padding:8px 5px;width:25%}.label{color:#718096;font-size:7.5px;text-transform:uppercase;letter-spacing:.5px}.amount{color:#102f62;font-size:12px;font-weight:700;margin-top:2px}.credit{color:#168451}.debit{color:#d54a4a}.unit-title{margin-top:13px;background:#edf2f8;border-left:4px solid #c39a53;padding:7px 9px;color:#102f62;font-size:11px;font-weight:700}.statement{width:100%;border-collapse:collapse;page-break-inside:auto}.statement thead{display:table-header-group}.statement tr{page-break-inside:avoid}.statement th{background:#102f62;color:#fff;padding:7px 6px;text-align:left;font-size:8px;text-transform:uppercase;letter-spacing:.3px}.statement td{border-bottom:1px solid #dbe2ed;padding:7px 6px;vertical-align:top}.statement tbody tr:nth-child(even){background:#f7f9fc}.description-main{color:#18243a;font-weight:700;font-size:9px}.description-sub{color:#68758a;font-size:7.8px;line-height:1.4;margin-top:2px}.money{text-align:right;white-space:nowrap}.balance{font-weight:700;color:#102f62}.unit-balance td{background:#edf2f8;border-top:2px solid #c7d2e3;font-weight:700;padding:8px 6px}.footer{text-align:center;color:#7b8494;border-top:1px solid #d9dfeb;padding-top:4px;font-size:7.5px}.empty{text-align:center;padding:35px;color:#718096}
-</style></head><body>
-<htmlpagefooter name="footer"><div class="footer">PATTERN Vacation Homes Rental | Owner Statement | Generated {{ now()->format('d M Y H:i') }} | Page {PAGENO} of {nbpg}</div></htmlpagefooter>
-<table class="header"><tr><td width="55%">@if(file_exists($logo))<img src="{{ $logo }}" class="logo" alt="Pattern">@endif</td><td width="45%" class="title">OWNER STATEMENT<br><span class="title-sub">STATEMENT OF ACCOUNT</span></td></tr></table>
-<div class="owner-card"><table width="100%"><tr><td><div class="owner-name">{{ $landlord->name }}</div><div class="muted-light">{{ $landlord->email }}@if($landlord->phone) | {{ $landlord->phone }}@endif</div></td><td class="period"><strong>{{ $period['from']->format('d M Y') }} - {{ $period['to']->format('d M Y') }}</strong><br><span class="muted-light">Account period</span></td></tr></table></div>
-<table class="summary"><tr><td><div class="label">Opening Balance</div><div class="amount">AED 0.00</div></td><td><div class="label">Total Credit</div><div class="amount credit">AED {{ number_format($accountTotals['credit'],2) }}</div></td><td><div class="label">Total Debit</div><div class="amount debit">AED {{ number_format($accountTotals['debit'],2) }}</div></td><td><div class="label">Closing Balance</div><div class="amount">AED {{ number_format($accountTotals['balance'],2) }}</div></td></tr></table>
-@forelse($unitStatements as $unitStatement)
-@php
-    $unit=$unitStatement['property']; $buildingName=$unit?->building?->building_name ?? $unit?->building?->name ?? 'No building'; $unitName=$unit?->name ?? 'General Account'; $unitLabel=str_starts_with(strtolower($unitName),'unit ') ? $unitName : 'Unit '.$unitName;
-@endphp
-<div class="unit-title">{{ $unitName }} - {{ $buildingName }}</div>
-<table class="statement"><thead><tr><th style="width:13%">Date</th><th>Description</th><th class="money" style="width:14%">Credit</th><th class="money" style="width:14%">Debit</th><th class="money" style="width:15%">Balance</th></tr></thead><tbody>
-@foreach($unitStatement['entries'] as $entry)
-@php
-    $invoice=$paymentPeriods->get($entry->reference);
-    $periodText=$invoice?->period_from && $invoice?->period_to ? 'Period: '.$invoice->period_from->format('d M Y').' - '.$invoice->period_to->format('d M Y') : null;
-    $mainDescription=match($entry->type){'rent_income'=>'Rental Income - '.$unitLabel.' - '.$buildingName,'management_fee'=>'Management Fee Deducted '.number_format((float)($invoice?->booking?->management_fee_percent ?? $unit?->management_fee_percent ?? 0),2).'% - '.$unitLabel.' - '.$buildingName,default=>($expenseLabels[$entry->type] ?? $entry->type_label).' - '.$unitLabel.' - '.$buildingName};
-    $details=collect([$periodText,$invoice?->invoice_number ? 'Invoice: '.$invoice->invoice_number : null,!in_array($entry->type,['rent_income','management_fee']) ? $entry->description : null,$entry->reference ? 'Ref: '.$entry->reference : null])->filter()->implode(' | ');
-@endphp
-<tr><td>{{ $entry->entry_date?->format('d M Y') }}</td><td><div class="description-main">{{ $mainDescription }}</div>@if($details)<div class="description-sub">{{ $details }}</div>@endif</td><td class="money credit">{{ $entry->direction==='credit' ? number_format((float)$entry->amount,2) : '-' }}</td><td class="money debit">{{ $entry->direction==='debit' ? number_format((float)$entry->amount,2) : '-' }}</td><td class="money balance">{{ number_format((float)$entry->unit_running_balance,2) }}</td></tr>
-@endforeach
-<tr class="unit-balance"><td colspan="4" class="money">Unit Balance</td><td class="money">AED {{ number_format($unitStatement['balance'],2) }}</td></tr></tbody></table>
-@empty<div class="empty">No owner account entries found for this period.</div>@endforelse
-</body></html>
+<!doctype html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <style>
+        @page { margin: 38px 42px; }
+        body { font-family: DejaVu Sans, sans-serif; color: #3c3f3b; font-size: 11px; }
+        .header { width: 100%; margin-bottom: 24px; }
+        .header td { vertical-align: top; border: 0; }
+        .logo { width: 210px; margin-top: 20px; }
+        .company { text-align: right; line-height: 1.45; }
+        .company strong { font-size: 13px; }
+        .to { margin-top: 16px; line-height: 1.45; }
+        .title { text-align: right; margin-top: 24px; }
+        .title h1 { display: inline-block; font-size: 24px; margin: 0; color: #111; border-bottom: 2px solid #111; }
+        .title p { margin: 6px 0 0; }
+        .summary { width: 360px; margin-left: auto; margin-top: 18px; border-collapse: collapse; }
+        .summary th { background: #e9e9e9; text-align: left; padding: 8px; }
+        .summary td { padding: 8px; border-bottom: 0; }
+        .summary td:last-child { text-align: right; }
+        .summary .line td { border-top: 1px solid #111; }
+        .statement { width: 100%; border-collapse: collapse; margin-top: 44px; }
+        .unit-title { margin-top: 24px; padding: 8px 10px; background: #e9e9e9; font-size: 13px; font-weight: 700; }
+        .statement th { background: #3c403b; color: #fff; padding: 8px 6px; text-align: left; }
+        .statement td { padding: 9px 6px; vertical-align: top; }
+        .statement tbody tr:nth-child(even) { background: #f5f3f3; }
+        .right { text-align: right; }
+        .balance-due td { border-top: 1px solid #ddd; background: #fff; font-weight: 700; padding-top: 12px; }
+        .footer-line { position: fixed; bottom: 22px; left: 42px; right: 42px; border-top: 1px solid #bbb; }
+    </style>
+</head>
+<body>
+    <table class="header">
+        <tr>
+            <td style="width: 50%;">
+                @if(file_exists($logo))
+                    <img src="{{ $logo }}" class="logo" alt="Pattern">
+                @endif
+                <div class="to">
+                    <strong>To</strong><br>
+                    {{ $landlord->name }}<br>
+                    {{ $landlord->email }}<br>
+                    {{ $landlord->phone }}
+                </div>
+            </td>
+            <td class="company">
+                <strong>PATTERN VACATION HOMES RENTAL</strong><br>
+                Dubai<br>
+                U.A.E<br>
+                TRN 101001557300003<br>
+                +971503344887<br>
+                patterncustomerservice@gmail.com
+
+                <div class="title">
+                    <h1>Statement of Accounts</h1>
+                    <p>{{ $period['from']->format('d M Y') }} To {{ $period['to']->format('d M Y') }}</p>
+                </div>
+
+                <table class="summary">
+                    <tr><th colspan="2">Account Summary</th></tr>
+                    <tr><td>Opening Balance</td><td>AED 0.00</td></tr>
+                    <tr><td>Total Credit</td><td>AED {{ number_format($accountTotals['credit'], 2) }}</td></tr>
+                    <tr><td>Total Debit</td><td>AED {{ number_format($accountTotals['debit'], 2) }}</td></tr>
+                    <tr class="line"><td>Net Owner Balance</td><td>AED {{ number_format($accountTotals['balance'], 2) }}</td></tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+
+    @forelse($unitStatements as $unitStatement)
+    <div class="unit-title">{{ $unitStatement['property']?->name ?? 'General Owner Account' }}@if($unitStatement['property']?->building) - {{ $unitStatement['property']->building?->building_name }}@endif</div>
+    <table class="statement" style="margin-top:0">
+        <thead>
+            <tr>
+                <th style="width: 10%;">Date</th>
+                <th style="width: 15%;">Category</th>
+                <th>Description</th>
+                <th style="width: 12%;">Unit</th>
+                <th style="width: 11%;">Reference</th>
+                <th class="right" style="width: 11%;">Credit</th>
+                <th class="right" style="width: 11%;">Debit</th>
+                <th class="right" style="width: 12%;">Balance</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach($unitStatement['entries'] as $entry)
+                <tr>
+                    <td>{{ $entry->entry_date?->format('d M Y') }}</td>
+                    <td>{{ $entry->type_label }}</td>
+                    <td>{{ $entry->description ?: '-' }}</td>
+                    <td>{{ $entry->property?->name ?? 'General' }}</td>
+                    <td>{{ $entry->reference ?? '-' }}</td>
+                    <td class="right">{{ $entry->direction === 'credit' ? number_format((float) $entry->amount, 2) : '-' }}</td>
+                    <td class="right">{{ $entry->direction === 'debit' ? number_format((float) $entry->amount, 2) : '-' }}</td>
+                    <td class="right">{{ number_format((float) $entry->unit_running_balance, 2) }}</td>
+                </tr>
+            @endforeach
+            <tr class="balance-due">
+                <td colspan="7" class="right">Unit Balance</td>
+                <td class="right">AED {{ number_format($unitStatement['balance'], 2) }}</td>
+            </tr>
+        </tbody>
+    </table>
+    @empty
+        <p style="text-align:center;margin-top:40px">No owner account entries found.</p>
+    @endforelse
+    <div class="footer-line"></div>
+</body>
+</html>

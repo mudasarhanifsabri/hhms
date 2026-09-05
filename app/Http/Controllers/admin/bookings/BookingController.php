@@ -158,6 +158,7 @@ class BookingController extends Controller
                 $booking->update(\Illuminate\Support\Arr::only($details, array_keys($before)));
                 $booking->histories()->create(['title' => 'Guest Details Corrected', 'description' => 'By '.auth()->user()->name.'. Reason: '.$details['reason'].' | Before: '.json_encode($before).' | After: '.json_encode($booking->only(array_keys($before)))]);
             });
+            \App\Support\BookingTenantProfile::sync($booking->fresh());
 
             return redirect()->route('admin.booking.show', $booking)->with('success', 'Guest contact details updated. Invoice charges and payments are unchanged.');
         }
@@ -182,6 +183,7 @@ class BookingController extends Controller
         ]);
 
         $this->syncOwnerIncome($booking);
+        \App\Support\BookingTenantProfile::sync($booking->fresh());
         $this->markPropertyStatus($booking, 'booked');
 
         return redirect()->route('admin.booking.show', $booking->id)

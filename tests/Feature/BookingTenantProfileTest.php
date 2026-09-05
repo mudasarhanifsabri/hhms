@@ -61,6 +61,30 @@ class BookingTenantProfileTest extends TestCase
             ->assertViewHas('relatedProperties', fn ($rows) => $rows->pluck('id')->all() === [$booking->property_id]);
     }
 
+    public function test_linked_tenant_stays_synchronized_when_booking_guest_details_change(): void
+    {
+        $booking = $this->booking();
+        $tenant = BookingTenantProfile::sync($booking);
+        $tenant->update(['nationality' => 'Emirati', 'dob' => '1990-01-01', 'address' => 'Dubai']);
+
+        $booking->update([
+            'guest_name' => 'Updated Guest',
+            'guest_email' => 'updated@example.com',
+            'guest_phone' => '0501234567',
+            'guest_passport_id_no' => 'P200',
+        ]);
+
+        BookingTenantProfile::sync($booking->fresh());
+        $tenant->refresh();
+
+        $this->assertSame('Updated Guest', $tenant->name);
+        $this->assertSame('updated@example.com', $tenant->email);
+        $this->assertSame('0501234567', $tenant->phone);
+        $this->assertSame('P200', $tenant->eid_passport_no);
+        $this->assertSame('Emirati', $tenant->nationality);
+        $this->assertSame('Dubai', $tenant->address);
+    }
+
     public function test_conflicts_never_link_another_role_or_identity(): void
     {
         $booking = $this->booking('owner@example.com');
