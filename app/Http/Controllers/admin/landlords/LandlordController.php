@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Log;
 use App\Models\User;
 use App\Models\Property;
 use App\Models\LandlordAccountEntry;
+use App\Models\BookingInvoicePayment;
 use App\Support\MediaStorage;
 use App\Support\PdfRenderer;
 use Illuminate\Http\Response;
@@ -183,6 +184,15 @@ class LandlordController extends Controller
             ->get();
         $accountTotals = $this->accountTotalsFor($landlord->id, $filters);
         $period = $this->statementPeriod($accountEntries, $filters);
+        $paymentIds = $accountEntries->pluck('reference')
+            ->filter(fn ($reference) => is_string($reference) && str_starts_with($reference, 'PAY-'))
+            ->map(fn (string $reference) => substr($reference, 4))
+            ->filter()
+            ->unique();
+        $paymentPeriods = BookingInvoicePayment::with('invoice.booking')
+            ->whereIn('id', $paymentIds)
+            ->get()
+            ->mapWithKeys(fn (BookingInvoicePayment $payment) => ['PAY-'.$payment->id => $payment->invoice]);
         $unitStatements = $accountEntries->groupBy(fn (LandlordAccountEntry $entry) => $entry->property_id ?: 'general')
             ->map(function ($entries) {
                 $running = 0;
@@ -198,8 +208,9 @@ class LandlordController extends Controller
             'accountEntries',
             'accountTotals',
             'period',
-            'unitStatements'
-        ), 'owner-statement-' . Str::slug($landlord->name) . '.pdf', ['format' => 'A4-L']);
+            'unitStatements',
+            'paymentPeriods'
+        ), 'owner-statement-' . Str::slug($landlord->name) . '.pdf', ['format' => 'A4']);
     }
 
     public function ownedProperties($id)
