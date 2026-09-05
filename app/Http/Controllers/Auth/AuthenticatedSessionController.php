@@ -33,12 +33,19 @@ class AuthenticatedSessionController extends Controller
         return match (Auth::user()->role) {
             'admin'      => redirect()->route('admin.dashboard'),
             'tenant'     => redirect()->route('tenant.dashboard'),
-            'landlord'   => redirect()->route('landlord.dashboard'),
+            'landlord'   => $this->isMobile($request)
+                ? redirect()->route('landlord.app')
+                : redirect()->route('landlord.dashboard'),
             'agent'      => redirect()->route('agent.dashboard'),
             'maintainer' => redirect()->route('maintainer.dashboard'),
             default      => abort(403, 'Unauthorized')
         };
 
+    }
+
+    private function isMobile(Request $request): bool
+    {
+        return (bool) preg_match('/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i', (string) $request->userAgent());
     }
     /**
      * Destroy an authenticated session.

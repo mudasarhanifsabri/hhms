@@ -15,11 +15,13 @@
     <link rel="apple-touch-icon" href="{{ asset('assets/images/pwa-icon-192.png') }}">
     <link rel="stylesheet" href="{{ asset('assets/css/icons.min.css') }}">
     <link rel="stylesheet" href="{{ asset('assets/css/owner-pwa.css') }}">
+    <link rel="stylesheet" href="{{ asset('assets/css/owner-pwa-premium.css') }}">
     <link rel="stylesheet" href="{{ asset('assets/css/owner-pwa-rtl.css') }}">
 </head>
 <body>
     @yield('content')
     <script>window.ownerApp={sw:"{{ asset('owner-sw.js') }}"};</script>
     <script src="{{ asset('assets/js/owner-pwa.js') }}"></script>
+    <script src="{{ asset('assets/js/owner-pwa-premium.js') }}"></script>
 </body>
 </html>

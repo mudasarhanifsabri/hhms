@@ -43,6 +43,35 @@ class OwnerPwaTest extends TestCase
         $this->actingAs($admin)->get(route('landlord.app'))->assertForbidden();
     }
 
+    public function test_phone_owner_is_sent_to_app_and_can_choose_desktop_portal(): void
+    {
+        $owner = User::factory()->create(['role' => 'landlord']);
+
+        $this->withHeader('User-Agent', 'Mozilla/5.0 (Android 15; Mobile)')
+            ->post(route('login'), ['email' => $owner->email, 'password' => 'password'])
+            ->assertRedirect(route('landlord.app'));
+        auth()->logout();
+        $this->actingAs($owner)->withHeader('User-Agent', 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)')
+            ->get(route('landlord.dashboard'))->assertRedirect(route('landlord.app'));
+        $this->withHeader('User-Agent', 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)')
+            ->get(route('landlord.dashboard', ['desktop' => 1]))->assertOk();
+        $this->withHeader('User-Agent', 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)')
+            ->get(route('landlord.dashboard'))->assertOk();
+    }
+
+    public function test_owner_app_has_premium_controls_and_statement_download(): void
+    {
+        $owner = User::factory()->create(['role' => 'landlord']);
+
+        $this->actingAs($owner)->get(route('landlord.app'))->assertOk()
+            ->assertSee('data-search="properties"', false)
+            ->assertSee('data-calendar-next', false)
+            ->assertSee('My Information')
+            ->assertSee('Bank Details')
+            ->assertSee(route('landlord.statement.pdf'), false);
+        $this->get(route('landlord.statement.pdf'))->assertOk()->assertHeader('content-type', 'application/pdf');
+    }
+
     public function test_owner_welcome_email_contains_login_credentials_and_app_link(): void
     {
         $owner = User::factory()->create([
