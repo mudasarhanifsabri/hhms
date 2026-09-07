@@ -15,6 +15,7 @@ use App\Models\Property;
 use App\Models\LandlordAccountEntry;
 use App\Support\MediaStorage;
 use App\Support\PdfRenderer;
+use App\Support\OwnerStatementPdf;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Notification;
 use App\Notifications\LandlordCreated;
@@ -178,28 +179,9 @@ class LandlordController extends Controller
     {
         $landlord = User::where('role', 'landlord')->findOrFail($id);
         $filters = $this->accountStatementFilters($request);
-        $accountEntries = $this->accountEntriesQuery($landlord->id, $filters)
-            ->statementOrder()
-            ->get();
-        $accountTotals = $this->accountTotalsFor($landlord->id, $filters);
-        $period = $this->statementPeriod($accountEntries, $filters);
-        $unitStatements = $accountEntries->groupBy(fn (LandlordAccountEntry $entry) => $entry->property_id ?: 'general')
-            ->map(function ($entries) {
-                $running = 0;
-                $entries->each(function (LandlordAccountEntry $entry) use (&$running) {
-                    $running += $entry->direction === 'credit' ? (float) $entry->amount : -(float) $entry->amount;
-                    $entry->setAttribute('unit_running_balance', $running);
-                });
-                return ['property' => $entries->first()?->property, 'entries' => $entries, 'balance' => $running];
-            });
+        $data = OwnerStatementPdf::data($landlord, $filters['date_from'], $filters['date_to'], $filters['property_id']);
 
-        return PdfRenderer::downloadView('admin.landlords.pdf.account-statement', compact(
-            'landlord',
-            'accountEntries',
-            'accountTotals',
-            'period',
-            'unitStatements'
-        ), 'owner-statement-' . Str::slug($landlord->name) . '.pdf', ['format' => 'A4']);
+        return PdfRenderer::downloadView('admin.landlords.pdf.account-statement', $data, 'owner-statement-' . Str::slug($landlord->name) . '.pdf', ['format' => 'A4']);
     }
 
     public function ownedProperties($id)

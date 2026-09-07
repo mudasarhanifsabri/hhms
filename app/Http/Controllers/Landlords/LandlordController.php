@@ -12,6 +12,7 @@ use App\Models\UtilityBill;
 use App\Models\BookingTask;
 use App\Models\UnitDocument;
 use App\Support\PdfRenderer;
+use App\Support\OwnerStatementPdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
@@ -120,22 +121,9 @@ class LandlordController extends Controller
     public function statementPdf(Request $request)
     {
         $landlord = $request->user();
-        $entries = LandlordAccountEntry::with('property.building')->where('landlord_id', $landlord->id)->statementOrder()->get();
-        $credit = (float) $entries->where('direction', 'credit')->sum('amount');
-        $debit = (float) $entries->where('direction', 'debit')->sum('amount');
-        $accountTotals = ['credit' => $credit, 'debit' => $debit, 'balance' => $credit - $debit];
-        $period = ['from' => $entries->first()?->entry_date ?? now(), 'to' => $entries->last()?->entry_date ?? now()];
-        $unitStatements = $entries->groupBy(fn ($entry) => $entry->property_id ?: 'general')->map(function ($rows) {
-            $running = 0;
-            $rows->each(function ($entry) use (&$running) {
-                $running += $entry->direction === 'credit' ? (float) $entry->amount : -(float) $entry->amount;
-                $entry->setAttribute('unit_running_balance', $running);
-            });
+        $data = OwnerStatementPdf::data($landlord, $request->input('date_from'), $request->input('date_to'), $request->input('property_id'));
 
-            return ['property' => $rows->first()?->property, 'entries' => $rows, 'balance' => $running];
-        });
-
-        return PdfRenderer::downloadView('admin.landlords.pdf.account-statement', compact('landlord', 'entries', 'accountTotals', 'period', 'unitStatements'), 'owner-statement-'.Str::slug($landlord->name).'.pdf', ['format' => 'A4']);
+        return PdfRenderer::downloadView('admin.landlords.pdf.account-statement', $data, 'owner-statement-'.Str::slug($landlord->name).'.pdf', ['format' => 'A4']);
     }
 
     public function readNotifications(Request $request)

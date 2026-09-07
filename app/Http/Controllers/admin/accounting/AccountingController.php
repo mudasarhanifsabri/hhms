@@ -17,6 +17,7 @@ use App\Models\UtilityAccount;
 use App\Models\UtilityBill;
 use App\Models\Vendor;
 use App\Support\MediaStorage;
+use App\Support\OwnerStatementPdf;
 use App\Support\PdfRenderer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -1059,14 +1060,9 @@ class AccountingController extends Controller
         $owner = User::where('role', 'landlord')->findOrFail($request->input('landlord_id'));
         $from = Carbon::parse($request->input('date_from', now()->startOfMonth()->toDateString()));
         $to = Carbon::parse($request->input('date_to', now()->endOfMonth()->toDateString()));
-        $entries = LandlordAccountEntry::with('property')
-            ->where('landlord_id', $owner->id)
-            ->whereBetween('entry_date', [$from, $to])
-            ->statementOrder()
-            ->get()
-            ->groupBy('property_id');
+        $data = OwnerStatementPdf::data($owner, $from->toDateString(), $to->toDateString(), $request->input('property_id'));
 
-        return PdfRenderer::downloadView('admin.accounting.pdf.owner-statement', compact('owner', 'from', 'to', 'entries'), 'owner-statement-' . Str::slug($owner->name) . '.pdf');
+        return PdfRenderer::downloadView('admin.landlords.pdf.account-statement', $data, 'owner-statement-' . Str::slug($owner->name) . '.pdf', ['format' => 'A4']);
     }
 
     public function destroyOwnerStatementEntry(LandlordAccountEntry $entry)
