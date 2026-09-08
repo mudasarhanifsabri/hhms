@@ -2,6 +2,8 @@
 
 namespace Tests\Feature;
 
+use App\Models\Booking;
+use App\Models\BookingInvoice;
 use App\Models\Building;
 use App\Models\LandlordAccountEntry;
 use App\Models\Property;
@@ -70,6 +72,41 @@ class OwnerPwaTest extends TestCase
             ->assertSee('Bank Details')
             ->assertSee(route('landlord.statement.pdf'), false);
         $this->get(route('landlord.statement.pdf'))->assertOk()->assertHeader('content-type', 'application/pdf');
+    }
+
+    public function test_owner_booking_views_show_only_collected_rent_and_management_fee_per_invoice_period(): void
+    {
+        $owner = User::factory()->create(['role' => 'landlord']);
+        $unit = Property::create(['landlord_id' => $owner->id, 'name' => 'Owner Unit 502']);
+        $booking = Booking::create([
+            'property_id' => $unit->id, 'booking_reference' => 'BK-OWNER-VIEW', 'guest_name' => 'Guest',
+            'guest_email' => 'guest@example.com', 'guest_phone' => '0500000000', 'guest_passport_id_no' => 'P12345',
+            'check_in' => '2026-09-01', 'check_out' => '2026-10-15', 'management_fee_percent' => 10,
+            'rent_amount' => 1500, 'total_amount' => 2205, 'invoice_number' => 'INV-OWNER-ORIGINAL',
+            'invoice_status' => 'partial', 'status' => 'confirmed',
+        ]);
+        $original = BookingInvoice::create([
+            'booking_id' => $booking->id, 'invoice_number' => 'INV-OWNER-ORIGINAL', 'invoice_type' => 'original',
+            'issue_date' => '2026-09-01', 'period_from' => '2026-09-01', 'period_to' => '2026-09-30',
+            'rent_amount' => 1000, 'vat_amount' => 50, 'fees' => ['DTCM Fee' => 30, 'Cleaning Fee' => 100, 'Security Deposit' => 500],
+            'total_amount' => 1680, 'status' => 'paid',
+        ]);
+        $extension = BookingInvoice::create([
+            'booking_id' => $booking->id, 'invoice_number' => 'INV-OWNER-EXTENSION', 'invoice_type' => 'extension',
+            'issue_date' => '2026-10-01', 'period_from' => '2026-10-01', 'period_to' => '2026-10-15',
+            'rent_amount' => 500, 'vat_amount' => 25, 'total_amount' => 525, 'status' => 'partial',
+        ]);
+        $original->payments()->create(['payment_date' => '2026-09-02', 'amount' => 1680, 'rent_amount' => 1000, 'payment_method' => 'Bank Transfer']);
+        $extension->payments()->create(['payment_date' => '2026-10-02', 'amount' => 420, 'rent_amount' => 400, 'payment_method' => 'Bank Transfer']);
+
+        $this->actingAs($owner)->get(route('landlord.app'))->assertOk()
+            ->assertSee('Original Booking')->assertSee('Extension')
+            ->assertSee('AED 1,000.00')->assertSee('- AED 100.00')->assertSee('AED 900.00')
+            ->assertSee('AED 400.00')->assertSee('- AED 40.00')->assertSee('AED 360.00')
+            ->assertDontSee('AED 1,680.00')->assertDontSee('AED 525.00');
+        $this->actingAs($owner)->get(route('landlord.dashboard', ['desktop' => 1]))->assertOk()
+            ->assertSee('Booking Income')->assertSee('Original Booking')->assertSee('Extension')
+            ->assertDontSee('AED 1,680.00')->assertDontSee('AED 525.00');
     }
 
     public function test_owner_welcome_email_contains_login_credentials_and_app_link(): void

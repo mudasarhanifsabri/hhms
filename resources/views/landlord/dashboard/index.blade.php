@@ -51,6 +51,34 @@
     </section>
 </div>
 
+<section class="portal-card mt-3" id="bookings">
+    <div class="d-flex align-items-center justify-content-between mb-3">
+        <div><h4 class="mb-1">Booking Income</h4><p class="text-muted mb-0">Owner figures only. Guest VAT, DTCM, cleaning, agency fees and deposits are excluded.</p></div>
+    </div>
+    <div class="table-responsive">
+        <table class="table align-middle mb-0">
+            <thead><tr><th>Booking / Period</th><th>Unit</th><th class="text-end">Rent Collected</th><th class="text-end">Management Fee</th><th class="text-end">Net Owner Income</th></tr></thead>
+            <tbody>
+            @forelse($bookings as $booking)
+                @forelse($booking->invoices as $invoice)
+                    <tr>
+                        <td><strong>{{ $booking->booking_reference }}</strong><div class="text-muted small">{{ $invoice->type_label }} · {{ $invoice->period_from?->format('d M Y') }} - {{ $invoice->period_to?->format('d M Y') }}</div></td>
+                        <td>{{ $booking->property?->name }}<div class="text-muted small">{{ $booking->property?->building?->building_name }}</div></td>
+                        <td class="text-end text-success">AED {{ number_format((float) $invoice->owner_rent_collected, 2) }}</td>
+                        <td class="text-end text-danger">- AED {{ number_format((float) $invoice->owner_management_fee, 2) }}</td>
+                        <td class="text-end fw-semibold">AED {{ number_format((float) $invoice->owner_net_income, 2) }}</td>
+                    </tr>
+                @empty
+                    <tr><td><strong>{{ $booking->booking_reference }}</strong></td><td>{{ $booking->property?->name }}</td><td colspan="3" class="text-muted text-center">No invoice periods recorded</td></tr>
+                @endforelse
+            @empty
+                <tr><td colspan="5" class="text-muted text-center py-4">No bookings found.</td></tr>
+            @endforelse
+            </tbody>
+        </table>
+    </div>
+</section>
+
 <section class="portal-card mt-3" id="documents">
     <h4>Unit Document Wallet</h4>
     <div class="portal-list">

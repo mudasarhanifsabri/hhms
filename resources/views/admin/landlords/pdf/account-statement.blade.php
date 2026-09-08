@@ -14,7 +14,7 @@
 
 <div class="section">Reservation Summary</div>
 <table class="table"><thead><tr><th>Reservation Code</th><th>Unit / Building</th><th>Check-in</th><th>Check-out</th><th class="center">Nights</th><th class="right">Net Rental Income</th></tr></thead><tbody>
-@forelse($reservations as $booking)<tr><td>{{ $booking->booking_reference }}</td><td>{{ $booking->property?->name ?? '-' }}<br><span class="muted">{{ $booking->property?->building?->building_name ?? '' }}</span></td><td>{{ $booking->check_in?->format('d M Y') }}</td><td>{{ $booking->check_out?->format('d M Y') }}</td><td class="center">{{ $booking->check_in?->diffInDays($booking->check_out) }}</td><td class="right">{{ number_format((float)$booking->statement_net_rent,2) }}</td></tr>@empty<tr><td colspan="6" class="empty">No reservations in this statement period.</td></tr>@endforelse
+@forelse($reservations as $invoice)<tr><td>{{ $invoice->booking?->booking_reference }}<br><span class="muted">{{ $invoice->type_label }}</span></td><td>{{ $invoice->booking?->property?->name ?? '-' }}<br><span class="muted">{{ $invoice->booking?->property?->building?->building_name ?? '' }}</span></td><td>{{ $invoice->period_from?->format('d M Y') }}</td><td>{{ $invoice->period_to?->format('d M Y') }}</td><td class="center">{{ $invoice->period_from?->diffInDays($invoice->period_to) }}</td><td class="right">{{ number_format((float)$invoice->statement_net_rent,2) }}</td></tr>@empty<tr><td colspan="6" class="empty">No booking periods in this statement period.</td></tr>@endforelse
 </tbody></table>
 
 <table class="table summary"><tbody>

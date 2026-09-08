@@ -44,12 +44,15 @@ class OwnerStatementPdf
             ->whereDate('check_in', '<=', $period['to'])
             ->whereDate('check_out', '>=', $period['from'])
             ->orderBy('check_in')->get()
-            ->map(function (Booking $booking) {
-                $receivedRent = (float) $booking->invoices->flatMap->payments->sum('rent_amount');
-                $management = round($receivedRent * (float) $booking->management_fee_percent / 100, 2);
-                $booking->setAttribute('statement_net_rent', $receivedRent - $management);
+            ->flatMap(function (Booking $booking) {
+                return $booking->invoices->sortBy('period_from')->map(function ($invoice) use ($booking) {
+                    $receivedRent = (float) $invoice->payments->sum('rent_amount');
+                    $management = round($receivedRent * (float) $booking->management_fee_percent / 100, 2);
+                    $invoice->setRelation('booking', $booking);
+                    $invoice->setAttribute('statement_net_rent', $receivedRent - $management);
 
-                return $booking;
+                    return $invoice;
+                });
             });
 
         return [

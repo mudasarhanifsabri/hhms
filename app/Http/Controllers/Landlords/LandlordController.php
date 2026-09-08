@@ -41,7 +41,8 @@ class LandlordController extends Controller
             ->latest()
             ->get();
         $propertyIds = $properties->pluck('id');
-        $bookings = Booking::with('property')->whereIn('property_id', $propertyIds)->latest()->take(8)->get();
+        $bookings = Booking::with(['property.building', 'invoices.payments'])->whereIn('property_id', $propertyIds)->latest()->take(8)->get();
+        $this->addOwnerBookingFigures($bookings);
         $entries = LandlordAccountEntry::with('property')->where('landlord_id', Auth::id())->latest('entry_date')->take(8)->get();
         $documents = PropertyOwnerDocument::with('property')
             ->whereIn('property_id', $propertyIds)
@@ -65,10 +66,11 @@ class LandlordController extends Controller
         $owner = $request->user();
         $properties = $this->ownerProperties()->latest()->get();
         $propertyIds = $properties->pluck('id');
-        $bookings = Booking::with(['property.building', 'invoices' => fn ($query) => $query->withSum('payments', 'amount')])
+        $bookings = Booking::with(['property.building', 'invoices.payments'])
             ->whereIn('property_id', $propertyIds)
             ->latest('check_in')
             ->get();
+        $this->addOwnerBookingFigures($bookings);
         $entries = LandlordAccountEntry::with('property.building')
             ->where('landlord_id', $owner->id)
             ->statementOrder()
@@ -136,5 +138,25 @@ class LandlordController extends Controller
     private function isMobile(Request $request): bool
     {
         return (bool) preg_match('/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i', (string) $request->userAgent());
+    }
+
+    private function addOwnerBookingFigures($bookings): void
+    {
+        $bookings->each(function (Booking $booking) {
+            $managementRate = (float) $booking->management_fee_percent;
+            $periods = $booking->invoices->sortBy('period_from')->values()->map(function ($invoice) use ($managementRate) {
+                $rentCollected = round((float) $invoice->payments->sum('rent_amount'), 2);
+                $managementFee = round($rentCollected * $managementRate / 100, 2);
+                $invoice->setAttribute('owner_rent_collected', $rentCollected);
+                $invoice->setAttribute('owner_management_fee', $managementFee);
+                $invoice->setAttribute('owner_net_income', $rentCollected - $managementFee);
+
+                return $invoice;
+            });
+            $booking->setRelation('invoices', $periods);
+            $booking->setAttribute('owner_rent_collected', (float) $periods->sum('owner_rent_collected'));
+            $booking->setAttribute('owner_management_fee', (float) $periods->sum('owner_management_fee'));
+            $booking->setAttribute('owner_net_income', (float) $periods->sum('owner_net_income'));
+        });
     }
 }
