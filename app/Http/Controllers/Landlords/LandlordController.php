@@ -107,11 +107,22 @@ class LandlordController extends Controller
         $debits = (float) $entries->where('direction', 'debit')->sum('amount');
         $balance = $credits - $debits;
         $now = now();
-        $monthBookings = $bookings->filter(fn ($booking) => $booking->check_in?->between($now->copy()->startOfMonth(), $now->copy()->endOfMonth()));
+        $monthStart = $now->copy()->startOfMonth()->startOfDay();
+        $monthEnd = $now->copy()->addMonthNoOverflow()->startOfMonth()->startOfDay();
+        $monthBookings = $bookings->filter(fn ($booking) => $booking->check_in
+            && $booking->check_out
+            && ! in_array($booking->status, ['cancelled', 'canceled'], true)
+            && $booking->check_in->lt($monthEnd)
+            && $booking->check_out->gt($monthStart));
         $monthlyRevenue = (float) $entries->where('type', 'rent_income')->filter(fn ($entry) => $entry->entry_date?->isSameMonth($now))->sum('amount');
         $monthlyExpenses = (float) $entries->where('direction', 'debit')->where('type', '!=', 'management_fee')->filter(fn ($entry) => $entry->entry_date?->isSameMonth($now))->sum('amount');
         $managementFees = (float) $entries->where('type', 'management_fee')->filter(fn ($entry) => $entry->entry_date?->isSameMonth($now))->sum('amount');
-        $occupiedNights = $monthBookings->sum(fn ($booking) => max(0, $booking->check_in?->diffInDays($booking->check_out) ?? 0));
+        $occupiedNights = $monthBookings->sum(function ($booking) use ($monthStart, $monthEnd) {
+            $overlapStart = $booking->check_in->gt($monthStart) ? $booking->check_in->copy()->startOfDay() : $monthStart->copy();
+            $overlapEnd = $booking->check_out->lt($monthEnd) ? $booking->check_out->copy()->startOfDay() : $monthEnd->copy();
+
+            return max(0, $overlapStart->diffInDays($overlapEnd));
+        });
         $capacityNights = max(1, $properties->count() * $now->daysInMonth);
         $occupancy = min(100, round(($occupiedNights / $capacityNights) * 100));
 

@@ -7,13 +7,27 @@
         return !empty($photos) ? \App\Support\MediaStorage::url($photos[0]) : asset('assets/images/properties/p-1.jpg');
     };
     $statusClass = fn($status) => in_array($status, ['completed','paid','owner_paid','approved','confirmed'], true) ? '' : (in_array($status, ['pending','in_progress','outstanding'], true) ? 'warn' : 'info');
+    $ownerFirstName = Str::before(trim($owner->name), ' ');
+    $ownerGreeting = now()->hour < 12 ? 'Good morning' : (now()->hour < 18 ? 'Good afternoon' : 'Good evening');
 @endphp
-<main class="owner-app" data-owner-app>
+<style>
+    .oa-welcome{position:absolute;inset:0;z-index:50;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;padding:28px;background:linear-gradient(145deg,var(--navy2),var(--navy));color:#fff;opacity:0;visibility:hidden;transform:scale(1.04);transition:opacity .45s ease,transform .65s cubic-bezier(.2,.8,.2,1),visibility .45s}
+    .oa-welcome:after{content:"";position:absolute;width:280px;height:280px;border:48px solid rgba(210,164,79,.13);border-radius:50%;right:-150px;top:-100px}
+    .oa-welcome.is-visible{opacity:1;visibility:visible;transform:none}.oa-welcome.is-leaving{opacity:0;transform:translateY(-18px) scale(1.015);pointer-events:none}
+    .oa-welcome-mark{width:76px;height:76px;border-radius:24px;display:grid;place-items:center;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.18);font-size:36px;box-shadow:0 18px 45px rgba(0,0,0,.2);animation:welcomeFloat 1.8s ease-in-out infinite}
+    .oa-welcome-copy{text-align:center;position:relative;z-index:1}.oa-welcome-copy span,.oa-welcome-copy strong{display:block}.oa-welcome-copy span{color:#c9d6e8;font-size:17px}.oa-welcome-copy strong{margin-top:8px;font-size:34px;letter-spacing:.01em}.oa-welcome-copy strong span{display:inline}
+    @keyframes welcomeFloat{50%{transform:translateY(-7px)}}
+</style>
+<main class="owner-app" data-owner-app data-owner-id="{{ $owner->id }}">
+    <div class="oa-welcome" data-owner-welcome aria-hidden="true">
+        <div class="oa-welcome-mark"><i class="ri-building-2-line"></i></div>
+        <div class="oa-welcome-copy"><span>{{ $ownerGreeting }},</span><strong>{{ $ownerFirstName }} <span aria-hidden="true">&#128075;</span></strong></div>
+    </div>
     <button class="oa-install" data-install><i class="ri-download-cloud-2-line"></i> Install Owner App</button>
 
     <section class="oa-screen" data-screen="home">
         <header class="oa-hero">
-            <div class="oa-top"><div><div class="oa-sub">Good {{ now()->hour < 12 ? 'morning' : (now()->hour < 18 ? 'afternoon' : 'evening') }},</div><h1 class="oa-title">{{ Str::before($owner->name, ' ') }} <span class="gold">&#128075;</span></h1></div><button class="oa-icon-btn" data-go="notifications"><i class="ri-notification-3-line"></i></button></div>
+            <div class="oa-top"><div><div class="oa-sub">{{ $ownerGreeting }},</div><h1 class="oa-title">{{ $ownerFirstName }} <span class="gold">&#128075;</span></h1></div><button class="oa-icon-btn" data-go="notifications"><i class="ri-notification-3-line"></i></button></div>
             <div class="oa-grid three">
                 <div class="oa-metric"><small>Gross revenue</small><strong class="green">AED {{ number_format($monthlyRevenue,0) }}</strong></div>
                 <div class="oa-metric"><small>Expenses</small><strong class="red">AED {{ number_format($monthlyExpenses,0) }}</strong></div>

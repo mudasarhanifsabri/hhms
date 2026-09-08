@@ -10,6 +10,7 @@ use App\Models\Property;
 use App\Models\User;
 use App\Notifications\LandlordCreated;
 use App\Support\OwnerStatementPdf;
+use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -37,6 +38,47 @@ class OwnerPwaTest extends TestCase
             ->assertSee('Desktop Owner Portal')
             ->assertSee('Change Password')
             ->assertSee('data-language-toggle', false);
+    }
+
+    public function test_owner_dashboard_counts_cross_month_booking_occupancy_and_shows_personal_greeting(): void
+    {
+        Carbon::setTestNow('2026-09-08 17:30:00');
+
+        try {
+            $owner = User::factory()->create(['role' => 'landlord', 'name' => 'Sultan Alhemeiri']);
+            $building = Building::create(['building_name' => 'Binghatti Heights', 'address' => 'Dubai']);
+            $unit = Property::create([
+                'landlord_id' => $owner->id,
+                'building_id' => $building->id,
+                'name' => '402',
+                'status' => 'vacant',
+            ]);
+            Booking::create([
+                'property_id' => $unit->id,
+                'booking_reference' => 'BK-CROSS-MONTH',
+                'invoice_number' => 'INV-CROSS-MONTH',
+                'invoice_status' => 'paid',
+                'guest_name' => 'Long Stay Guest',
+                'guest_email' => 'guest@example.com',
+                'guest_phone' => '0500000000',
+                'guest_passport_id_no' => 'P-CROSS-MONTH',
+                'check_in' => '2026-08-07',
+                'check_out' => '2026-11-05',
+                'rent_amount' => 6000,
+                'total_amount' => 6000,
+                'status' => 'confirmed',
+            ]);
+
+            $this->actingAs($owner)->get(route('landlord.app'))
+                ->assertOk()
+                ->assertSee('Good afternoon,')
+                ->assertSee('Sultan')
+                ->assertSee('data-owner-welcome', false)
+                ->assertSee('data-owner-id="'.$owner->id.'"', false)
+                ->assertSeeInOrder(['Occupancy', '100%']);
+        } finally {
+            Carbon::setTestNow();
+        }
     }
 
     public function test_non_owner_cannot_open_owner_pwa(): void
