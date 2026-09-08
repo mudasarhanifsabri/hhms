@@ -79,6 +79,7 @@ Route::post('/landlords/store', [LandlordController::class, 'store'])->name('lan
 Route::post('/landlords/{id}/account-entries', [LandlordController::class, 'storeAccountEntry'])->name('landlord.account-entry.store');
 Route::get('/landlords/{id}/account-statement', [LandlordController::class, 'accountStatement'])->name('landlord.account-statement');
 Route::get('/landlords/{id}/account-statement/pdf', [LandlordController::class, 'accountStatementPdf'])->name('landlord.account-statement.pdf');
+Route::post('/landlords/{id}/account-statement/email', [LandlordController::class, 'emailAccountStatement'])->name('landlord.account-statement.email');
 Route::get('/landlords/{id}/owned-properties', [LandlordController::class, 'ownedProperties'])->name('landlord.owned-properties');
 Route::get('/landlords/{id}/security', [LandlordController::class, 'security'])->name('landlord.security');
 Route::post('/landlords/{id}/security/reset-password', [LandlordController::class, 'resetTemporaryPassword'])->name('landlord.security.reset-password');

@@ -6,6 +6,9 @@
                 <a href="{{ $statementPdfRoute }}" class="btn btn-primary">
                     <i class="ri-download-2-line me-1"></i>PDF
                 </a>
+                <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#emailStatementModal">
+                    <i class="ri-mail-send-line me-1"></i>Email Statement
+                </button>
                 <button type="button" class="btn btn-dark" data-bs-toggle="modal" data-bs-target="#accountEntryModal">
                     <i class="ri-add-line me-1"></i>Add Entry
                 </button>
@@ -141,6 +144,34 @@
                 {{ $accountEntries->links('pagination::bootstrap-5') }}
             </div>
         @endif
+    </div>
+</div>
+
+<div class="modal fade" id="emailStatementModal" tabindex="-1" aria-labelledby="emailStatementModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <form action="{{ $statementEmailRoute }}" method="POST">
+                @csrf
+                <div class="modal-header bg-light-subtle">
+                    <div><h5 class="modal-title" id="emailStatementModalLabel">Email Owner Statement</h5><div class="text-muted small">A branded HTML email with the A4 PDF statement attached.</div></div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-primary d-flex align-items-center gap-3"><i class="ri-mail-check-line fs-24"></i><div><strong>{{ $landlord->name }}</strong><div>{{ $landlord->email ?: 'No owner email recorded' }}</div></div></div>
+                    <div class="row g-3">
+                        <div class="col-lg-6"><label class="form-label">Send To</label><select class="form-control" name="recipient_mode" id="statement_recipient_mode" required><option value="owner">Owner email</option><option value="custom">Custom email only</option><option value="both">Owner and custom email</option></select></div>
+                        <div class="col-lg-6"><label class="form-label">Custom Email</label><input type="email" class="form-control" name="custom_email" placeholder="accounts@example.com"></div>
+                        <div class="col-lg-6"><label class="form-label">Purpose</label><select class="form-control" name="purpose" id="statement_purpose" required><option>Monthly Statement</option><option>Payout Summary</option><option>Account Reconciliation</option><option>Custom</option></select></div>
+                        <div class="col-lg-6"><label class="form-label">Custom Purpose</label><input type="text" class="form-control" name="custom_purpose" maxlength="120" placeholder="Example: August final settlement"></div>
+                        <div class="col-lg-4"><label class="form-label">From</label><input type="date" class="form-control" name="date_from" value="{{ $filters['date_from'] ?? '' }}"></div>
+                        <div class="col-lg-4"><label class="form-label">To</label><input type="date" class="form-control" name="date_to" value="{{ $filters['date_to'] ?? '' }}"></div>
+                        <div class="col-lg-4"><label class="form-label">Unit</label><select class="form-control" name="property_id"><option value="">All units</option>@foreach($relatedProperties as $property)<option value="{{ $property->id }}" @selected(($filters['property_id'] ?? '')===$property->id)>{{ $property->name }} - {{ $property->building?->building_name ?? 'No building' }}</option>@endforeach</select></div>
+                        <div class="col-12"><label class="form-label">Message to Owner</label><textarea class="form-control" name="message" rows="4" maxlength="2000" placeholder="Optional personal message shown inside the email"></textarea></div>
+                    </div>
+                </div>
+                <div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-primary"><i class="ri-send-plane-fill me-1"></i>Send Email with PDF</button></div>
+            </form>
+        </div>
     </div>
 </div>
 

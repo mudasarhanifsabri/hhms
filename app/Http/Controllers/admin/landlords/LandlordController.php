@@ -14,11 +14,13 @@ use App\Models\User;
 use App\Models\Property;
 use App\Models\LandlordAccountEntry;
 use App\Models\BookingInvoice;
+use App\Mail\OwnerStatementMail;
 use App\Support\MediaStorage;
 use App\Support\PdfRenderer;
 use App\Support\OwnerStatementPdf;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Mail;
 use App\Notifications\LandlordCreated;
 use Throwable;
 
@@ -161,6 +163,7 @@ class LandlordController extends Controller
             'date_to' => $filters['date_to'],
             'property_id' => $filters['property_id'],
         ]));
+        $statementEmailRoute = route('admin.landlord.account-statement.email', $landlord->id);
 
         return view('admin.landlords.account-statement', compact(
             'landlord',
@@ -176,6 +179,7 @@ class LandlordController extends Controller
             'ownedPropertiesRoute',
             'backRoute',
             'statementPdfRoute',
+            'statementEmailRoute',
             'filters',
             'perPage'
         ));
@@ -188,6 +192,46 @@ class LandlordController extends Controller
         $data = OwnerStatementPdf::data($landlord, $filters['date_from'], $filters['date_to'], $filters['property_id']);
 
         return PdfRenderer::downloadView('admin.landlords.pdf.account-statement', $data, 'owner-statement-' . Str::slug($landlord->name) . '.pdf', ['format' => 'A4']);
+    }
+
+    public function emailAccountStatement(Request $request, $id)
+    {
+        $landlord = User::where('role', 'landlord')->findOrFail($id);
+        $validated = $request->validate([
+            'recipient_mode' => 'required|in:owner,custom,both',
+            'custom_email' => 'nullable|required_if:recipient_mode,custom,both|email:rfc|max:255',
+            'purpose' => 'required|in:Monthly Statement,Payout Summary,Account Reconciliation,Custom',
+            'custom_purpose' => 'nullable|required_if:purpose,Custom|string|max:120',
+            'message' => 'nullable|string|max:2000',
+            'date_from' => 'nullable|date',
+            'date_to' => 'nullable|date|after_or_equal:date_from',
+            'property_id' => 'nullable|exists:properties,id',
+        ]);
+        if (in_array($validated['recipient_mode'], ['owner', 'both'], true) && ! filter_var($landlord->email, FILTER_VALIDATE_EMAIL)) {
+            return back()->withErrors(['recipient_mode' => 'This owner does not have a valid email address. Choose Custom email.'])->withInput();
+        }
+        if (! empty($validated['property_id']) && ! $this->ownerUnitsQuery($landlord->id)->where('id', $validated['property_id'])->exists()) {
+            return back()->withErrors(['property_id' => 'Please select one of this owner units.'])->withInput();
+        }
+
+        $purpose = $validated['purpose'] === 'Custom' ? $validated['custom_purpose'] : $validated['purpose'];
+        $statementData = OwnerStatementPdf::data(
+            $landlord,
+            $validated['date_from'] ?? null,
+            $validated['date_to'] ?? null,
+            $validated['property_id'] ?? null,
+        );
+        $filename = 'owner-statement-'.Str::slug($landlord->name).'-'.$statementData['period']['to']->format('Y-m-d').'.pdf';
+        $pdf = PdfRenderer::output(view('admin.landlords.pdf.account-statement', $statementData)->render(), ['format' => 'A4']);
+        $mail = new OwnerStatementMail($landlord, $statementData, $purpose, $validated['message'] ?? null, $pdf, $filename);
+        $recipient = $validated['recipient_mode'] === 'custom' ? $validated['custom_email'] : $landlord->email;
+        $pendingMail = Mail::to($recipient);
+        if ($validated['recipient_mode'] === 'both') {
+            $pendingMail->cc($validated['custom_email']);
+        }
+        $pendingMail->send($mail);
+
+        return back()->with('success', 'Owner statement PDF emailed successfully to '.$recipient.($validated['recipient_mode'] === 'both' ? ' and '.$validated['custom_email'] : '').'.');
     }
 
     public function ownedProperties($id)

@@ -2,11 +2,13 @@
 
 namespace Tests\Feature;
 
+use App\Mail\OwnerStatementMail;
 use App\Models\Expense;
 use App\Models\LandlordAccountEntry;
 use App\Models\Property;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Mail;
 use Tests\TestCase;
 
 class OwnerStatementEntryDeletionTest extends TestCase
@@ -58,7 +60,7 @@ class OwnerStatementEntryDeletionTest extends TestCase
 
         $this->actingAs($admin)->get(route('admin.landlord.account-statement', $owner->id))
             ->assertOk()
-            ->assertSee(url('/admin/accounting/owner-statements/entries/' . $entry->id), false)
+            ->assertSee(url('/admin/accounting/owner-statements/entries/'.$entry->id), false)
             ->assertSee('Delete statement entry');
     }
 
@@ -89,6 +91,34 @@ class OwnerStatementEntryDeletionTest extends TestCase
         $this->actingAs($admin)->get(route('admin.landlord.account-statement', [$owner->id, 'property_id' => $unitOne->id]))
             ->assertOk()->assertSee('Unit-wise Summary')->assertSee('Unit Wise 101')->assertSee('Unit 101 rent')->assertDontSee('Unit 202 repair');
         $this->actingAs($admin)->get(route('admin.landlord.account-statement.pdf', [$owner->id, 'property_id' => $unitOne->id]))
-            ->assertOk()->assertDownload('owner-statement-' . str($owner->name)->slug() . '.pdf');
+            ->assertOk()->assertDownload('owner-statement-'.str($owner->name)->slug().'.pdf');
+    }
+
+    public function test_admin_can_email_branded_owner_statement_pdf_to_custom_recipient(): void
+    {
+        Mail::fake();
+        $admin = User::factory()->create(['role' => 'admin']);
+        $owner = User::factory()->create(['role' => 'landlord', 'email' => 'owner@example.com']);
+        LandlordAccountEntry::create([
+            'landlord_id' => $owner->id, 'entry_date' => '2026-09-01', 'type' => 'adjustment_credit',
+            'direction' => 'credit', 'amount' => 2500, 'description' => 'Opening owner adjustment',
+        ]);
+
+        $this->actingAs($admin)->get(route('admin.landlord.account-statement', $owner))
+            ->assertOk()->assertSee('Email Statement')->assertSee('owner@example.com');
+        $this->post(route('admin.landlord.account-statement.email', $owner), [
+            'recipient_mode' => 'custom', 'custom_email' => 'accounts@example.com',
+            'purpose' => 'Custom', 'custom_purpose' => 'September owner settlement',
+            'message' => 'Please review the attached final statement.',
+            'date_from' => '2026-09-01', 'date_to' => '2026-09-30',
+        ])->assertRedirect()->assertSessionHasNoErrors()->assertSessionHas('success');
+
+        Mail::assertSent(OwnerStatementMail::class, function (OwnerStatementMail $mail) {
+            return $mail->hasTo('accounts@example.com')
+                && $mail->purpose === 'September owner settlement'
+                && $mail->customMessage === 'Please review the attached final statement.'
+                && str_starts_with($mail->pdfContent, '%PDF-')
+                && count($mail->attachments()) === 1;
+        });
     }
 }
