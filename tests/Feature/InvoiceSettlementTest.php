@@ -35,9 +35,9 @@ class InvoiceSettlementTest extends TestCase
         return [$booking, $invoice, $bank, $agent];
     }
 
-    private function pay(BookingInvoice $invoice, BankAccount $bank, ?float $amount = null)
+    private function pay(BookingInvoice $invoice, BankAccount $bank, ?float $amount = null, string $method = 'Bank Transfer')
     {
-        return $this->post(route('admin.booking-invoice.payment', $invoice), ['payment_date' => '2026-09-03', 'amount' => $amount ?? $invoice->total_amount, 'bank_account_id' => $bank->id, 'payment_method' => 'Bank Transfer', 'rent_amount' => 1, 'deposit_amount' => 1]);
+        return $this->post(route('admin.booking-invoice.payment', $invoice), ['payment_date' => '2026-09-03', 'amount' => $amount ?? $invoice->total_amount, 'bank_account_id' => $bank->id, 'payment_method' => $method, 'rent_amount' => 1, 'deposit_amount' => 1]);
     }
 
     public function test_full_payment_splits_fees_without_duplicate_bank_cash_and_unlocks_confirmation(): void
@@ -46,8 +46,10 @@ class InvoiceSettlementTest extends TestCase
         $this->get(route('admin.booking-invoice.confirmation', $invoice))->assertStatus(422);
         $this->get(route('guest.booking.confirmation', $booking->booking_reference))->assertStatus(422);
         $this->get(route('admin.booking.complete-pack', $booking))->assertStatus(422);
-        $this->pay($invoice, $bank)->assertSessionHasNoErrors();
+        $this->get(route('admin.booking.show', $booking))->assertOk()->assertSee('Cash Deposit');
+        $this->pay($invoice, $bank, null, 'Cash Deposit')->assertSessionHasNoErrors();
         $payment = BookingInvoicePayment::sole();
+        $this->assertSame('Cash Deposit', $payment->payment_method);
         $this->assertSame('1000.00', $payment->rent_amount);
         $this->assertEquals(50, $payment->allocation['agent_commission']);
         $this->assertEquals(150, $payment->allocation['agency_company_share']);

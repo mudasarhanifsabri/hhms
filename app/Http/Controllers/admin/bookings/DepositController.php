@@ -93,7 +93,7 @@ class DepositController extends Controller
         $data = $request->validate([
             'amount' => 'required|numeric|min:0.01|decimal:0,2', 'entry_date' => 'required|date|before_or_equal:today',
             'bank_account_id' => ['required', Rule::exists('bank_accounts', 'id')->where('is_active', true)],
-            'payment_method' => 'required|in:Bank Transfer,Cash,Card,Cheque', 'reference' => 'required|string|max:150',
+            'payment_method' => 'required|in:Bank Transfer,Cash Deposit,Cash,Card,Cheque', 'reference' => 'required|string|max:150',
             'recipient' => 'required|string|max:255', 'notes' => 'nullable|string|max:2000',
             'proof' => 'required|file|mimes:pdf,jpg,jpeg,png|max:10240', 'submission_id' => 'required|uuid',
         ]);
