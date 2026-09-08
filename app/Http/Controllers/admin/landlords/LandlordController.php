@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Log;
 use App\Models\User;
 use App\Models\Property;
 use App\Models\LandlordAccountEntry;
+use App\Models\BookingInvoice;
 use App\Support\MediaStorage;
 use App\Support\PdfRenderer;
 use App\Support\OwnerStatementPdf;
@@ -146,6 +147,10 @@ class LandlordController extends Controller
             ->select('type')->distinct()->pluck('type')
             ->mapWithKeys(fn (string $type) => [$type => str($type)->replace('_', ' ')->headline()->toString()])
             ->all();
+        $ownerBookingInvoices = BookingInvoice::with(['booking.property.building'])
+            ->whereHas('booking', fn ($query) => $query->whereIn('property_id', $relatedProperties->pluck('id')))
+            ->orderByDesc('period_to')
+            ->get();
         $accountEntryRoute = route('admin.landlord.account-entry.store', $landlord->id);
         $detailsRoute = route('admin.landlord.show', $landlord->id);
         $ownedPropertiesRoute = route('admin.landlord.owned-properties', $landlord->id);
@@ -165,6 +170,7 @@ class LandlordController extends Controller
             'unitTotals',
             'ownerLoanSummary',
             'accountEntryTypes',
+            'ownerBookingInvoices',
             'accountEntryRoute',
             'detailsRoute',
             'ownedPropertiesRoute',
@@ -552,6 +558,7 @@ public function storeAccountEntry(Request $request, $id)
         'custom_direction' => 'nullable|required_if:type,__custom__|in:credit,debit',
         'amount' => 'required|numeric|min:0.01',
         'property_id' => 'nullable|exists:properties,id',
+        'booking_invoice_id' => 'nullable|exists:booking_invoices,id',
         'reference' => 'nullable|string|max:255',
         'description' => 'nullable|string|max:1000',
         'invoice_attachment' => 'nullable|file|mimes:pdf,jpg,jpeg,png,webp|max:10240',
@@ -560,6 +567,19 @@ public function storeAccountEntry(Request $request, $id)
     ]);
 
     $propertyId = $validatedData['property_id'] ?? null;
+    $bookingInvoice = ! empty($validatedData['booking_invoice_id'])
+        ? BookingInvoice::with('booking')->find($validatedData['booking_invoice_id'])
+        : null;
+
+    if ($bookingInvoice && ! $this->ownerUnitsQuery($landlord->id)->where('id', $bookingInvoice->booking->property_id)->exists()) {
+        return back()->withErrors(['booking_invoice_id' => 'Please select one of this owner booking periods.'])->withInput();
+    }
+    if ($bookingInvoice && $validatedData['type'] !== 'payout') {
+        return back()->withErrors(['booking_invoice_id' => 'A booking period can only be linked to an Owner Payout entry.'])->withInput();
+    }
+    if ($bookingInvoice) {
+        $propertyId = $bookingInvoice->booking->property_id;
+    }
 
     if ($propertyId && ! $this->ownerUnitsQuery($landlord->id)->where('id', $propertyId)->exists()) {
         return back()
@@ -579,13 +599,14 @@ public function storeAccountEntry(Request $request, $id)
     LandlordAccountEntry::create([
         'landlord_id' => $landlord->id,
         'property_id' => $propertyId,
+        'booking_invoice_id' => $bookingInvoice?->id,
         'entry_date' => $validatedData['entry_date'],
         'type' => $type,
         'direction' => $validatedData['type'] === '__custom__'
             ? $validatedData['custom_direction']
             : LandlordAccountEntry::directionForType($type),
         'amount' => $validatedData['amount'],
-        'reference' => $validatedData['reference'] ?? null,
+        'reference' => $validatedData['reference'] ?? $bookingInvoice?->invoice_number,
         'description' => $validatedData['description'] ?? null,
         'invoice_attachment' => $this->uploadFile($request, 'invoice_attachment', 'owner_statement_invoices'),
         'receipt_attachment' => $this->uploadFile($request, 'receipt_attachment', 'owner_statement_receipts'),
@@ -594,7 +615,7 @@ public function storeAccountEntry(Request $request, $id)
     LandlordAccountEntry::recalculateBalancesFor($landlord->id);
 
     $redirectTo = $validatedData['redirect_to'] ?? null;
-    $fallbackUrl = route('admin.landlord.account-statement', $landlord->id);
+    $fallbackUrl = route('admin.landlord.show', $landlord->id);
 
     if (! $redirectTo || ! str_starts_with($redirectTo, url('/'))) {
         $redirectTo = $fallbackUrl;

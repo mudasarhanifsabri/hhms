@@ -33,6 +33,7 @@ class LandlordAccountEntry extends BaseModel
     protected $fillable = [
         'landlord_id',
         'property_id',
+        'booking_invoice_id',
         'entry_date',
         'type',
         'direction',
@@ -58,6 +59,11 @@ class LandlordAccountEntry extends BaseModel
     public function property(): BelongsTo
     {
         return $this->belongsTo(Property::class, 'property_id');
+    }
+
+    public function bookingInvoice(): BelongsTo
+    {
+        return $this->belongsTo(BookingInvoice::class);
     }
 
     public function getTypeLabelAttribute(): string

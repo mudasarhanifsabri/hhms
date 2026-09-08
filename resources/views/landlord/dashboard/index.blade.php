@@ -57,22 +57,23 @@
     </div>
     <div class="table-responsive">
         <table class="table align-middle mb-0">
-            <thead><tr><th>Booking / Period</th><th>Unit</th><th class="text-end">Rent Collected</th><th class="text-end">Management Fee</th><th class="text-end">Net Owner Income</th></tr></thead>
+            <thead><tr><th>Booking / Period</th><th>Unit</th><th>Payout Status</th><th class="text-end">Rent Collected</th><th class="text-end">Management Fee</th><th class="text-end">Expected Payout</th></tr></thead>
             <tbody>
             @forelse($bookings as $booking)
                 @forelse($booking->invoices as $invoice)
                     <tr>
                         <td><strong>{{ $booking->booking_reference }}</strong><div class="text-muted small">{{ $invoice->type_label }} · {{ $invoice->period_from?->format('d M Y') }} - {{ $invoice->period_to?->format('d M Y') }}</div></td>
                         <td>{{ $booking->property?->name }}<div class="text-muted small">{{ $booking->property?->building?->building_name }}</div></td>
+                        <td><span class="badge {{ $invoice->owner_payout_status === 'Paid' || $invoice->owner_payout_status === 'Ready for payout' ? 'bg-success' : ($invoice->owner_payout_status === 'Upcoming payout' ? 'bg-info' : 'bg-warning') }}">{{ $invoice->owner_payout_status }}</span><div class="text-muted small mt-1">Due {{ ($invoice->period_to ?? $booking->check_out)?->format('d M Y') }}</div>@if($invoice->owner_paid_amount > 0)<div class="small text-success">Paid AED {{ number_format((float) $invoice->owner_paid_amount, 2) }}</div>@endif</td>
                         <td class="text-end text-success">AED {{ number_format((float) $invoice->owner_rent_collected, 2) }}</td>
                         <td class="text-end text-danger">- AED {{ number_format((float) $invoice->owner_management_fee, 2) }}</td>
                         <td class="text-end fw-semibold">AED {{ number_format((float) $invoice->owner_net_income, 2) }}</td>
                     </tr>
                 @empty
-                    <tr><td><strong>{{ $booking->booking_reference }}</strong></td><td>{{ $booking->property?->name }}</td><td colspan="3" class="text-muted text-center">No invoice periods recorded</td></tr>
+                    <tr><td><strong>{{ $booking->booking_reference }}</strong></td><td>{{ $booking->property?->name }}</td><td colspan="4" class="text-muted text-center">No invoice periods recorded</td></tr>
                 @endforelse
             @empty
-                <tr><td colspan="5" class="text-muted text-center py-4">No bookings found.</td></tr>
+                <tr><td colspan="6" class="text-muted text-center py-4">No bookings found.</td></tr>
             @endforelse
             </tbody>
         </table>

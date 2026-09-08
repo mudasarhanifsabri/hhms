@@ -101,12 +101,21 @@ class OwnerPwaTest extends TestCase
 
         $this->actingAs($owner)->get(route('landlord.app'))->assertOk()
             ->assertSee('Original Booking')->assertSee('Extension')
+            ->assertSee('Upcoming payout')->assertSee('Awaiting guest payment')
             ->assertSee('AED 1,000.00')->assertSee('- AED 100.00')->assertSee('AED 900.00')
             ->assertSee('AED 400.00')->assertSee('- AED 40.00')->assertSee('AED 360.00')
             ->assertDontSee('AED 1,680.00')->assertDontSee('AED 525.00');
         $this->actingAs($owner)->get(route('landlord.dashboard', ['desktop' => 1]))->assertOk()
             ->assertSee('Booking Income')->assertSee('Original Booking')->assertSee('Extension')
             ->assertDontSee('AED 1,680.00')->assertDontSee('AED 525.00');
+
+        $admin = User::factory()->create(['role' => 'admin']);
+        $this->actingAs($admin)->post(route('admin.landlord.account-entry.store', $owner), [
+            'entry_date' => '2026-09-30', 'type' => 'payout', 'amount' => 900,
+            'booking_invoice_id' => $original->id, 'reference' => 'BANK-OWNER-001',
+        ])->assertSessionHasNoErrors();
+        $this->actingAs($owner)->get(route('landlord.app'))->assertOk()
+            ->assertSee('Paid')->assertSee('BANK-OWNER-001')->assertSee('Paid to owner');
     }
 
     public function test_owner_welcome_email_contains_login_credentials_and_app_link(): void

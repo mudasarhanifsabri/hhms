@@ -253,6 +253,16 @@
                             <input type="text" class="form-control" id="reference" name="reference" value="{{ old('reference') }}" placeholder="Receipt, bill or transfer reference">
                         </div>
                         <div class="col-lg-12">
+                            <label for="booking_invoice_id" class="form-label">Owner Payout For Booking Period</label>
+                            <select class="form-control" id="booking_invoice_id" name="booking_invoice_id">
+                                <option value="">General payout / not linked to one booking</option>
+                                @foreach ($ownerBookingInvoices as $invoice)
+                                    <option value="{{ $invoice->id }}" @selected((string) old('booking_invoice_id') === (string) $invoice->id)>{{ $invoice->booking?->booking_reference }} · {{ $invoice->type_label }} · {{ $invoice->booking?->property?->building?->building_name }} / {{ $invoice->booking?->property?->name }} · {{ $invoice->period_from?->format('d M Y') }} - {{ $invoice->period_to?->format('d M Y') }}</option>
+                                @endforeach
+                            </select>
+                            <small class="text-muted">Select this only for Owner Payout Transfer. It updates the exact period to Paid or Partially paid in the owner app.</small>
+                        </div>
+                        <div class="col-lg-12">
                             <label for="description" class="form-label">Description</label>
                             <textarea class="form-control" id="description" name="description" rows="3" placeholder="Example: Furnishing package for Unit 1207, recover from future rental income">{{ old('description') }}</textarea>
                         </div>

@@ -142,14 +142,44 @@ class LandlordController extends Controller
 
     private function addOwnerBookingFigures($bookings): void
     {
-        $bookings->each(function (Booking $booking) {
+        $ownerPayouts = LandlordAccountEntry::where('landlord_id', Auth::id())->where('type', 'payout')->get();
+        $bookings->each(function (Booking $booking) use ($ownerPayouts) {
             $managementRate = (float) $booking->management_fee_percent;
-            $periods = $booking->invoices->sortBy('period_from')->values()->map(function ($invoice) use ($managementRate) {
+            $periods = $booking->invoices->sortBy('period_from')->values()->map(function ($invoice) use ($booking, $managementRate, $ownerPayouts) {
                 $rentCollected = round((float) $invoice->payments->sum('rent_amount'), 2);
                 $managementFee = round($rentCollected * $managementRate / 100, 2);
+                $ownerNet = $rentCollected - $managementFee;
+                $invoicePayouts = $ownerPayouts->filter(function ($entry) use ($booking, $invoice) {
+                    if ($entry->booking_invoice_id) {
+                        return $entry->booking_invoice_id === $invoice->id;
+                    }
+                    if ($entry->property_id && $entry->property_id !== $booking->property_id) {
+                        return false;
+                    }
+                    $searchable = strtolower(trim(($entry->reference ?? '').' '.($entry->description ?? '')));
+
+                    return str_contains($searchable, strtolower($invoice->invoice_number))
+                        || str_contains($searchable, strtolower($booking->booking_reference));
+                });
+                $paidToOwner = round((float) $invoicePayouts->sum('amount'), 2);
+                $rentExpected = (float) $invoice->rent_amount;
+                $dueDate = $invoice->period_to ?? $booking->check_out;
+                [$payoutStatus, $payoutClass] = match (true) {
+                    $ownerNet > 0 && $paidToOwner >= $ownerNet => ['Paid', 'green'],
+                    $paidToOwner > 0 => ['Partially paid', 'warn'],
+                    $rentCollected + 0.01 < $rentExpected => ['Awaiting guest payment', 'warn'],
+                    $dueDate && $dueDate->isFuture() => ['Upcoming payout', 'info'],
+                    default => ['Ready for payout', 'green'],
+                };
                 $invoice->setAttribute('owner_rent_collected', $rentCollected);
                 $invoice->setAttribute('owner_management_fee', $managementFee);
-                $invoice->setAttribute('owner_net_income', $rentCollected - $managementFee);
+                $invoice->setAttribute('owner_net_income', $ownerNet);
+                $invoice->setAttribute('owner_paid_amount', $paidToOwner);
+                $invoice->setAttribute('owner_remaining_payout', max(0, $ownerNet - $paidToOwner));
+                $invoice->setAttribute('owner_payout_status', $payoutStatus);
+                $invoice->setAttribute('owner_payout_class', $payoutClass);
+                $invoice->setAttribute('owner_payout_date', $invoicePayouts->max('entry_date'));
+                $invoice->setAttribute('owner_payout_reference', $invoicePayouts->pluck('reference')->filter()->join(', '));
 
                 return $invoice;
             });
