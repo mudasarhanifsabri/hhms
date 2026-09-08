@@ -225,11 +225,22 @@ class LandlordController extends Controller
         $pdf = PdfRenderer::output(view('admin.landlords.pdf.account-statement', $statementData)->render(), ['format' => 'A4']);
         $mail = new OwnerStatementMail($landlord, $statementData, $purpose, $validated['message'] ?? null, $pdf, $filename);
         $recipient = $validated['recipient_mode'] === 'custom' ? $validated['custom_email'] : $landlord->email;
-        $pendingMail = Mail::to($recipient);
-        if ($validated['recipient_mode'] === 'both') {
-            $pendingMail->cc($validated['custom_email']);
+        try {
+            $pendingMail = Mail::to($recipient);
+            if ($validated['recipient_mode'] === 'both') {
+                $pendingMail->cc($validated['custom_email']);
+            }
+            $pendingMail->send($mail);
+        } catch (Throwable $exception) {
+            Log::error('Owner statement email failed.', [
+                'landlord_id' => $landlord->id,
+                'recipient' => $recipient,
+                'mailer' => config('mail.default'),
+                'message' => $exception->getMessage(),
+            ]);
+
+            return back()->withErrors(['email' => 'Statement email could not be sent. Please verify SMTP host, port, security, username and password in Settings.'])->withInput();
         }
-        $pendingMail->send($mail);
 
         return back()->with('success', 'Owner statement PDF emailed successfully to '.$recipient.($validated['recipient_mode'] === 'both' ? ' and '.$validated['custom_email'] : '').'.');
     }

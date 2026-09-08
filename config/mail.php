@@ -39,8 +39,12 @@ return [
 
         'smtp' => [
             'transport' => 'smtp',
-            'scheme' => env('MAIL_SCHEME'),
-            'url' => env('MAIL_URL'),
+            'scheme' => match (strtolower((string) env('MAIL_SCHEME'))) {
+                'ssl', 'smtps' => 'smtps',
+                'tls', 'smtp' => 'smtp',
+                default => null,
+            },
+            'url' => preg_replace('/^ssl:/i', 'smtps:', (string) env('MAIL_URL')) ?: null,
             'host' => env('MAIL_HOST', '127.0.0.1'),
             'port' => env('MAIL_PORT', 2525),
             'username' => env('MAIL_USERNAME'),

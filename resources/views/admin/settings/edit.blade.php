@@ -237,8 +237,8 @@
                                     <label class="form-label" for="mail_encryption">Security</label>
                                     <select class="form-select" id="mail_encryption" name="mail_encryption">
                                         <option value="">None</option>
-                                        <option value="tls" @selected($value('mail_encryption') === 'tls')>TLS</option>
-                                        <option value="ssl" @selected($value('mail_encryption') === 'ssl')>SSL</option>
+                                        <option value="tls" @selected(in_array($value('mail_encryption'), ['tls','smtp'], true))>TLS / STARTTLS (usually port 587)</option>
+                                        <option value="ssl" @selected(in_array($value('mail_encryption'), ['ssl','smtps'], true))>SSL / SMTPS (usually port 465)</option>
                                     </select>
                                 </div>
                                 <div class="col-md-6">

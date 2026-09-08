@@ -162,6 +162,9 @@ class AdminPagesTest extends TestCase
 
         $this->assertTrue(ApplicationSetting::where('key', 'mail_password')->value('is_encrypted'));
         $this->assertNotSame('secret-password', ApplicationSetting::where('key', 'mail_password')->value('value'));
+        $this->assertSame('smtp', config('mail.mailers.smtp.scheme'));
+        \App\Support\AppSettings::setMany(['mail_encryption' => 'ssl']);
+        $this->assertSame('smtps', config('mail.mailers.smtp.scheme'));
     }
 
     public function test_whatsapp_webhook_verification_and_receive(): void

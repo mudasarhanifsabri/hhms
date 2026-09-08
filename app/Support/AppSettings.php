@@ -99,7 +99,7 @@ class AppSettings
                 'mail.mailers.smtp.port' => $settings['mail_port'] ?? config('mail.mailers.smtp.port'),
                 'mail.mailers.smtp.username' => $settings['mail_username'] ?? config('mail.mailers.smtp.username'),
                 'mail.mailers.smtp.password' => $settings['mail_password'] ?? config('mail.mailers.smtp.password'),
-                'mail.mailers.smtp.scheme' => $settings['mail_encryption'] ?? config('mail.mailers.smtp.scheme'),
+                'mail.mailers.smtp.scheme' => self::mailScheme($settings['mail_encryption'] ?? config('mail.mailers.smtp.scheme')),
             ]);
         }
 
@@ -157,6 +157,15 @@ class AppSettings
         }
 
         return (bool) preg_match('/^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/', $bucket);
+    }
+
+    public static function mailScheme(?string $scheme): ?string
+    {
+        return match (strtolower(trim((string) $scheme))) {
+            'ssl', 'smtps' => 'smtps',
+            'tls', 'smtp' => 'smtp',
+            default => null,
+        };
     }
 
     private static function groupFor(string $key): string
