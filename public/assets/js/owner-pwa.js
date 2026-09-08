@@ -19,11 +19,11 @@
   open(location.hash.slice(1)||'home',false);translate(localStorage.getItem('owner-locale')==='ar'?'ar':'en');
   requestAnimationFrame(()=>app.classList.add('is-ready'));
   try{
-    if(welcome&&!sessionStorage.getItem(welcomeKey)){
+    if(welcome&&localStorage.getItem(welcomeKey)!==app.dataset.greetingPeriod){
       welcome.setAttribute('aria-hidden','false');
       requestAnimationFrame(()=>welcome.classList.add('is-visible'));
       setTimeout(()=>welcome.classList.add('is-leaving'),2200);
-      setTimeout(()=>{welcome.remove();sessionStorage.setItem(welcomeKey,'shown');},2850);
+      setTimeout(()=>{welcome.remove();localStorage.setItem(welcomeKey,app.dataset.greetingPeriod);},2850);
     }else welcome?.remove();
   }catch(error){welcome?.remove();}
   document.querySelectorAll('[data-filter]').forEach(button=>button.addEventListener('click',()=>{const group=button.closest('[data-filter-group]');group.querySelectorAll('[data-filter]').forEach(x=>x.classList.remove('is-active'));button.classList.add('is-active');group.parentElement.querySelectorAll('[data-status]').forEach(row=>row.hidden=button.dataset.filter!=='all'&&row.dataset.status!==button.dataset.filter);}));

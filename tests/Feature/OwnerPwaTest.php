@@ -42,10 +42,10 @@ class OwnerPwaTest extends TestCase
 
     public function test_owner_dashboard_counts_cross_month_booking_occupancy_and_shows_personal_greeting(): void
     {
-        Carbon::setTestNow('2026-09-08 17:30:00');
+        Carbon::setTestNow(Carbon::parse('2026-09-08 13:30:00', 'UTC'));
 
         try {
-            $owner = User::factory()->create(['role' => 'landlord', 'name' => 'Sultan Alhemeiri']);
+            $owner = User::factory()->create(['role' => 'landlord', 'name' => 'Abdulla Alhemeiri']);
             $building = Building::create(['building_name' => 'Binghatti Heights', 'address' => 'Dubai']);
             $unit = Property::create([
                 'landlord_id' => $owner->id,
@@ -72,9 +72,12 @@ class OwnerPwaTest extends TestCase
             $this->actingAs($owner)->get(route('landlord.app'))
                 ->assertOk()
                 ->assertSee('Good afternoon,')
-                ->assertSee('Sultan')
+                ->assertSee('Abdulla')
+                ->assertSee('Warm greetings from Sultan')
+                ->assertSee('Pattern Vacation Homes Rental')
                 ->assertSee('data-owner-welcome', false)
                 ->assertSee('data-owner-id="'.$owner->id.'"', false)
+                ->assertSee('data-greeting-period="afternoon"', false)
                 ->assertSeeInOrder(['Occupancy', '100%']);
         } finally {
             Carbon::setTestNow();
