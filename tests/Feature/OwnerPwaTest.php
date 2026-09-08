@@ -71,14 +71,18 @@ class OwnerPwaTest extends TestCase
 
             $this->actingAs($owner)->get(route('landlord.app'))
                 ->assertOk()
-                ->assertSee('Good afternoon,')
+                ->assertSee('Good evening,')
                 ->assertSee('Abdulla')
                 ->assertSee('Warm greetings from Sultan')
                 ->assertSee('Pattern Vacation Homes Rental')
                 ->assertSee('data-owner-welcome', false)
                 ->assertSee('data-owner-id="'.$owner->id.'"', false)
-                ->assertSee('data-greeting-period="afternoon"', false)
+                ->assertSee('data-greeting-period="evening"', false)
                 ->assertSeeInOrder(['Occupancy', '100%']);
+
+            $ownerScript = file_get_contents(public_path('assets/js/owner-pwa.js'));
+            $this->assertStringContainsString("timeZone:'Asia/Dubai'", $ownerScript);
+            $this->assertStringContainsString('owner-welcome-v2:', $ownerScript);
         } finally {
             Carbon::setTestNow();
         }

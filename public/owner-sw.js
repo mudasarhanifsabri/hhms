@@ -1,4 +1,4 @@
-const CACHE='pattern-owner-v3';
+const CACHE='pattern-owner-v4';
 const SHELL=['/owner-offline.html','/owner-manifest.webmanifest','/assets/css/owner-pwa.css','/assets/css/owner-pwa-premium.css','/assets/js/owner-pwa.js','/assets/js/owner-pwa-premium.js','/assets/css/icons.min.css'];
 self.addEventListener('install',event=>event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(SHELL)).then(()=>self.skipWaiting())));
 self.addEventListener('activate',event=>event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(key=>key!==CACHE).map(key=>caches.delete(key)))).then(()=>self.clients.claim())));

@@ -2,7 +2,7 @@
   const app=document.querySelector('[data-owner-app]');if(!app)return;
   const screens=[...document.querySelectorAll('[data-screen]')];
   const welcome=document.querySelector('[data-owner-welcome]');
-  const welcomeKey=`owner-welcome:${app.dataset.ownerId||'current'}`;
+  const welcomeKey=`owner-welcome-v2:${app.dataset.ownerId||'current'}`;
   const arabic={'Install Owner App':'تثبيت تطبيق المالك','Good morning,':'صباح الخير،','Good afternoon,':'مساء الخير،','Good evening,':'مساء الخير،','Gross revenue':'إجمالي الإيرادات','Expenses':'المصروفات','Management fee':'رسوم الإدارة','Net income':'صافي الدخل','Properties':'العقارات','Booked nights':'الليالي المحجوزة','Occupancy':'نسبة الإشغال','Payable':'المبلغ المستحق','Upcoming Booking':'الحجز القادم','View Booking':'عرض الحجز','No upcoming bookings':'لا توجد حجوزات قادمة','My Properties':'عقاراتي','No properties assigned':'لا توجد عقارات مسندة','Property Details':'تفاصيل العقار','Active':'نشط','Bedrooms':'غرف النوم','Bathrooms':'الحمامات','Area':'المساحة','Performance This Month':'أداء هذا الشهر','Revenue':'الإيرادات','Net Income':'صافي الدخل','Calendar':'التقويم','Utilities':'الخدمات','Maintenance':'الصيانة','Documents':'المستندات','Statement':'كشف الحساب','Bookings':'الحجوزات','No bookings yet':'لا توجد حجوزات بعد','Booking Details':'تفاصيل الحجز','Guest':'الضيف','Check-in':'تسجيل الوصول','Check-out':'تسجيل المغادرة','Nights':'الليالي','Guests':'الضيوف','Total Amount':'المبلغ الإجمالي','Payment Status':'حالة الدفع','Booking Calendar':'تقويم الحجوزات','Finance':'المالية','Net Payable':'صافي المستحق','View Statement':'عرض كشف الحساب','Transactions':'المعاملات','No transactions':'لا توجد معاملات','No utility bills':'لا توجد فواتير خدمات','All':'الكل','In Progress':'قيد التنفيذ','Completed':'مكتمل','No maintenance requests':'لا توجد طلبات صيانة','My Documents':'مستنداتي','No documents':'لا توجد مستندات','Notifications':'الإشعارات','No notifications':'لا توجد إشعارات','Payouts':'الدفعات','No payouts recorded':'لا توجد دفعات مسجلة','Owner':'المالك','Desktop Owner Portal':'بوابة المالك على الكمبيوتر','My Information':'معلوماتي','Bank Details':'التفاصيل البنكية','Change Password':'تغيير كلمة المرور','Logout':'تسجيل الخروج','Current Password':'كلمة المرور الحالية','New Password':'كلمة المرور الجديدة','Confirm Password':'تأكيد كلمة المرور','Update Password':'تحديث كلمة المرور','Password updated successfully.':'تم تحديث كلمة المرور بنجاح.','Home':'الرئيسية','Profile':'الملف الشخصي','Paid':'مدفوع','Pending':'قيد الانتظار','Approved':'معتمد','Confirmed':'مؤكد','Available':'متاح','Owner Paid':'دفع المالك'};
   arabic['Document Wallet']='محفظة المستندات';arabic['No expiry']='بدون تاريخ انتهاء';arabic['Valid']='ساري';arabic['Expired']='منتهي';arabic['Expiring']='قارب على الانتهاء';arabic['Owner Expenses']='مصروفات المالك';arabic['Received rental income']='إيرادات الإيجار المستلمة';arabic['Owner expenses']='مصروفات المالك';arabic['Download Statement']='تحميل كشف الحساب';arabic['Search unit or building']='البحث عن الوحدة أو المبنى';arabic['Search booking, guest or unit']='البحث عن الحجز أو الضيف أو الوحدة';arabic['Search description, unit or category']='البحث في الوصف أو الوحدة أو الفئة';arabic['Search expense, vendor or unit']='البحث عن المصروف أو المورد أو الوحدة';arabic['Search task, unit or status']='البحث عن المهمة أو الوحدة أو الحالة';arabic['Search document or unit']='البحث عن المستند أو الوحدة';arabic['Mark all read']='تحديد الكل كمقروء';arabic['Full name']='الاسم الكامل';arabic['Email']='البريد الإلكتروني';arabic['Phone']='الهاتف';arabic['Nationality']='الجنسية';arabic['Passport / Emirates ID']='جواز السفر / الهوية الإماراتية';arabic['Address']='العنوان';arabic['Account holder']='صاحب الحساب';arabic['Bank']='البنك';arabic['Account number']='رقم الحساب';arabic['Branch']='الفرع';
   arabic['Owner Booking Details']='تفاصيل حجز المالك';arabic['Booking periods']='فترات الحجز';arabic['Original Booking']='الحجز الأصلي';arabic['Extension']='التمديد';arabic['Renewal']='التجديد';arabic['Rent collected']='الإيجار المحصل';arabic['Expected owner payout']='الدفعة المتوقعة للمالك';arabic['Payout due']='تاريخ استحقاق الدفعة';arabic['Upcoming payout']='دفعة قادمة';arabic['Awaiting guest payment']='بانتظار دفعة الضيف';arabic['Ready for payout']='جاهز للدفع';arabic['Partially paid']='مدفوع جزئياً';arabic['Paid to owner']='تم الدفع للمالك';arabic['Remaining']='المتبقي';arabic['Payment reference']='مرجع الدفع';arabic['Total rent collected']='إجمالي الإيجار المحصل';arabic['Total management fee']='إجمالي رسوم الإدارة';arabic['Total expected payout']='إجمالي الدفعة المتوقعة';
@@ -18,14 +18,28 @@
   addEventListener('hashchange',()=>open(location.hash.slice(1)||'home',false));
   open(location.hash.slice(1)||'home',false);translate(localStorage.getItem('owner-locale')==='ar'?'ar':'en');
   requestAnimationFrame(()=>app.classList.add('is-ready'));
-  try{
-    if(welcome&&localStorage.getItem(welcomeKey)!==app.dataset.greetingPeriod){
-      welcome.setAttribute('aria-hidden','false');
+  let welcomeLeaveTimer,welcomeHideTimer;
+  const dubaiGreeting=()=>{
+    const hour=Number(new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Dubai',hour:'2-digit',hourCycle:'h23'}).format(new Date()));
+    const period=hour<12?'morning':hour<17?'afternoon':'evening';
+    const isArabic=document.documentElement.lang==='ar';
+    const labels=isArabic?{morning:'صباح الخير',afternoon:'مساء الخير',evening:'مساء الخير'}:{morning:'Good morning',afternoon:'Good afternoon',evening:'Good evening'};
+    return {period,label:labels[period]};
+  };
+  const refreshGreeting=()=>{
+    const greeting=dubaiGreeting();
+    app.dataset.greetingPeriod=greeting.period;
+    document.querySelectorAll('[data-greeting-text]').forEach(node=>node.textContent=`${greeting.label},`);
+    try{
+      if(!welcome||localStorage.getItem(welcomeKey)===greeting.period)return;
+      clearTimeout(welcomeLeaveTimer);clearTimeout(welcomeHideTimer);
+      welcome.classList.remove('is-leaving');welcome.setAttribute('aria-hidden','false');
       requestAnimationFrame(()=>welcome.classList.add('is-visible'));
-      setTimeout(()=>welcome.classList.add('is-leaving'),2200);
-      setTimeout(()=>{welcome.remove();localStorage.setItem(welcomeKey,app.dataset.greetingPeriod);},2850);
-    }else welcome?.remove();
-  }catch(error){welcome?.remove();}
+      welcomeLeaveTimer=setTimeout(()=>welcome.classList.add('is-leaving'),2200);
+      welcomeHideTimer=setTimeout(()=>{welcome.classList.remove('is-visible','is-leaving');welcome.setAttribute('aria-hidden','true');localStorage.setItem(welcomeKey,greeting.period);},2850);
+    }catch(error){welcome?.classList.remove('is-visible');}
+  };
+  refreshGreeting();setInterval(refreshGreeting,60000);
   document.querySelectorAll('[data-filter]').forEach(button=>button.addEventListener('click',()=>{const group=button.closest('[data-filter-group]');group.querySelectorAll('[data-filter]').forEach(x=>x.classList.remove('is-active'));button.classList.add('is-active');group.parentElement.querySelectorAll('[data-status]').forEach(row=>row.hidden=button.dataset.filter!=='all'&&row.dataset.status!==button.dataset.filter);}));
   const install=document.querySelector('[data-install]');let prompt;addEventListener('beforeinstallprompt',e=>{e.preventDefault();prompt=e;install?.classList.add('show');});install?.addEventListener('click',async()=>{if(prompt){prompt.prompt();await prompt.userChoice;prompt=null;install.classList.remove('show');}});
   if('serviceWorker' in navigator)navigator.serviceWorker.register(window.ownerApp.sw);

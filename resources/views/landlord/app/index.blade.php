@@ -9,7 +9,7 @@
     $statusClass = fn($status) => in_array($status, ['completed','paid','owner_paid','approved','confirmed'], true) ? '' : (in_array($status, ['pending','in_progress','outstanding'], true) ? 'warn' : 'info');
     $ownerFirstName = Str::before(trim($owner->name), ' ');
     $dubaiNow = \Illuminate\Support\Carbon::now('Asia/Dubai');
-    $ownerGreetingPeriod = $dubaiNow->hour < 12 ? 'morning' : ($dubaiNow->hour < 18 ? 'afternoon' : 'evening');
+    $ownerGreetingPeriod = $dubaiNow->hour < 12 ? 'morning' : ($dubaiNow->hour < 17 ? 'afternoon' : 'evening');
     $ownerGreeting = match ($ownerGreetingPeriod) {
         'morning' => 'Good morning',
         'afternoon' => 'Good afternoon',
@@ -28,7 +28,7 @@
     <div class="oa-welcome" data-owner-welcome aria-hidden="true">
         <div class="oa-welcome-mark"><i class="ri-building-2-line"></i></div>
         <div class="oa-welcome-copy">
-            <span>{{ $ownerGreeting }},</span>
+            <span data-greeting-text>{{ $ownerGreeting }},</span>
             <strong>{{ $ownerFirstName }} <span aria-hidden="true">&#128075;</span></strong>
             <small>Warm greetings from Sultan</small>
             <em>Pattern Vacation Homes Rental</em>
@@ -38,7 +38,7 @@
 
     <section class="oa-screen" data-screen="home">
         <header class="oa-hero">
-            <div class="oa-top"><div><div class="oa-sub">{{ $ownerGreeting }},</div><h1 class="oa-title">{{ $ownerFirstName }} <span class="gold">&#128075;</span></h1></div><button class="oa-icon-btn" data-go="notifications"><i class="ri-notification-3-line"></i></button></div>
+            <div class="oa-top"><div><div class="oa-sub" data-greeting-text>{{ $ownerGreeting }},</div><h1 class="oa-title">{{ $ownerFirstName }} <span class="gold">&#128075;</span></h1></div><button class="oa-icon-btn" data-go="notifications"><i class="ri-notification-3-line"></i></button></div>
             <div class="oa-grid three">
                 <div class="oa-metric"><small>Gross revenue</small><strong class="green">AED {{ number_format($monthlyRevenue,0) }}</strong></div>
                 <div class="oa-metric"><small>Expenses</small><strong class="red">AED {{ number_format($monthlyExpenses,0) }}</strong></div>

@@ -14,14 +14,14 @@
     <link rel="manifest" href="{{ asset('owner-manifest.webmanifest') }}">
     <link rel="apple-touch-icon" href="{{ asset('assets/images/pwa-icon-192.png') }}">
     <link rel="stylesheet" href="{{ asset('assets/css/icons.min.css') }}">
-    <link rel="stylesheet" href="{{ asset('assets/css/owner-pwa.css') }}">
-    <link rel="stylesheet" href="{{ asset('assets/css/owner-pwa-premium.css') }}">
-    <link rel="stylesheet" href="{{ asset('assets/css/owner-pwa-rtl.css') }}">
+    <link rel="stylesheet" href="{{ asset('assets/css/owner-pwa.css') }}?v=20260908-2">
+    <link rel="stylesheet" href="{{ asset('assets/css/owner-pwa-premium.css') }}?v=20260908-2">
+    <link rel="stylesheet" href="{{ asset('assets/css/owner-pwa-rtl.css') }}?v=20260908-2">
 </head>
 <body>
     @yield('content')
     <script>window.ownerApp={sw:"{{ asset('owner-sw.js') }}"};</script>
-    <script src="{{ asset('assets/js/owner-pwa.js') }}"></script>
-    <script src="{{ asset('assets/js/owner-pwa-premium.js') }}"></script>
+    <script src="{{ asset('assets/js/owner-pwa.js') }}?v=20260908-2"></script>
+    <script src="{{ asset('assets/js/owner-pwa-premium.js') }}?v=20260908-2"></script>
 </body>
 </html>
