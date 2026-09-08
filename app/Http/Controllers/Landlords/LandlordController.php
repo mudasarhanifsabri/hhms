@@ -43,7 +43,7 @@ class LandlordController extends Controller
         $propertyIds = $properties->pluck('id');
         $bookings = Booking::with(['property.building', 'invoices.payments'])->whereIn('property_id', $propertyIds)->latest()->take(8)->get();
         $this->addOwnerBookingFigures($bookings);
-        $entries = LandlordAccountEntry::with('property')->where('landlord_id', Auth::id())->latest('entry_date')->take(8)->get();
+        $entries = LandlordAccountEntry::with('property')->where('landlord_id', Auth::id())->visibleOnOwnerStatement()->latest('entry_date')->take(8)->get();
         $documents = PropertyOwnerDocument::with('property')
             ->whereIn('property_id', $propertyIds)
             ->latest()
@@ -53,7 +53,8 @@ class LandlordController extends Controller
             ->whereIn('property_id', $propertyIds)
             ->latest()
             ->get();
-        $balance = (float) ($entries->first()?->balance_after ?? LandlordAccountEntry::where('landlord_id', Auth::id())->latest('entry_date')->value('balance_after') ?? 0);
+        $balance = (float) LandlordAccountEntry::where('landlord_id', Auth::id())->visibleOnOwnerStatement()
+            ->selectRaw("COALESCE(SUM(CASE WHEN direction='credit' THEN amount ELSE -amount END),0) balance")->value('balance');
 
         return view('landlord.dashboard.index', compact('properties', 'bookings', 'entries', 'documents', 'unitDocuments', 'balance'));
     }
@@ -73,6 +74,7 @@ class LandlordController extends Controller
         $this->addOwnerBookingFigures($bookings);
         $entries = LandlordAccountEntry::with('property.building')
             ->where('landlord_id', $owner->id)
+            ->visibleOnOwnerStatement()
             ->statementOrder()
             ->get();
         $expenses = Expense::with(['property.building', 'vendor'])

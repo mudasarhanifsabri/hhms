@@ -12,7 +12,7 @@ class OwnerStatementPdf
 {
     public static function data(User $owner, ?string $from = null, ?string $to = null, ?string $propertyId = null): array
     {
-        $base = LandlordAccountEntry::with('property.building')->where('landlord_id', $owner->id);
+        $base = LandlordAccountEntry::with('property.building')->where('landlord_id', $owner->id)->visibleOnOwnerStatement();
         $first = (clone $base)->oldest('entry_date')->value('entry_date');
         $last = (clone $base)->latest('entry_date')->value('entry_date');
         $period = [
@@ -20,6 +20,7 @@ class OwnerStatementPdf
             'to' => Carbon::parse($to ?: ($last ?: now()->endOfMonth())),
         ];
         $openingBalance = (float) LandlordAccountEntry::where('landlord_id', $owner->id)
+            ->visibleOnOwnerStatement()
             ->when($propertyId, fn ($query) => $query->where('property_id', $propertyId))
             ->whereDate('entry_date', '<', $period['from'])
             ->selectRaw("COALESCE(SUM(CASE WHEN direction='credit' THEN amount ELSE -amount END),0) balance")
@@ -45,14 +46,16 @@ class OwnerStatementPdf
             ->whereDate('check_out', '>=', $period['from'])
             ->orderBy('check_in')->get()
             ->flatMap(function (Booking $booking) {
-                return $booking->invoices->sortBy('period_from')->map(function ($invoice) use ($booking) {
-                    $receivedRent = (float) $invoice->payments->sum('rent_amount');
-                    $management = round($receivedRent * (float) $booking->management_fee_percent / 100, 2);
-                    $invoice->setRelation('booking', $booking);
-                    $invoice->setAttribute('statement_net_rent', $receivedRent - $management);
+                return $booking->invoices->sortBy('period_from')
+                    ->filter(fn ($invoice) => (float) $invoice->payments->sum('amount') + 0.01 >= (float) $invoice->total_amount)
+                    ->map(function ($invoice) use ($booking) {
+                        $receivedRent = (float) $invoice->payments->sum('rent_amount');
+                        $management = round($receivedRent * (float) $booking->management_fee_percent / 100, 2);
+                        $invoice->setRelation('booking', $booking);
+                        $invoice->setAttribute('statement_net_rent', $receivedRent - $management);
 
-                    return $invoice;
-                });
+                        return $invoice;
+                    });
             });
 
         return [

@@ -1046,6 +1046,7 @@ class AccountingController extends Controller
         if ($owner) {
             $entries = LandlordAccountEntry::with('property')
                 ->where('landlord_id', $owner->id)
+                ->visibleOnOwnerStatement()
                 ->whereBetween('entry_date', [$from, $to])
                 ->statementOrder()
                 ->get()

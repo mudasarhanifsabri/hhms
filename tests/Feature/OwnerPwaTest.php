@@ -9,6 +9,7 @@ use App\Models\LandlordAccountEntry;
 use App\Models\Property;
 use App\Models\User;
 use App\Notifications\LandlordCreated;
+use App\Support\OwnerStatementPdf;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -116,6 +117,44 @@ class OwnerPwaTest extends TestCase
         ])->assertSessionHasNoErrors();
         $this->actingAs($owner)->get(route('landlord.app'))->assertOk()
             ->assertSee('Paid')->assertSee('BANK-OWNER-001')->assertSee('Paid to owner');
+    }
+
+    public function test_partial_booking_income_is_hidden_from_owner_statement_until_invoice_is_fully_paid(): void
+    {
+        $owner = User::factory()->create(['role' => 'landlord']);
+        $unit = Property::create(['landlord_id' => $owner->id, 'name' => 'Statement Unit']);
+        $booking = Booking::create([
+            'property_id' => $unit->id, 'booking_reference' => 'BK-PARTIAL-HIDDEN', 'invoice_number' => 'INV-PARTIAL-HIDDEN',
+            'guest_name' => 'Statement Guest', 'guest_email' => 'statement@example.com', 'guest_phone' => '0500000001',
+            'guest_passport_id_no' => 'P67890', 'check_in' => '2026-09-01', 'check_out' => '2026-09-30',
+            'rent_amount' => 1000, 'management_fee_percent' => 10, 'total_amount' => 1050,
+            'invoice_status' => 'partial', 'status' => 'confirmed',
+        ]);
+        $invoice = BookingInvoice::create([
+            'booking_id' => $booking->id, 'invoice_number' => 'INV-PARTIAL-HIDDEN', 'invoice_type' => 'original',
+            'issue_date' => '2026-09-01', 'period_from' => '2026-09-01', 'period_to' => '2026-09-30',
+            'rent_amount' => 1000, 'vat_amount' => 50, 'total_amount' => 1050, 'status' => 'partial',
+        ]);
+        $firstPayment = $invoice->payments()->create([
+            'payment_date' => '2026-09-02', 'amount' => 500, 'rent_amount' => 476.19, 'payment_method' => 'Bank Transfer',
+        ]);
+        LandlordAccountEntry::create([
+            'landlord_id' => $owner->id, 'property_id' => $unit->id, 'entry_date' => '2026-09-02',
+            'type' => 'rent_income', 'direction' => 'credit', 'amount' => 476.19,
+            'reference' => 'PAY-'.$firstPayment->id, 'description' => 'PARTIAL OWNER RENT ROW',
+        ]);
+
+        $this->actingAs($owner)->get(route('landlord.app'))->assertOk()->assertDontSee('PARTIAL OWNER RENT ROW');
+        $this->actingAs(User::factory()->create(['role' => 'admin']))
+            ->get(route('admin.landlord.account-statement', $owner))->assertOk()->assertDontSee('PARTIAL OWNER RENT ROW');
+        $this->assertCount(0, OwnerStatementPdf::data($owner, '2026-09-01', '2026-09-30')['entries']);
+
+        $invoice->payments()->create([
+            'payment_date' => '2026-09-03', 'amount' => 550, 'rent_amount' => 523.81, 'payment_method' => 'Bank Transfer',
+        ]);
+
+        $this->actingAs($owner)->get(route('landlord.app'))->assertOk()->assertSee('PARTIAL OWNER RENT ROW');
+        $this->assertCount(1, OwnerStatementPdf::data($owner, '2026-09-01', '2026-09-30')['entries']);
     }
 
     public function test_owner_welcome_email_contains_login_credentials_and_app_link(): void

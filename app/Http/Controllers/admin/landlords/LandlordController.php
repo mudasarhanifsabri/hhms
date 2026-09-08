@@ -128,7 +128,7 @@ class LandlordController extends Controller
             ->statementOrder()
             ->paginate($perPage)
             ->withQueryString();
-        $statementBalances = LandlordAccountEntry::statementBalancesFor($landlord->id);
+        $statementBalances = LandlordAccountEntry::statementBalancesFor($landlord->id, true);
         $accountEntries->getCollection()->each(fn ($entry) => $entry->setAttribute('balance_after', $statementBalances[$entry->id]));
         $accountTotals = $this->accountTotalsFor($landlord->id, $filters);
         $unitTotals = $this->accountEntriesQuery($landlord->id, $filters)->get()
@@ -641,6 +641,7 @@ private function accountEntriesQuery(string $landlordId, array $filters = [])
 {
     return LandlordAccountEntry::with('property.building')
         ->where('landlord_id', $landlordId)
+        ->visibleOnOwnerStatement()
         ->when(! empty($filters['date_from']), fn ($query) => $query->whereDate('entry_date', '>=', $filters['date_from']))
         ->when(! empty($filters['date_to']), fn ($query) => $query->whereDate('entry_date', '<=', $filters['date_to']))
         ->when(! empty($filters['property_id']), fn ($query) => $query->where('property_id', $filters['property_id']));

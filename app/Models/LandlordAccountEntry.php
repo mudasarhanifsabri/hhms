@@ -88,11 +88,38 @@ class LandlordAccountEntry extends BaseModel
             ->orderBy('created_at')->orderBy('id');
     }
 
-    public static function statementBalancesFor(string $landlordId): array
+    public function scopeVisibleOnOwnerStatement($query)
+    {
+        $invoices = BookingInvoice::query()->get(['id', 'invoice_number', 'total_amount']);
+        $paidTotals = BookingInvoicePayment::query()->whereNull('reversed_at')
+            ->selectRaw('booking_invoice_id, SUM(amount) as paid_total')
+            ->groupBy('booking_invoice_id')->pluck('paid_total', 'booking_invoice_id');
+        $automaticReferences = $invoices->pluck('invoice_number')->filter();
+        $eligibleInvoiceIds = $invoices->filter(
+            fn (BookingInvoice $invoice) => (float) ($paidTotals[$invoice->id] ?? 0) + 0.01 >= (float) $invoice->total_amount
+        )->pluck('id');
+        $eligibleReferences = $invoices->whereIn('id', $eligibleInvoiceIds)->pluck('invoice_number')->filter();
+        $payments = BookingInvoicePayment::query()->whereNull('reversed_at')->get(['id', 'booking_invoice_id']);
+        $automaticReferences = $automaticReferences->concat($payments->pluck('id')->map(fn ($id) => 'PAY-'.$id))->unique()->values();
+        $eligibleReferences = $eligibleReferences->concat(
+            $payments->whereIn('booking_invoice_id', $eligibleInvoiceIds)->pluck('id')->map(fn ($id) => 'PAY-'.$id)
+        )->unique()->values();
+
+        return $query->where(function ($statement) use ($automaticReferences, $eligibleReferences) {
+            $statement->whereNotIn('type', ['rent_income', 'management_fee'])
+                ->orWhereNull('reference')
+                ->orWhereNotIn('reference', $automaticReferences);
+            if ($eligibleReferences->isNotEmpty()) {
+                $statement->orWhereIn('reference', $eligibleReferences);
+            }
+        });
+    }
+
+    public static function statementBalancesFor(string $landlordId, bool $ownerVisibleOnly = false): array
     {
         $balance = 0;
         $balances = [];
-        foreach (self::where('landlord_id', $landlordId)->statementOrder()->get() as $entry) {
+        foreach (self::where('landlord_id', $landlordId)->when($ownerVisibleOnly, fn ($query) => $query->visibleOnOwnerStatement())->statementOrder()->get() as $entry) {
             $balance += $entry->direction === 'credit' ? (float) $entry->amount : -(float) $entry->amount;
             $balances[$entry->id] = $balance;
         }
