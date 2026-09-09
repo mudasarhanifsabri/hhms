@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\admin\AdminController;
 use App\Http\Controllers\admin\landlords\LandlordController;
+use App\Http\Controllers\admin\landlords\OwnerChargeInvoiceController;
 use App\Http\Controllers\admin\tenants\TenantController;
 use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\admin\agents\AgentController;
@@ -83,6 +84,13 @@ Route::get('/landlords/{id}/account-statement', [LandlordController::class, 'acc
 Route::get('/landlords/{id}/account-statement/pdf', [LandlordController::class, 'accountStatementPdf'])->name('landlord.account-statement.pdf');
 Route::post('/landlords/{id}/account-statement/email', [LandlordController::class, 'emailAccountStatement'])->name('landlord.account-statement.email');
 Route::get('/landlords/{id}/owned-properties', [LandlordController::class, 'ownedProperties'])->name('landlord.owned-properties');
+Route::get('/landlords/{id}/owner-invoices', [OwnerChargeInvoiceController::class, 'index'])->name('landlord.owner-invoices');
+Route::post('/landlords/{id}/owner-invoices', [OwnerChargeInvoiceController::class, 'store'])->name('landlord.owner-invoices.store');
+Route::get('/owner-invoices/{invoice}/pdf', [OwnerChargeInvoiceController::class, 'pdf'])->name('landlord.owner-invoices.pdf');
+Route::post('/owner-invoices/{invoice}/email', [OwnerChargeInvoiceController::class, 'email'])->name('landlord.owner-invoices.email');
+Route::post('/owner-invoices/{invoice}/payments', [OwnerChargeInvoiceController::class, 'payment'])->name('landlord.owner-invoices.payment');
+Route::post('/owner-invoices/{invoice}/costs', [OwnerChargeInvoiceController::class, 'linkCost'])->name('landlord.owner-invoices.cost');
+Route::post('/owner-invoices/{invoice}/costs/finalize', [OwnerChargeInvoiceController::class, 'finalizeCost'])->name('landlord.owner-invoices.cost.finalize');
 Route::get('/landlords/{id}/security', [LandlordController::class, 'security'])->name('landlord.security');
 Route::post('/landlords/{id}/security/reset-password', [LandlordController::class, 'resetTemporaryPassword'])->name('landlord.security.reset-password');
 Route::post('/landlords/{id}/send-welcome-email', [LandlordController::class, 'sendWelcomeEmail'])->name('landlord.sendWelcomeEmail');

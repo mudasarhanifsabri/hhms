@@ -12,6 +12,11 @@
                 </a>
             </li>
             <li class="nav-item">
+                <a class="nav-link {{ request()->routeIs('admin.landlord.owner-invoices*') ? 'active' : '' }}" href="{{ route('admin.landlord.owner-invoices', $landlord->id) }}">
+                    <i class="ri-bill-line me-1"></i>Owner Charges & Invoices
+                </a>
+            </li>
+            <li class="nav-item">
                 <a class="nav-link {{ request()->routeIs('admin.landlord.owned-properties') ? 'active' : '' }}" href="{{ $ownedPropertiesRoute ?? route('admin.landlord.owned-properties', $landlord->id) }}">
                     <i class="ri-home-4-line me-1"></i>Owned Properties
                 </a>

@@ -20,7 +20,7 @@ class Expense extends BaseModel
     ];
 
     protected $fillable = [
-        'booking_task_id', 'staff_payment_status', 'staff_submission_id',
+        'booking_task_id', 'staff_payment_status', 'staff_submission_id', 'owner_charge_invoice_id',
         'expense_no',
         'expense_date',
         'category',
@@ -104,5 +104,10 @@ class Expense extends BaseModel
     public function accountingEntry(): BelongsTo
     {
         return $this->belongsTo(AccountingEntry::class);
+    }
+
+    public function ownerChargeInvoice(): BelongsTo
+    {
+        return $this->belongsTo(OwnerChargeInvoice::class);
     }
 }
