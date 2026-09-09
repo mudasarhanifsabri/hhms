@@ -99,12 +99,15 @@
             <div class="col-md-4"><label class="form-label">Paid / Charged To</label><select name="responsibility" class="form-select expense-responsibility" required><option value="company">Company</option><option value="owner">Owner</option><option value="tenant_guest">Tenant / Guest</option></select></div>
             <div class="col-md-4"><label class="form-label">Paid From Account</label><select name="paid_from_account_id" class="form-select"><option value="">Select bank/cash</option>@foreach($bankAccounts as $bankAccount)<option value="{{ $bankAccount->id }}">{{ $bankAccount->name }}</option>@endforeach</select></div>
             <div class="col-md-4"><label class="form-label">Approval Status</label><select name="approval_status" class="form-select"><option value="draft">Draft</option><option value="pending" selected>Pending Approval</option><option value="reviewed">Reviewed</option><option value="approved">Approved</option><option value="paid">Paid</option><option value="rejected">Rejected</option></select></div>
+            <div class="col-12"><h6 class="border-bottom pb-2 mb-0">Supplier Cost</h6></div>
             <div class="col-md-4"><label class="form-label">Cost Amount</label><input type="number" step="0.01" name="net_amount" class="form-control expense-cost" required><small class="text-muted">Supplier cost.</small></div>
-            <div class="col-md-4"><label class="form-label">VAT %</label><input type="number" step="0.01" name="vat_rate" value="5" class="form-control"></div>
-            <div class="col-md-4 d-flex align-items-end"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" name="vat_included" value="1" id="expenseVatIncluded"><label class="form-check-label" for="expenseVatIncluded">VAT included in amount</label></div></div>
+            <div class="col-md-3"><label class="form-label">Cost VAT %</label><input type="number" step="0.01" name="vat_rate" value="5" class="form-control"></div>
+            <div class="col-md-5"><label class="form-label d-block">Cost VAT Treatment</label><div class="btn-group w-100" role="group">@foreach(['none'=>'No VAT','included'=>'VAT Included','excluded'=>'VAT Excluded'] as $value=>$label)<input type="radio" class="btn-check expense-vat-mode" name="cost_vat_mode" id="costVat{{ $value }}" value="{{ $value }}" @checked($value==='excluded')><label class="btn btn-outline-primary" for="costVat{{ $value }}">{{ $label }}</label>@endforeach</div></div>
+            <div class="col-12"><h6 class="border-bottom pb-2 mb-0 mt-2">Owner / Customer Sale</h6></div>
             <div class="col-md-4"><label class="form-label">Sale Amount</label><input type="number" step="0.01" min="0" name="sale_amount" class="form-control expense-sale"><small class="text-muted">Amount charged onward.</small></div>
-            <div class="col-md-4 d-flex align-items-end"><input type="hidden" name="sale_vat_included" value="0"><button type="button" class="btn btn-outline-primary w-100 sale-vat-toggle" data-included="0">VAT Excluded</button></div>
-            <div class="col-md-4"><div class="alert alert-light border mb-0 py-2">Profit: <strong class="expense-profit">AED 0.00</strong></div></div>
+            <div class="col-md-3"><label class="form-label">Sale VAT %</label><input type="number" step="0.01" name="sale_vat_rate" value="5" class="form-control"></div>
+            <div class="col-md-5"><label class="form-label d-block">Sale VAT Treatment</label><div class="btn-group w-100" role="group">@foreach(['none'=>'No VAT','included'=>'VAT Included','excluded'=>'VAT Excluded'] as $value=>$label)<input type="radio" class="btn-check expense-vat-mode" name="sale_vat_mode" id="saleVat{{ $value }}" value="{{ $value }}" @checked($value==='excluded')><label class="btn btn-outline-primary" for="saleVat{{ $value }}">{{ $label }}</label>@endforeach</div></div>
+            <div class="col-12"><div class="alert alert-light border mb-0 py-2">Profit excluding VAT: <strong class="expense-profit">AED 0.00</strong></div></div>
             <div class="col-md-6"><label class="form-label">Payment Method</label><input name="payment_method" class="form-control"></div>
             <div class="col-md-6"><label class="form-label">Transaction Reference</label><input name="transaction_reference" class="form-control"></div>
             <div class="col-12"><div class="form-check form-switch"><input class="form-check-input owner-billable" type="checkbox" name="owner_billable" value="1" id="ownerBillable"><label class="form-check-label" for="ownerBillable">Add this expense to owner statement (automatic when charged to Owner)</label></div></div>
@@ -143,11 +146,12 @@
                 <div class="col-md-4"><label class="form-label">Paid From Account</label><select name="paid_from_account_id" class="form-select"><option value="">Select bank/cash</option>@foreach($bankAccounts as $bankAccount)<option value="{{ $bankAccount->id }}" @selected($expense->paid_from_account_id === $bankAccount->id)>{{ $bankAccount->name }}</option>@endforeach</select></div>
                 <div class="col-md-4"><label class="form-label">Status</label><select name="approval_status" class="form-select"><option value="draft" @selected($expense->approval_status === 'draft')>Draft</option><option value="pending" @selected($expense->approval_status === 'pending')>Pending</option><option value="reviewed" @selected($expense->approval_status === 'reviewed')>Reviewed</option><option value="approved" @selected($expense->approval_status === 'approved')>Approved</option><option value="paid" @selected($expense->approval_status === 'paid')>Paid</option><option value="rejected" @selected($expense->approval_status === 'rejected')>Rejected</option></select></div>
                 <div class="col-md-4"><label class="form-label">Cost Amount</label><input type="number" step="0.01" name="net_amount" value="{{ $expense->gross_amount ?: $expense->net_amount }}" class="form-control expense-cost" required></div>
-                <div class="col-md-4"><label class="form-label">VAT %</label><input type="number" step="0.01" name="vat_rate" value="{{ $expense->vat_rate }}" class="form-control"></div>
-                <div class="col-md-4 d-flex align-items-end"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" name="vat_included" value="1" id="vatIncluded{{ $expense->id }}" checked><label class="form-check-label" for="vatIncluded{{ $expense->id }}">VAT included in amount</label></div></div>
+                <div class="col-md-4"><label class="form-label">Cost VAT %</label><input type="number" step="0.01" name="vat_rate" value="{{ $expense->vat_rate }}" class="form-control"></div>
+                <div class="col-md-4"><label class="form-label">Cost VAT Treatment</label><select name="cost_vat_mode" class="form-select expense-vat-mode">@foreach(['none'=>'No VAT','included'=>'VAT Included','excluded'=>'VAT Excluded'] as $value=>$label)<option value="{{ $value }}" @selected($expense->cost_vat_mode===$value)>{{ $label }}</option>@endforeach</select></div>
                 <div class="col-md-4"><label class="form-label">Sale Amount</label><input type="number" step="0.01" min="0" name="sale_amount" value="{{ $expense->sale_vat_included ? $expense->sale_gross_amount : $expense->sale_net_amount }}" class="form-control expense-sale"></div>
-                <div class="col-md-4 d-flex align-items-end"><input type="hidden" name="sale_vat_included" value="{{ $expense->sale_vat_included ? 1 : 0 }}"><button type="button" class="btn btn-outline-primary w-100 sale-vat-toggle" data-included="{{ $expense->sale_vat_included ? 1 : 0 }}">VAT {{ $expense->sale_vat_included ? 'Included' : 'Excluded' }}</button></div>
-                <div class="col-md-4"><div class="alert alert-light border mb-0 py-2">Profit: <strong class="expense-profit">AED {{ number_format((float)$expense->profit_amount,2) }}</strong></div></div>
+                <div class="col-md-4"><label class="form-label">Sale VAT %</label><input type="number" step="0.01" name="sale_vat_rate" value="{{ $expense->sale_vat_rate }}" class="form-control"></div>
+                <div class="col-md-4"><label class="form-label">Sale VAT Treatment</label><select name="sale_vat_mode" class="form-select expense-vat-mode">@foreach(['none'=>'No VAT','included'=>'VAT Included','excluded'=>'VAT Excluded'] as $value=>$label)<option value="{{ $value }}" @selected($expense->sale_vat_mode===$value)>{{ $label }}</option>@endforeach</select></div>
+                <div class="col-12"><div class="alert alert-light border mb-0 py-2">Profit excluding VAT: <strong class="expense-profit">AED {{ number_format((float)$expense->profit_amount,2) }}</strong></div></div>
                 <div class="col-md-4"><label class="form-label">Transaction Reference</label><input name="transaction_reference" value="{{ $expense->transaction_reference }}" class="form-control"></div>
                 <div class="col-md-6"><label class="form-label">Payment Method</label><input name="payment_method" value="{{ $expense->payment_method }}" class="form-control"></div>
                 <div class="col-md-6 d-flex align-items-end"><div class="form-check form-switch"><input class="form-check-input owner-billable" type="checkbox" name="owner_billable" value="1" id="ownerBillable{{ $expense->id }}" @checked($expense->owner_billable)><label class="form-check-label" for="ownerBillable{{ $expense->id }}">Add to owner statement after approval</label></div></div>
@@ -183,20 +187,19 @@ document.querySelectorAll('.expense-responsibility').forEach((select) => {
     select.addEventListener('change', syncOwnerBilling);
     syncOwnerBilling();
 });
-document.querySelectorAll('.sale-vat-toggle').forEach((button) => {
-    const form = button.closest('form');
-    const hidden = button.previousElementSibling;
+document.querySelectorAll('#expenseModal form, [id^="editExpense"] form').forEach((form) => {
+    const mode = name => form.querySelector(`[name="${name}"]:checked`)?.value || form.querySelector(`[name="${name}"]`)?.value || 'excluded';
+    const net = (amount, rate, vatMode) => vatMode === 'included' ? amount / (1 + rate / 100) : amount;
     const refresh = () => {
-        const cost = Number(form.querySelector('.expense-cost')?.value || 0);
-        const enteredSale = Number(form.querySelector('.expense-sale')?.value || 0);
-        const rate = Number(form.querySelector('[name="vat_rate"]')?.value || 0);
-        const saleNet = button.dataset.included === '1' ? enteredSale / (1 + rate / 100) : enteredSale;
-        form.querySelector('.expense-profit').textContent = `AED ${(enteredSale > 0 ? saleNet - cost : 0).toFixed(2)}`;
-        button.textContent = `VAT ${button.dataset.included === '1' ? 'Included' : 'Excluded'}`;
-        hidden.value = button.dataset.included;
+        const costAmount = Number(form.querySelector('.expense-cost')?.value || 0);
+        const saleAmount = Number(form.querySelector('.expense-sale')?.value || 0);
+        const costRate = mode('cost_vat_mode') === 'none' ? 0 : Number(form.querySelector('[name="vat_rate"]')?.value || 0);
+        const saleRate = mode('sale_vat_mode') === 'none' ? 0 : Number(form.querySelector('[name="sale_vat_rate"]')?.value || 0);
+        const profit = saleAmount > 0 ? net(saleAmount, saleRate, mode('sale_vat_mode')) - net(costAmount, costRate, mode('cost_vat_mode')) : 0;
+        form.querySelector('.expense-profit').textContent = `AED ${profit.toFixed(2)}`;
     };
-    button.addEventListener('click', () => { button.dataset.included = button.dataset.included === '1' ? '0' : '1'; refresh(); });
-    form.querySelectorAll('.expense-cost,.expense-sale,[name="vat_rate"]').forEach(input => input.addEventListener('input', refresh));
+    form.querySelectorAll('.expense-cost,.expense-sale,[name="vat_rate"],[name="sale_vat_rate"],.expense-vat-mode').forEach(input => input.addEventListener('input', refresh));
+    form.querySelectorAll('.expense-vat-mode').forEach(input => input.addEventListener('change', refresh));
     refresh();
 });
 </script>

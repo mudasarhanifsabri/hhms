@@ -64,7 +64,8 @@ class AdminPagesTest extends TestCase
         $this->actingAs($admin)->post(route('admin.accounting.expenses.store'), [
             'expense_date' => '2026-09-09', 'category' => 'maintenance', 'property_id' => $property->id,
             'responsibility' => 'owner', 'net_amount' => 100, 'vat_rate' => 5,
-            'sale_amount' => 150, 'sale_vat_included' => 0, 'approval_status' => 'approved',
+            'cost_vat_mode' => 'excluded', 'sale_amount' => 150, 'sale_vat_rate' => 5,
+            'sale_vat_mode' => 'excluded', 'approval_status' => 'approved',
             'description' => 'AC maintenance recharge',
         ])->assertSessionHasNoErrors();
 
@@ -73,6 +74,8 @@ class AdminPagesTest extends TestCase
         $this->assertSame('7.50', $expense->sale_vat_amount);
         $this->assertSame('157.50', $expense->sale_gross_amount);
         $this->assertSame('50.00', $expense->profit_amount);
+        $this->assertSame('excluded', $expense->cost_vat_mode);
+        $this->assertSame('excluded', $expense->sale_vat_mode);
         $this->assertDatabaseHas('landlord_account_entries', ['reference' => $expense->expense_no, 'amount' => 157.50]);
         $this->assertDatabaseHas('accounting_entries', ['expense_id' => $expense->id, 'category' => 'expense_recovery', 'credit' => 150]);
         $this->assertDatabaseHas('accounting_entries', [
@@ -80,6 +83,10 @@ class AdminPagesTest extends TestCase
             'category' => 'output_vat',
             'credit' => 7.50,
             'accounting_account_id' => \App\Models\AccountingAccount::where('code', '2040')->value('id'),
+        ]);
+        $this->assertDatabaseHas('accounting_entries', [
+            'expense_id' => $expense->id, 'category' => 'input_vat', 'debit' => 5,
+            'accounting_account_id' => \App\Models\AccountingAccount::where('code', '1070')->value('id'),
         ]);
         $this->get(route('admin.accounting.expenses.tax-invoice', $expense))->assertOk()->assertHeader('content-type', 'application/pdf');
     }
