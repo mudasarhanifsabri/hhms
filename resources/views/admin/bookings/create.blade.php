@@ -63,15 +63,26 @@
                         <input type="radio" class="btn-check booking-money" id="vat_included" name="vat_included" value="1" @checked(old('vat_included', false))><label class="btn btn-outline-primary" for="vat_included">VAT Included</label>
                         <input type="radio" class="btn-check booking-money" id="vat_added" name="vat_included" value="0" @checked(!(old('vat_included', false)))><label class="btn btn-outline-primary" for="vat_added">Add VAT</label>
                     </div>
-                    <div class="mb-3"><label class="form-label" for="base_rent">Rent excluding VAT</label><input id="base_rent" class="form-control" readonly></div>
-                    <div class="mb-3"><label class="form-label" for="vat_amount">VAT 5% <small class="text-muted">Rent + Cleaning + Agency</small></label><input type="number" step="0.01" id="vat_amount" class="form-control" readonly></div>
                     <div class="mb-3"><label class="form-label" for="dtcm_fee">DTCM Fee <span class="badge bg-light text-muted">No VAT</span></label><input type="number" step="0.01" min="0" id="dtcm_fee" name="dtcm_fee" value="{{ old('dtcm_fee', 0) }}" class="form-control booking-money"></div>
                     <div class="mb-3"><label class="form-label" for="cleaning_fee">Cleaning Fee <span class="badge bg-primary-subtle text-primary">+ 5% VAT</span></label><input type="number" step="0.01" min="0" id="cleaning_fee" name="cleaning_fee" value="{{ old('cleaning_fee', 0) }}" class="form-control booking-money"></div>
                     <div class="mb-3"><label class="form-label" for="agency_fee">Agency Fee <span class="badge bg-primary-subtle text-primary">+ 5% VAT</span></label><input type="number" step="0.01" min="0" id="agency_fee" name="agency_fee" value="{{ old('agency_fee', 0) }}" class="form-control booking-money"></div>
                     <div class="mb-3"><label class="form-label" for="security_deposit">Refundable security deposit (company held)</label><input type="number" step="0.01" min="0" id="security_deposit" name="security_deposit" value="{{ old('security_deposit', 0) }}" class="form-control booking-money"></div>
-                    <div class="border rounded p-3 bg-light-subtle">
-                        <p class="text-muted mb-1">Invoice total</p>
-                        <h4 class="mb-0"><span id="booking_total">0.00</span> AED</h4>
+                    <div class="table-responsive border rounded mt-3">
+                        <table class="table table-sm align-middle mb-0">
+                            <thead class="table-light"><tr><th>Charge</th><th class="text-end">Net</th><th class="text-center">VAT</th><th class="text-end">VAT Amount</th><th class="text-end">Total</th></tr></thead>
+                            <tbody>
+                                <tr><td>Rent</td><td class="text-end" id="summary_rent_net">0.00</td><td class="text-center">5%</td><td class="text-end" id="summary_rent_vat">0.00</td><td class="text-end" id="summary_rent_total">0.00</td></tr>
+                                <tr><td>Cleaning Fee</td><td class="text-end" id="summary_cleaning_net">0.00</td><td class="text-center">5%</td><td class="text-end" id="summary_cleaning_vat">0.00</td><td class="text-end" id="summary_cleaning_total">0.00</td></tr>
+                                <tr><td>Agency Fee</td><td class="text-end" id="summary_agency_net">0.00</td><td class="text-center">5%</td><td class="text-end" id="summary_agency_vat">0.00</td><td class="text-end" id="summary_agency_total">0.00</td></tr>
+                                <tr><td>DTCM Fee</td><td class="text-end" id="summary_dtcm">0.00</td><td class="text-center text-muted">No VAT</td><td class="text-end">0.00</td><td class="text-end" id="summary_dtcm_total">0.00</td></tr>
+                                <tr><td>Security Deposit</td><td class="text-end" id="summary_deposit">0.00</td><td class="text-center text-muted">No VAT</td><td class="text-end">0.00</td><td class="text-end" id="summary_deposit_total">0.00</td></tr>
+                            </tbody>
+                            <tfoot class="table-light fw-semibold">
+                                <tr><td colspan="3">Total VAT</td><td class="text-end" id="vat_amount">0.00</td><td></td></tr>
+                                <tr><td colspan="4">Grand Total</td><td class="text-end"><span id="booking_total">0.00</span> AED</td></tr>
+                            </tfoot>
+                        </table>
+                        <input type="hidden" id="base_rent">
                     </div>
                 </div>
             </div>
@@ -94,10 +105,22 @@
         const vatIncluded = document.getElementById('vat_included').checked;
         const rentVat = vatIncluded ? rentInput - (rentInput / 1.05) : rentInput * 0.05;
         const rent = vatIncluded ? rentInput - rentVat : rentInput;
-        const vat = rentVat + ((money('cleaning_fee') + money('agency_fee')) * 0.05);
-        const total = rent + vat + money('dtcm_fee') + money('cleaning_fee') + money('agency_fee') + money('security_deposit');
+        const cleaning = money('cleaning_fee');
+        const agency = money('agency_fee');
+        const dtcm = money('dtcm_fee');
+        const deposit = money('security_deposit');
+        const cleaningVat = cleaning * 0.05;
+        const agencyVat = agency * 0.05;
+        const vat = rentVat + cleaningVat + agencyVat;
+        const total = rent + vat + dtcm + cleaning + agency + deposit;
         document.getElementById('base_rent').value = rent.toFixed(2);
-        document.getElementById('vat_amount').value = vat.toFixed(2);
+        const show = (id, value) => document.getElementById(id).textContent = value.toFixed(2);
+        show('summary_rent_net', rent); show('summary_rent_vat', rentVat); show('summary_rent_total', rent + rentVat);
+        show('summary_cleaning_net', cleaning); show('summary_cleaning_vat', cleaningVat); show('summary_cleaning_total', cleaning + cleaningVat);
+        show('summary_agency_net', agency); show('summary_agency_vat', agencyVat); show('summary_agency_total', agency + agencyVat);
+        show('summary_dtcm', dtcm); show('summary_dtcm_total', dtcm);
+        show('summary_deposit', deposit); show('summary_deposit_total', deposit);
+        show('vat_amount', vat);
         document.getElementById('booking_total').textContent = total.toFixed(2);
     };
 

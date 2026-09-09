@@ -13,6 +13,7 @@
         .right{text-align:right}
         .badge{display:inline-block;padding:5px 10px;background:#eef2ff;color:#3730a3;border-radius:4px}
         .total td{font-weight:700;background:#f9fafb}
+        .vat-total td{font-weight:700;background:#eef2ff;color:#312e81}
     </style>
 </head>
 <body>
@@ -57,20 +58,22 @@
     </table>
 
     <table>
-        <thead><tr><th>Description</th><th class="right">Amount</th></tr></thead>
+        <thead><tr><th>Description</th><th class="right">Net Amount</th><th class="right">VAT Rate</th><th class="right">VAT Amount</th><th class="right">Total</th></tr></thead>
         <tbody>
-            <tr><td>Rent Amount (excluding VAT)</td><td class="right">AED {{ number_format((float) $invoice->rent_amount, 2) }}</td></tr>
-            @if($rentVat > 0)<tr><td>VAT on Rent {{ number_format((float) $invoice->vat_rate, 2) }}%</td><td class="right">AED {{ number_format($rentVat, 2) }}</td></tr>@endif
+            <tr><td>Rent</td><td class="right">AED {{ number_format((float) $invoice->rent_amount, 2) }}</td><td class="right">{{ number_format((float) $invoice->vat_rate, 2) }}%</td><td class="right">AED {{ number_format($rentVat, 2) }}</td><td class="right">AED {{ number_format((float)$invoice->rent_amount + $rentVat, 2) }}</td></tr>
             @foreach($fees as $label => $amount)
                 @if((float) $amount > 0)
-                    <tr><td>{{ $label }} @if(in_array($label,['DTCM Fee','Security Deposit']))<span class="muted">(No VAT)</span>@endif</td><td class="right">AED {{ number_format((float) $amount, 2) }}</td></tr>
-                    @if($label === 'Cleaning Fee' && $cleaningVat > 0)<tr><td>VAT on Cleaning Fee {{ number_format((float)$invoice->vat_rate,2) }}%</td><td class="right">AED {{ number_format($cleaningVat,2) }}</td></tr>@endif
-                    @if($label === 'Agency Fee' && $agencyVat > 0)<tr><td>VAT on Agency Fee {{ number_format((float)$invoice->vat_rate,2) }}%</td><td class="right">AED {{ number_format($agencyVat,2) }}</td></tr>@endif
+                    @php
+                        $lineVat = $label === 'Cleaning Fee' ? $cleaningVat : ($label === 'Agency Fee' ? $agencyVat : 0);
+                        $taxable = in_array($label, ['Cleaning Fee', 'Agency Fee']) && $newVatScope;
+                    @endphp
+                    <tr><td>{{ $label }}</td><td class="right">AED {{ number_format((float) $amount, 2) }}</td><td class="right">{{ $taxable ? number_format((float)$invoice->vat_rate,2).'%' : 'No VAT' }}</td><td class="right">AED {{ number_format($lineVat,2) }}</td><td class="right">AED {{ number_format((float)$amount + $lineVat,2) }}</td></tr>
                 @endif
             @endforeach
-            <tr class="total"><td>Total Invoice Amount</td><td class="right">AED {{ number_format((float) $invoice->total_amount, 2) }}</td></tr>
-            <tr><td>Payments Received</td><td class="right">AED {{ number_format($invoice->paid_amount, 2) }}</td></tr>
-            <tr class="total"><td>Balance Due</td><td class="right">AED {{ number_format($invoice->balance_due, 2) }}</td></tr>
+            <tr class="vat-total"><td colspan="3">Total VAT</td><td class="right">AED {{ number_format((float)$invoice->vat_amount, 2) }}</td><td></td></tr>
+            <tr class="total"><td colspan="4">Total Invoice Amount</td><td class="right">AED {{ number_format((float) $invoice->total_amount, 2) }}</td></tr>
+            <tr><td colspan="4">Payments Received</td><td class="right">AED {{ number_format($invoice->paid_amount, 2) }}</td></tr>
+            <tr class="total"><td colspan="4">Balance Due</td><td class="right">AED {{ number_format($invoice->balance_due, 2) }}</td></tr>
         </tbody>
     </table>
 
