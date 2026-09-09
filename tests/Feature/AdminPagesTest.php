@@ -75,6 +75,12 @@ class AdminPagesTest extends TestCase
         $this->assertSame('50.00', $expense->profit_amount);
         $this->assertDatabaseHas('landlord_account_entries', ['reference' => $expense->expense_no, 'amount' => 157.50]);
         $this->assertDatabaseHas('accounting_entries', ['expense_id' => $expense->id, 'category' => 'expense_recovery', 'credit' => 150]);
+        $this->assertDatabaseHas('accounting_entries', [
+            'expense_id' => $expense->id,
+            'category' => 'output_vat',
+            'credit' => 7.50,
+            'accounting_account_id' => \App\Models\AccountingAccount::where('code', '2040')->value('id'),
+        ]);
         $this->get(route('admin.accounting.expenses.tax-invoice', $expense))->assertOk()->assertHeader('content-type', 'application/pdf');
     }
 

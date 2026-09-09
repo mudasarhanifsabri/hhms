@@ -1495,8 +1495,9 @@ class AccountingController extends Controller
     private function syncExpenseSaleIncome(Expense $expense): void
     {
         $reference = 'SALE-'.$expense->expense_no;
+        $vatReference = 'VAT-SALE-'.$expense->expense_no;
         if (! $this->expenseShouldPost($expense) || (float) $expense->sale_gross_amount <= 0) {
-            AccountingEntry::where('expense_id', $expense->id)->where('transaction_reference', $reference)->delete();
+            AccountingEntry::where('expense_id', $expense->id)->whereIn('transaction_reference', [$reference, $vatReference])->delete();
             return;
         }
 
@@ -1510,6 +1511,21 @@ class AccountingController extends Controller
             'vat_amount' => $expense->sale_vat_amount, 'net_amount' => $expense->sale_net_amount, 'gross_amount' => $expense->sale_gross_amount,
             'approval_status' => $expense->approval_status === 'paid' ? 'posted' : $expense->approval_status, 'created_by' => auth()->id(),
         ]);
+
+        if ((float) $expense->sale_vat_amount > 0) {
+            AccountingEntry::updateOrCreate(['expense_id' => $expense->id, 'transaction_reference' => $vatReference], [
+                'entry_no' => AccountingEntry::where('expense_id', $expense->id)->where('transaction_reference', $vatReference)->value('entry_no') ?: $this->nextNumber('JE', AccountingEntry::class, 'entry_no'),
+                'entry_date' => $expense->expense_date, 'type' => 'adjustment', 'category' => 'output_vat',
+                'accounting_account_id' => AccountingAccount::where('code', '2040')->value('id'),
+                'description' => 'Output VAT payable on tax invoice TI-'.$expense->expense_no,
+                'property_id' => $expense->property_id, 'landlord_id' => $expense->landlord_id, 'booking_id' => $expense->booking_id,
+                'credit' => $expense->sale_vat_amount, 'debit' => 0, 'vat_rate' => $expense->vat_rate,
+                'vat_amount' => $expense->sale_vat_amount, 'net_amount' => $expense->sale_vat_amount, 'gross_amount' => $expense->sale_vat_amount,
+                'approval_status' => $expense->approval_status === 'paid' ? 'posted' : $expense->approval_status, 'created_by' => auth()->id(),
+            ]);
+        } else {
+            AccountingEntry::where('expense_id', $expense->id)->where('transaction_reference', $vatReference)->delete();
+        }
     }
 
     private function upload(Request $request, string $field, string $folder): ?string
