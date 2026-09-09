@@ -56,6 +56,25 @@ class BookingCorrectionsTest extends TestCase
         $this->assertSame(0, AccountingEntry::count());
     }
 
+    public function test_new_booking_taxes_rent_cleaning_and_agency_but_not_dtcm_or_deposit(): void
+    {
+        $this->actingAs(User::factory()->create(['role'=>'admin']));
+        $owner=User::factory()->create(['role'=>'landlord']);
+        $unit=Property::create(['landlord_id'=>$owner->id,'name'=>'VAT Unit']);
+        $this->post(route('admin.booking.store'),[
+            'property_id'=>$unit->id,'guest_name'=>'VAT Guest','guest_email'=>'vat@example.com','guest_phone'=>'0500000000','guest_passport_id_no'=>'VAT-1',
+            'check_in'=>'2026-10-01','check_out'=>'2026-10-10','rent_amount'=>1000,'cleaning_fee'=>100,'agency_fee'=>200,'dtcm_fee'=>30,'security_deposit'=>500,
+        ])->assertSessionHasNoErrors();
+        $booking=Booking::firstOrFail();
+        $invoice=$booking->invoices()->firstOrFail();
+        $this->assertSame('rent_cleaning_agency',$invoice->vat_scope);
+        $this->assertEquals(65,$invoice->vat_amount);
+        $this->assertEquals(1895,$invoice->total_amount);
+        $this->assertEquals(65,$booking->vat_amount);
+        $this->assertEquals(1895,$booking->total_amount);
+        $this->get(route('admin.accounting.booking-invoices.pdf',$invoice))->assertOk()->assertHeader('content-type','application/pdf');
+    }
+
     public function test_guest_edit_is_compact_and_cannot_change_invoice_financials(): void
     {
         [$booking, $invoice] = $this->setupInvoice();

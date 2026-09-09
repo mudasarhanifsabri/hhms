@@ -24,6 +24,7 @@ class BookingInvoice extends BaseModel
         'vat_rate',
         'vat_included',
         'vat_amount',
+        'vat_scope',
         'fees',
         'total_amount',
         'status',

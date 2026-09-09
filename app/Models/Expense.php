@@ -54,6 +54,7 @@ class Expense extends BaseModel
         'imported_payload',
         'needs_review',
         'approval_status',
+        'reversed_at', 'reversed_by', 'reversal_reason',
         'description',
         'accounting_entry_id',
         'created_by',
@@ -74,6 +75,7 @@ class Expense extends BaseModel
         'profit_amount' => 'decimal:2',
         'imported_payload' => 'array',
         'needs_review' => 'boolean',
+        'reversed_at' => 'datetime',
     ];
 
     public function property(): BelongsTo
@@ -109,5 +111,10 @@ class Expense extends BaseModel
     public function ownerChargeInvoice(): BelongsTo
     {
         return $this->belongsTo(OwnerChargeInvoice::class);
+    }
+
+    public function audits()
+    {
+        return $this->hasMany(ExpenseAudit::class);
     }
 }

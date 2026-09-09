@@ -90,7 +90,7 @@
                                 <td><strong>{{ $invoice->type_label }}</strong><div class="invoice-preview-wrap"><button type="button" class="btn btn-link btn-sm p-0 invoice-number" data-bs-toggle="modal" data-bs-target="#invoiceDetails{{ $invoice->id }}" aria-describedby="invoicePreview{{ $invoice->id }}">{{ $invoice->invoice_number }}</button>
                                     <div class="invoice-hover-preview" role="tooltip" id="invoicePreview{{ $invoice->id }}">
                                         <div><span>Rent</span><strong>AED {{ number_format((float)$invoice->rent_amount,2) }}</strong></div>
-                                        <div><span>VAT</span><strong>AED {{ number_format((float)$invoice->vat_amount,2) }}</strong></div>
+                                        <div><span>VAT {{ $invoice->vat_scope === 'rent_cleaning_agency' ? '(Rent + Cleaning + Agency)' : '(Rent)' }}</span><strong>AED {{ number_format((float)$invoice->vat_amount,2) }}</strong></div>
                                         <div><span>Other fees</span><strong>AED {{ number_format(collect($invoice->fees ?? [])->except('Security Deposit')->sum(),2) }}</strong></div>
                                         <div><span>Deposit</span><strong>AED {{ number_format((float)(($invoice->fees ?? [])['Security Deposit'] ?? 0),2) }}</strong></div>
                                         <div class="border-top pt-2 mt-2"><span>Total</span><strong>AED {{ number_format((float)$invoice->total_amount,2) }}</strong></div>
@@ -376,7 +376,7 @@
     <div class="modal-header"><h5>{{ $invoice->type_label }} — {{ $invoice->invoice_number }}</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
     <div class="modal-body"><table class="table"><tbody>
         <tr><td>Rent</td><td class="text-end">AED {{ number_format((float)$invoice->rent_amount,2) }}</td></tr>
-        <tr><td>VAT recorded ({{ $invoice->vat_rate }}%)</td><td class="text-end">AED {{ number_format((float)$invoice->vat_amount,2) }}</td></tr>
+        <tr><td>VAT recorded ({{ $invoice->vat_rate }}%) — {{ $invoice->vat_scope === 'rent_cleaning_agency' ? 'Rent, Cleaning and Agency Fee' : 'Rent only (legacy invoice)' }}</td><td class="text-end">AED {{ number_format((float)$invoice->vat_amount,2) }}</td></tr>
         @foreach($invoice->fees ?? [] as $label => $amount)
             @if($label !== 'Security Deposit')
                 <tr><td>{{ $label }}</td><td class="text-end">AED {{ number_format((float)$amount,2) }}</td></tr>

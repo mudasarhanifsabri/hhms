@@ -1,12 +1,13 @@
 <div class="modal fade booking-invoice-editor" id="correctInvoice{{ $invoice->id }}" tabindex="-1" aria-label="Edit invoice" aria-hidden="true">
 <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable"><div class="modal-content">
-<form method="POST" action="{{ route('admin.booking-invoice.correct',$invoice) }}" data-invoice-editor>
+<form method="POST" action="{{ route('admin.booking-invoice.correct',$invoice) }}" data-invoice-editor data-vat-scope="{{ $invoice->vat_scope }}">
     @csrf @method('PUT')
     <div class="modal-header"><h5 class="modal-title">Edit Invoice {{ $invoice->invoice_number }} <span class="badge bg-danger-subtle text-danger ms-2">{{ ucfirst($invoice->status) }}</span></h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
     <div class="modal-body">
         <p class="border-bottom pb-3"><strong>{{ $booking->guest_name }}</strong> <span class="text-muted">· {{ $booking->property?->building?->name }} — {{ $booking->property?->name }}</span></p>
         <label class="form-label" for="rentInput{{ $invoice->id }}">Rent amount entered (AED)</label>
-        <input id="rentInput{{ $invoice->id }}" name="rent_amount" type="number" min="0" step="0.01" value="{{ number_format((float)$invoice->rent_amount + ($invoice->vat_included ? (float)$invoice->vat_amount : 0),2,'.','') }}" class="form-control mb-3" required>
+        @php($taxableFeesVat = $invoice->vat_scope === 'rent_cleaning_agency' ? round(((float)(($invoice->fees ?? [])['Cleaning Fee'] ?? 0) + (float)(($invoice->fees ?? [])['Agency Fee'] ?? 0)) * (float)$invoice->vat_rate / 100, 2) : 0)
+        <input id="rentInput{{ $invoice->id }}" name="rent_amount" type="number" min="0" step="0.01" value="{{ number_format((float)$invoice->rent_amount + ($invoice->vat_included ? max(0,(float)$invoice->vat_amount-$taxableFeesVat) : 0),2,'.','') }}" class="form-control mb-3" required>
         <div class="btn-group w-100 mb-2" role="group" aria-label="VAT treatment">
             <input type="radio" class="btn-check" name="vat_included" value="1" id="vatIn{{ $invoice->id }}" @checked($invoice->vat_included)><label class="btn btn-outline-primary" for="vatIn{{ $invoice->id }}">VAT Included</label>
             <input type="radio" class="btn-check" name="vat_included" value="0" id="vatAdd{{ $invoice->id }}" @checked(!$invoice->vat_included)><label class="btn btn-outline-primary" for="vatAdd{{ $invoice->id }}">Add VAT</label>
@@ -41,8 +42,9 @@ document.addEventListener('DOMContentLoaded',()=>{
             const entered=round(Number(form.elements.rent_amount.value)||0), rate=Number(form.elements.vat_rate.value)||0;
             const included=form.querySelector('[name="vat_included"]:checked').value==='1';
             const rent=included?round(entered/(1+rate/100)):entered;
-            const vat=included?round(entered-rent):round(rent*rate/100);
-            let fees=0;form.querySelectorAll('[data-invoice-fee]').forEach(input=>fees+=Number(input.value)||0);
+            const rentVat=included?round(entered-rent):round(rent*rate/100);
+            let fees=0,taxableFees=0;form.querySelectorAll('[data-invoice-fee]').forEach(input=>{const amount=Number(input.value)||0;fees+=amount;if(form.dataset.vatScope==='rent_cleaning_agency' && ['Cleaning Fee','Agency Fee'].includes(input.name.slice(5,-1))) taxableFees+=amount;});
+            const vat=round(rentVat+taxableFees*rate/100);
             Object.entries({rent,vat,grossRent:round(rent+vat),total:round(rent+vat+fees)}).forEach(([key,value])=>form.querySelector('[data-preview="'+key+'"]').textContent=fmt(value));
         };
         form.addEventListener('input',calculate);form.addEventListener('change',calculate);calculate();

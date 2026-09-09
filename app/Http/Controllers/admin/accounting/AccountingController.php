@@ -10,6 +10,7 @@ use App\Models\BankTransfer;
 use App\Models\Booking;
 use App\Models\BookingInvoice;
 use App\Models\Expense;
+use App\Models\ExpenseAudit;
 use App\Models\LandlordAccountEntry;
 use App\Models\Property;
 use App\Models\User;
@@ -25,6 +26,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
@@ -259,7 +261,7 @@ class AccountingController extends Controller
 
     private function filteredExpenses(Request $request)
     {
-        return Expense::with(['property.building', 'landlord', 'booking', 'vendor', 'paidFromAccount'])
+        return Expense::with(['property.building', 'landlord', 'booking', 'vendor', 'paidFromAccount', 'audits.user'])
             ->when($request->filled('task_id'), fn($query) => $query->where('booking_task_id', $request->input('task_id')))
             ->when($request->filled('category'), fn ($query) => $query->where('category', $request->input('category')))
             ->when($request->filled('property_id'), fn ($query) => $query->where('property_id', $request->input('property_id')))
@@ -273,7 +275,7 @@ class AccountingController extends Controller
         $request->validate([
             'category' => 'nullable|in:' . implode(',', array_keys(Expense::CATEGORIES)),
             'property_id' => 'nullable|uuid|exists:properties,id',
-            'approval_status' => 'nullable|in:draft,pending,reviewed,approved,paid,rejected',
+            'approval_status' => 'nullable|in:draft,pending,reviewed,approved,paid,rejected,reversed',
             'date_from' => 'nullable|date',
             'date_to' => 'nullable|date|after_or_equal:date_from',
         ]);
@@ -415,7 +417,6 @@ class AccountingController extends Controller
             'approval_status' => 'nullable|in:draft,pending,reviewed,approved,paid,rejected',
             'description' => 'nullable|string|max:1000',
         ]);
-
         $property = ! empty($data['property_id']) ? Property::find($data['property_id']) : null;
         $costVatMode = $data['cost_vat_mode'] ?? ($request->boolean('vat_included') ? 'included' : 'excluded');
         $saleVatMode = $data['sale_vat_mode'] ?? ($request->boolean('sale_vat_included') ? 'included' : 'excluded');
@@ -468,6 +469,11 @@ class AccountingController extends Controller
     public function updateExpense(Request $request, Expense $expense)
     {
         abort_unless($this->canModifyApprovedExpense($expense), 403, 'Only the super admin can edit an approved expense.');
+        $protectedEdit = in_array($expense->approval_status, ['approved', 'paid'], true);
+        if ($protectedEdit) {
+            $this->confirmFinancialAction($request);
+        }
+        $beforeValues = $expense->getAttributes();
 
         $data = $request->validate([
             'expense_date' => 'required|date',
@@ -494,6 +500,9 @@ class AccountingController extends Controller
             'approval_status' => 'required|in:draft,pending,reviewed,approved,paid,rejected',
             'description' => 'nullable|string|max:1000',
         ]);
+        if ($protectedEdit) {
+            $data['approval_status'] = $expense->approval_status;
+        }
 
         $property = ! empty($data['property_id']) ? Property::find($data['property_id']) : null;
         $costVatMode = $data['cost_vat_mode'] ?? ($request->boolean('vat_included') ? 'included' : 'excluded');
@@ -562,6 +571,14 @@ class AccountingController extends Controller
         $this->syncExpenseSaleIncome($expense);
         $this->syncExpenseInputVat($expense);
 
+        if ($protectedEdit) {
+            ExpenseAudit::create([
+                'expense_id' => $expense->id, 'user_id' => auth()->id(), 'action' => 'approved_expense_edited',
+                'reason' => $request->input('change_reason'), 'before_values' => $beforeValues,
+                'after_values' => $expense->fresh()->getAttributes(), 'ip_address' => $request->ip(),
+            ]);
+        }
+
         return back()->with('success', 'Expense updated.');
     }
 
@@ -592,6 +609,11 @@ class AccountingController extends Controller
     {
         abort_unless($this->canModifyApprovedExpense($expense), 403, 'Only the super admin can delete an approved expense.');
 
+        if (in_array($expense->approval_status, ['approved', 'paid'], true)) {
+            $this->confirmFinancialAction(request());
+            return $this->reverseApprovedExpense(request(), $expense);
+        }
+
         $landlordId = $expense->landlord_id;
         $expenseNo = $expense->expense_no;
 
@@ -618,6 +640,46 @@ class AccountingController extends Controller
         }
 
         return back()->with('success', 'Expense deleted successfully.');
+    }
+
+    private function reverseApprovedExpense(Request $request, Expense $expense)
+    {
+        abort_if($expense->reversed_at, 422, 'This expense has already been reversed.');
+        $beforeValues = $expense->getAttributes();
+        $landlordId = $expense->landlord_id;
+
+        DB::transaction(function () use ($request, $expense, $beforeValues, $landlordId) {
+            foreach (AccountingEntry::where('expense_id', $expense->id)->get() as $source) {
+                $reversal = $source->replicate();
+                $reversal->fill([
+                    'entry_no' => $this->nextNumber('REV', AccountingEntry::class, 'entry_no'),
+                    'entry_date' => today(), 'description' => 'Reversal of '.$source->entry_no.': '.$request->input('change_reason'),
+                    'debit' => $source->credit, 'credit' => $source->debit,
+                    'transaction_reference' => 'REV-'.$expense->expense_no.'-'.$source->id,
+                    'approval_status' => 'posted', 'status' => 'posted', 'created_by' => auth()->id(),
+                ]);
+                $reversal->save();
+            }
+
+            $ownerDebit = LandlordAccountEntry::where('reference', $expense->expense_no)->where('direction', 'debit')->first();
+            if ($ownerDebit) {
+                LandlordAccountEntry::create([
+                    'landlord_id'=>$ownerDebit->landlord_id,'property_id'=>$ownerDebit->property_id,'entry_date'=>today(),
+                    'type'=>'adjustment_credit','direction'=>'credit','amount'=>$ownerDebit->amount,
+                    'reference'=>'REV-'.$expense->expense_no,'description'=>'Reversal of '.$expense->expense_no.': '.$request->input('change_reason'),
+                ]);
+            }
+
+            $expense->update(['approval_status'=>'reversed','reversed_at'=>now(),'reversed_by'=>auth()->id(),'reversal_reason'=>$request->input('change_reason')]);
+            ExpenseAudit::create([
+                'expense_id'=>$expense->id,'user_id'=>auth()->id(),'action'=>'approved_expense_reversed',
+                'reason'=>$request->input('change_reason'),'before_values'=>$beforeValues,
+                'after_values'=>$expense->fresh()->getAttributes(),'ip_address'=>$request->ip(),
+            ]);
+        });
+
+        if ($landlordId) LandlordAccountEntry::recalculateBalancesFor($landlordId);
+        return back()->with('success', 'Approved expense reversed. Original financial history has been preserved.');
     }
 
     public function utilities(Request $request)
@@ -1656,12 +1718,26 @@ class AccountingController extends Controller
 
     private function canModifyApprovedExpense(Expense $expense): bool
     {
+        if ($expense->approval_status === 'reversed') {
+            return false;
+        }
         if (! in_array($expense->approval_status, ['approved', 'paid'], true)) {
             return true;
         }
 
         // The existing access model treats the admin role as the super-admin role.
         return auth()->user()?->role === 'admin';
+    }
+
+    private function confirmFinancialAction(Request $request): void
+    {
+        $request->validate([
+            'current_password' => 'required|string|max:255',
+            'change_reason' => 'required|string|min:5|max:1000',
+        ]);
+        if (! Hash::check((string) $request->input('current_password'), (string) auth()->user()?->password)) {
+            throw ValidationException::withMessages(['current_password' => 'The Super Admin password is incorrect.']);
+        }
     }
 
     private function bankBalanceTotal(?string $type = null, ?Carbon $asOf = null): float

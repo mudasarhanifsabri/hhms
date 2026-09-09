@@ -20,7 +20,7 @@
             <div class="col-md-2">
                 <select name="approval_status" class="form-select">
                     <option value="">All Status</option>
-                    @foreach(['draft' => 'Draft', 'pending' => 'Pending', 'reviewed' => 'Reviewed', 'approved' => 'Approved', 'paid' => 'Paid', 'rejected' => 'Rejected'] as $key => $label)
+                    @foreach(['draft' => 'Draft', 'pending' => 'Pending', 'reviewed' => 'Reviewed', 'approved' => 'Approved', 'paid' => 'Paid', 'rejected' => 'Rejected', 'reversed' => 'Reversed'] as $key => $label)
                         <option value="{{ $key }}" @selected(request('approval_status') === $key)>{{ $label }}</option>
                     @endforeach
                 </select>
@@ -42,7 +42,7 @@
                     <td>{{ $expense->property?->name ?? '-' }}@if($expense->property)<br><small class="text-muted">{{ $expense->property->building?->building_name ?? $expense->property->building?->name ?? 'No Building' }}</small>@endif</td>
                     <td>{{ $expense->vendor?->name ?? $expense->supplier ?? '-' }}</td>
                     <td>
-                        <span class="badge {{ in_array($expense->approval_status, ['approved', 'paid'], true) ? 'bg-success' : ($expense->approval_status === 'rejected' ? 'bg-danger' : 'bg-warning') }}">
+                        <span class="badge {{ in_array($expense->approval_status, ['approved', 'paid'], true) ? 'bg-success' : ($expense->approval_status === 'rejected' ? 'bg-danger' : ($expense->approval_status === 'reversed' ? 'bg-secondary' : 'bg-warning')) }}">
                             {{ ucfirst(str_replace('_', ' ', $expense->approval_status)) }}
                         </span>
                         @if($expense->needs_review)
@@ -53,22 +53,25 @@
                     <td>{{ (float)$expense->sale_gross_amount > 0 ? 'AED '.number_format((float)$expense->sale_gross_amount,2) : '-' }}</td>
                     <td class="{{ (float)$expense->profit_amount >= 0 ? 'text-success' : 'text-danger' }}">AED {{ number_format((float)$expense->profit_amount,2) }}</td>
                     <td>
+                        @if($expense->audits->isNotEmpty())<button type="button" class="btn btn-sm btn-soft-info" data-bs-toggle="modal" data-bs-target="#expenseAudit{{ $expense->id }}" title="Audit History"><i class="ri-history-line"></i></button>@endif
                         @if($expense->receipt_path)<a href="{{ \App\Support\MediaStorage::url($expense->receipt_path) }}" target="_blank" class="btn btn-sm btn-soft-primary" title="Receipt"><i class="ri-receipt-line"></i></a>@endif
                         @if($expense->invoice_path)<a href="{{ \App\Support\MediaStorage::url($expense->invoice_path) }}" target="_blank" class="btn btn-sm btn-soft-info" title="Invoice"><i class="ri-file-list-3-line"></i></a>@endif
                         @if((float)$expense->sale_gross_amount > 0)<a href="{{ route('admin.accounting.expenses.tax-invoice',$expense) }}" class="btn btn-sm btn-soft-success" title="Download Tax Invoice"><i class="ri-bill-line"></i></a><button type="button" class="btn btn-sm btn-soft-primary" data-bs-toggle="modal" data-bs-target="#emailTaxInvoice{{ $expense->id }}" title="Email Tax Invoice"><i class="ri-mail-send-line"></i></button>@endif
                         @if($expense->import_source_file)<a href="{{ \App\Support\MediaStorage::url($expense->import_source_file) }}" target="_blank" class="btn btn-sm btn-soft-secondary" title="Import Source"><i class="ri-file-upload-line"></i></a>@endif
                     </td>
                     <td>
-                        @if(! in_array($expense->approval_status, ['approved', 'paid'], true) || auth()->user()?->role === 'admin')
+                        @if($expense->approval_status !== 'reversed' && (! in_array($expense->approval_status, ['approved', 'paid'], true) || auth()->user()?->role === 'admin'))
                         <button type="button" class="btn btn-sm btn-light" data-bs-toggle="modal" data-bs-target="#editExpense{{ $expense->id }}"><i class="ri-edit-line"></i></button>
                         @endif
-                        @if(! in_array($expense->approval_status, ['approved', 'paid', 'rejected'], true))
+                        @if(! in_array($expense->approval_status, ['approved', 'paid', 'rejected', 'reversed'], true))
                             <form action="{{ route('admin.accounting.expenses.approve', $expense->id) }}" method="POST" class="d-inline">
                                 @csrf
                                 <button class="btn btn-sm btn-success" title="Approve and post"><i class="ri-check-line"></i></button>
                             </form>
                         @endif
-                        @if(! in_array($expense->approval_status, ['approved', 'paid'], true) || auth()->user()?->role === 'admin')
+                        @if(in_array($expense->approval_status, ['approved', 'paid'], true) && auth()->user()?->role === 'admin')
+                            <button type="button" class="btn btn-sm btn-soft-danger" data-bs-toggle="modal" data-bs-target="#reverseExpense{{ $expense->id }}" title="Reverse approved expense"><i class="ri-arrow-go-back-line"></i></button>
+                        @elseif($expense->approval_status !== 'reversed')
                         <form action="{{ url('/admin/accounting/expenses/' . $expense->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Delete this expense? Linked ledger entry and owner statement debit will also be removed.');">
                             @csrf
                             @method('DELETE')
@@ -140,7 +143,10 @@
 @endforeach
 
 @foreach($expenses as $expense)
-@if(! in_array($expense->approval_status, ['approved', 'paid'], true) || auth()->user()?->role === 'admin')
+@if($expense->audits->isNotEmpty())
+<div class="modal fade" id="expenseAudit{{ $expense->id }}" tabindex="-1"><div class="modal-dialog modal-lg modal-dialog-scrollable"><div class="modal-content"><div class="modal-header"><div><h5 class="modal-title">Expense Audit History</h5><small class="text-muted">{{ $expense->expense_no }} · protected changes and reversals</small></div><button class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><div class="timeline">@foreach($expense->audits->sortByDesc('created_at') as $audit)<div class="border rounded-3 p-3 mb-2"><div class="d-flex justify-content-between"><strong>{{ ucwords(str_replace('_',' ',$audit->action)) }}</strong><small class="text-muted">{{ $audit->created_at?->format('d M Y H:i') }}</small></div><p class="mb-1 mt-2">{{ $audit->reason }}</p><small class="text-muted">By {{ $audit->user?->name ?? 'System' }} · IP {{ $audit->ip_address ?: '-' }}</small></div>@endforeach</div></div></div></div></div>
+@endif
+@if($expense->approval_status !== 'reversed' && (! in_array($expense->approval_status, ['approved', 'paid'], true) || auth()->user()?->role === 'admin'))
 <div class="modal fade" id="editExpense{{ $expense->id }}" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-scrollable">
         <form class="modal-content" method="post" action="{{ route('admin.accounting.expenses.update', $expense->id) }}" enctype="multipart/form-data">
@@ -164,9 +170,9 @@
                 <div class="col-md-4"><label class="form-label">Booking</label><select name="booking_id" class="form-select"><option value="">No Booking</option>@foreach($bookings as $booking)<option value="{{ $booking->id }}" @selected($expense->booking_id === $booking->id)>{{ $booking->booking_reference }} - {{ $booking->guest_name }}</option>@endforeach</select></div>
                 <div class="col-md-4"><label class="form-label">Paid / Charged To</label><select name="responsibility" class="form-select expense-responsibility" required><option value="company" @selected($expense->responsibility === 'company')>Company</option><option value="owner" @selected($expense->responsibility === 'owner')>Owner</option><option value="tenant_guest" @selected($expense->responsibility === 'tenant_guest')>Tenant / Guest</option></select></div>
                 <div class="col-md-4"><label class="form-label">Paid From Account</label><select name="paid_from_account_id" class="form-select"><option value="">Select bank/cash</option>@foreach($bankAccounts as $bankAccount)<option value="{{ $bankAccount->id }}" @selected($expense->paid_from_account_id === $bankAccount->id)>{{ $bankAccount->name }}</option>@endforeach</select></div>
-                <div class="col-md-4"><label class="form-label">Status</label><select name="approval_status" class="form-select"><option value="draft" @selected($expense->approval_status === 'draft')>Draft</option><option value="pending" @selected($expense->approval_status === 'pending')>Pending</option><option value="reviewed" @selected($expense->approval_status === 'reviewed')>Reviewed</option><option value="approved" @selected($expense->approval_status === 'approved')>Approved</option><option value="paid" @selected($expense->approval_status === 'paid')>Paid</option><option value="rejected" @selected($expense->approval_status === 'rejected')>Rejected</option></select></div>
+                <div class="col-md-4"><label class="form-label">Status</label>@if(in_array($expense->approval_status,['approved','paid'],true))<input class="form-control" value="{{ ucfirst($expense->approval_status) }} — locked" readonly><input type="hidden" name="approval_status" value="{{ $expense->approval_status }}">@else<select name="approval_status" class="form-select"><option value="draft" @selected($expense->approval_status === 'draft')>Draft</option><option value="pending" @selected($expense->approval_status === 'pending')>Pending</option><option value="reviewed" @selected($expense->approval_status === 'reviewed')>Reviewed</option><option value="approved" @selected($expense->approval_status === 'approved')>Approved</option><option value="paid" @selected($expense->approval_status === 'paid')>Paid</option><option value="rejected" @selected($expense->approval_status === 'rejected')>Rejected</option></select>@endif</div>
                 <input type="hidden" class="expense-default-vat" value="{{ \App\Support\AppSettings::get('default_vat_rate',5) }}">
-                <div class="col-12"><div class="border rounded-3 p-3 bg-light-subtle row g-3 mx-0"><div class="col-12 d-flex justify-content-between"><h6 class="mb-0"><i class="ri-shopping-bag-3-line me-1"></i>Supplier Cost</h6><span class="badge bg-dark">COST AREA</span></div><div class="col-md-5"><label class="form-label">Cost Amount</label><input type="number" step="0.01" name="net_amount" value="{{ $expense->gross_amount ?: $expense->net_amount }}" class="form-control expense-cost" required><small class="text-muted">Amount on supplier bill.</small></div><div class="col-md-7"><label class="form-label d-block">Cost VAT</label><div class="btn-group w-100">@foreach(['none'=>'No VAT','included'=>'VAT Included','excluded'=>'VAT Excluded'] as $value=>$label)<input type="radio" class="btn-check expense-vat-mode" name="cost_vat_mode" id="editCostVat{{ $expense->id }}{{ $value }}" value="{{ $value }}" @checked($expense->cost_vat_mode===$value)><label class="btn btn-outline-primary" for="editCostVat{{ $expense->id }}{{ $value }}">{{ $label }}</label>@endforeach</div></div></div></div>
+                <div class="col-12"><div class="border rounded-3 p-3 bg-light-subtle row g-3 mx-0"><div class="col-12 d-flex justify-content-between"><h6 class="mb-0"><i class="ri-shopping-bag-3-line me-1"></i>Supplier Cost</h6><span class="badge bg-dark">COST AREA</span></div><div class="col-md-5"><label class="form-label">Cost Amount</label><input type="number" step="0.01" name="net_amount" value="{{ $expense->cost_vat_mode === 'included' ? $expense->gross_amount : $expense->net_amount }}" class="form-control expense-cost" required><small class="text-muted">{{ $expense->cost_vat_mode === 'included' ? 'Supplier total including VAT.' : 'Supplier amount before VAT.' }}</small></div><div class="col-md-7"><label class="form-label d-block">Cost VAT</label><div class="btn-group w-100">@foreach(['none'=>'No VAT','included'=>'VAT Included','excluded'=>'VAT Excluded'] as $value=>$label)<input type="radio" class="btn-check expense-vat-mode" name="cost_vat_mode" id="editCostVat{{ $expense->id }}{{ $value }}" value="{{ $value }}" @checked($expense->cost_vat_mode===$value)><label class="btn btn-outline-primary" for="editCostVat{{ $expense->id }}{{ $value }}">{{ $label }}</label>@endforeach</div></div></div></div>
                 <div class="col-12"><div class="border border-primary rounded-3 p-3 bg-primary-subtle row g-3 mx-0"><div class="col-12 d-flex justify-content-between"><h6 class="mb-0 text-primary"><i class="ri-price-tag-3-line me-1"></i>Owner / Customer Sale</h6><span class="badge bg-primary">SALES AREA</span></div><div class="col-md-5"><label class="form-label">Sale Amount</label><input type="number" step="0.01" min="0" name="sale_amount" value="{{ $expense->sale_vat_included ? $expense->sale_gross_amount : $expense->sale_net_amount }}" class="form-control expense-sale"><small class="text-muted">Amount charged onward.</small></div><div class="col-md-7"><label class="form-label d-block">Sale VAT</label><div class="btn-group w-100">@foreach(['none'=>'No VAT','included'=>'VAT Included','excluded'=>'VAT Excluded'] as $value=>$label)<input type="radio" class="btn-check expense-vat-mode" name="sale_vat_mode" id="editSaleVat{{ $expense->id }}{{ $value }}" value="{{ $value }}" @checked($expense->sale_vat_mode===$value)><label class="btn btn-outline-primary" for="editSaleVat{{ $expense->id }}{{ $value }}">{{ $label }}</label>@endforeach</div></div></div></div>
                 <div class="col-12"><div class="alert alert-light border mb-0 py-2">Profit excluding VAT: <strong class="expense-profit">AED {{ number_format((float)$expense->profit_amount,2) }}</strong></div></div>
                 <div class="col-md-4"><label class="form-label">Transaction Reference</label><input name="transaction_reference" value="{{ $expense->transaction_reference }}" class="form-control"></div>
@@ -175,6 +181,11 @@
                 <div class="col-12"><label class="form-label">Description</label><textarea name="description" rows="3" class="form-control">{{ $expense->description }}</textarea></div>
                 <div class="col-md-6"><label class="form-label">Receipt</label><input type="file" name="receipt" class="form-control"></div>
                 <div class="col-md-6"><label class="form-label">Supplier Invoice</label><input type="file" name="invoice" class="form-control"></div>
+                @if(in_array($expense->approval_status, ['approved', 'paid'], true))
+                    <div class="col-12"><div class="alert alert-warning mb-0"><strong>Protected financial record</strong><br>Editing will synchronize accounting, VAT and the owner statement. Confirm your own Super Admin password and explain the change.</div></div>
+                    <div class="col-md-6"><label class="form-label">Super Admin Password</label><input type="password" name="current_password" class="form-control" autocomplete="current-password" required></div>
+                    <div class="col-md-6"><label class="form-label">Reason for Change</label><input name="change_reason" class="form-control" minlength="5" maxlength="1000" required placeholder="Explain why this approved expense is changing"></div>
+                @endif
                 @if($expense->imported_payload)
                     <div class="col-12">
                         <div class="alert alert-light border mb-0">
@@ -188,6 +199,9 @@
         </form>
     </div>
 </div>
+@endif
+@if(in_array($expense->approval_status, ['approved', 'paid'], true) && auth()->user()?->role === 'admin')
+<div class="modal fade" id="reverseExpense{{ $expense->id }}" tabindex="-1" aria-hidden="true"><div class="modal-dialog modal-dialog-centered"><form class="modal-content" method="post" action="{{ route('admin.accounting.expenses.destroy',$expense) }}">@csrf @method('DELETE')<div class="modal-header"><div><h5 class="modal-title text-danger">Reverse Approved Expense</h5><small class="text-muted">{{ $expense->expense_no }} · Original history will be preserved</small></div><button class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><div class="alert alert-danger"><strong>This will not delete the record.</strong> Opposite ledger, VAT and owner-statement entries will be created for a complete audit trail.</div><label class="form-label">Super Admin Password</label><input type="password" name="current_password" class="form-control mb-3" autocomplete="current-password" required><label class="form-label">Reason for Reversal</label><textarea name="change_reason" class="form-control" rows="3" minlength="5" maxlength="1000" required></textarea></div><div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button><button class="btn btn-danger">Confirm & Reverse Expense</button></div></form></div></div>
 @endif
 @endforeach
 @endsection

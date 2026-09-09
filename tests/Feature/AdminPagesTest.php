@@ -105,6 +105,52 @@ class AdminPagesTest extends TestCase
         });
     }
 
+    public function test_admin_can_edit_approved_expense_without_compounding_vat_and_all_postings_sync(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $owner = User::factory()->create(['role' => 'landlord']);
+        $property = Property::create(['landlord_id' => $owner->id, 'name' => 'Unit 528']);
+
+        $this->actingAs($admin)->post(route('admin.accounting.expenses.store'), [
+            'expense_date' => '2026-09-09', 'category' => 'maintenance', 'property_id' => $property->id,
+            'responsibility' => 'owner', 'net_amount' => 100, 'cost_vat_mode' => 'excluded',
+            'sale_amount' => 150, 'sale_vat_mode' => 'excluded', 'approval_status' => 'approved',
+            'description' => 'Original repair',
+        ])->assertSessionHasNoErrors();
+        $expense = Expense::latest()->firstOrFail();
+
+        $this->get(route('admin.accounting.expenses'))->assertOk()
+            ->assertSee('value="100.00"', false)
+            ->assertDontSee('value="105.00"', false);
+
+        $this->put(route('admin.accounting.expenses.update', $expense), [
+            'expense_date' => '2026-09-10', 'category' => 'maintenance', 'property_id' => $property->id,
+            'responsibility' => 'owner', 'net_amount' => 120, 'cost_vat_mode' => 'excluded',
+            'sale_amount' => 180, 'sale_vat_mode' => 'excluded', 'approval_status' => 'approved',
+            'description' => 'Updated repair for Unit 528',
+            'current_password' => 'password', 'change_reason' => 'Correct approved supplier amounts',
+        ])->assertRedirect()->assertSessionHasNoErrors()->assertSessionHas('success', 'Expense updated.');
+
+        $expense->refresh();
+        $this->assertSame('120.00', $expense->net_amount);
+        $this->assertSame('6.00', $expense->vat_amount);
+        $this->assertSame('126.00', $expense->gross_amount);
+        $this->assertSame('180.00', $expense->sale_net_amount);
+        $this->assertSame('189.00', $expense->sale_gross_amount);
+        $this->assertDatabaseHas('accounting_entries', ['id' => $expense->accounting_entry_id, 'debit' => 120, 'description' => 'Updated repair for Unit 528']);
+        $this->assertDatabaseHas('accounting_entries', ['expense_id' => $expense->id, 'category' => 'input_vat', 'debit' => 6]);
+        $this->assertDatabaseHas('accounting_entries', ['expense_id' => $expense->id, 'category' => 'expense_recovery', 'credit' => 180]);
+        $this->assertDatabaseHas('landlord_account_entries', ['reference' => $expense->expense_no, 'amount' => 189, 'description' => 'Updated repair for Unit 528']);
+        $this->assertDatabaseHas('expense_audits', ['expense_id' => $expense->id, 'action' => 'approved_expense_edited', 'reason' => 'Correct approved supplier amounts']);
+
+        $this->delete(route('admin.accounting.expenses.destroy', $expense), [
+            'current_password' => 'password', 'change_reason' => 'Supplier invoice was cancelled',
+        ])->assertRedirect()->assertSessionHasNoErrors()->assertSessionHas('success');
+        $this->assertDatabaseHas('expenses', ['id' => $expense->id, 'approval_status' => 'reversed', 'reversal_reason' => 'Supplier invoice was cancelled']);
+        $this->assertDatabaseHas('expense_audits', ['expense_id' => $expense->id, 'action' => 'approved_expense_reversed']);
+        $this->assertDatabaseHas('landlord_account_entries', ['reference' => 'REV-'.$expense->expense_no, 'direction' => 'credit', 'amount' => 189]);
+    }
+
     #[DataProvider('mainAdminPageRoutes')]
     public function test_main_admin_pages_render(string $route): void
     {

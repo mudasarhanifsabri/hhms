@@ -64,10 +64,10 @@
                         <input type="radio" class="btn-check booking-money" id="vat_added" name="vat_included" value="0" @checked(!(old('vat_included', false)))><label class="btn btn-outline-primary" for="vat_added">Add VAT</label>
                     </div>
                     <div class="mb-3"><label class="form-label" for="base_rent">Rent excluding VAT</label><input id="base_rent" class="form-control" readonly></div>
-                    <div class="mb-3"><label class="form-label" for="vat_amount">VAT 5%</label><input type="number" step="0.01" id="vat_amount" class="form-control" readonly></div>
-                    <div class="mb-3"><label class="form-label" for="dtcm_fee">DTCM Fee</label><input type="number" step="0.01" min="0" id="dtcm_fee" name="dtcm_fee" value="{{ old('dtcm_fee', 0) }}" class="form-control booking-money"></div>
-                    <div class="mb-3"><label class="form-label" for="cleaning_fee">Cleaning Fee</label><input type="number" step="0.01" min="0" id="cleaning_fee" name="cleaning_fee" value="{{ old('cleaning_fee', 0) }}" class="form-control booking-money"></div>
-                    <div class="mb-3"><label class="form-label" for="agency_fee">Agency Fee</label><input type="number" step="0.01" min="0" id="agency_fee" name="agency_fee" value="{{ old('agency_fee', 0) }}" class="form-control booking-money"></div>
+                    <div class="mb-3"><label class="form-label" for="vat_amount">VAT 5% <small class="text-muted">Rent + Cleaning + Agency</small></label><input type="number" step="0.01" id="vat_amount" class="form-control" readonly></div>
+                    <div class="mb-3"><label class="form-label" for="dtcm_fee">DTCM Fee <span class="badge bg-light text-muted">No VAT</span></label><input type="number" step="0.01" min="0" id="dtcm_fee" name="dtcm_fee" value="{{ old('dtcm_fee', 0) }}" class="form-control booking-money"></div>
+                    <div class="mb-3"><label class="form-label" for="cleaning_fee">Cleaning Fee <span class="badge bg-primary-subtle text-primary">+ 5% VAT</span></label><input type="number" step="0.01" min="0" id="cleaning_fee" name="cleaning_fee" value="{{ old('cleaning_fee', 0) }}" class="form-control booking-money"></div>
+                    <div class="mb-3"><label class="form-label" for="agency_fee">Agency Fee <span class="badge bg-primary-subtle text-primary">+ 5% VAT</span></label><input type="number" step="0.01" min="0" id="agency_fee" name="agency_fee" value="{{ old('agency_fee', 0) }}" class="form-control booking-money"></div>
                     <div class="mb-3"><label class="form-label" for="security_deposit">Refundable security deposit (company held)</label><input type="number" step="0.01" min="0" id="security_deposit" name="security_deposit" value="{{ old('security_deposit', 0) }}" class="form-control booking-money"></div>
                     <div class="border rounded p-3 bg-light-subtle">
                         <p class="text-muted mb-1">Invoice total</p>
@@ -92,8 +92,9 @@
     const calculateBookingTotal = () => {
         const rentInput = money('rent_amount');
         const vatIncluded = document.getElementById('vat_included').checked;
-        const vat = vatIncluded ? rentInput - (rentInput / 1.05) : rentInput * 0.05;
-        const rent = vatIncluded ? rentInput - vat : rentInput;
+        const rentVat = vatIncluded ? rentInput - (rentInput / 1.05) : rentInput * 0.05;
+        const rent = vatIncluded ? rentInput - rentVat : rentInput;
+        const vat = rentVat + ((money('cleaning_fee') + money('agency_fee')) * 0.05);
         const total = rent + vat + money('dtcm_fee') + money('cleaning_fee') + money('agency_fee') + money('security_deposit');
         document.getElementById('base_rent').value = rent.toFixed(2);
         document.getElementById('vat_amount').value = vat.toFixed(2);

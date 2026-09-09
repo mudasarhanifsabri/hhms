@@ -47,7 +47,11 @@ class BookingCorrectionController extends Controller
             $included = (bool) ($data['vat_included'] ?? false);
             $entered = round((float) $data['rent_amount'], 2);
             $rent = $included ? round($entered / (1 + (float) $data['vat_rate'] / 100), 2) : $entered;
-            $vat = $included ? round($entered - $rent, 2) : round($rent * (float) $data['vat_rate'] / 100, 2);
+            $rentVat = $included ? round($entered - $rent, 2) : round($rent * (float) $data['vat_rate'] / 100, 2);
+            $taxableFeeVat = $invoice->vat_scope === 'rent_cleaning_agency'
+                ? round(((float)($fees['Cleaning Fee'] ?? 0) + (float)($fees['Agency Fee'] ?? 0)) * (float)$data['vat_rate'] / 100, 2)
+                : 0;
+            $vat = $rentVat + $taxableFeeVat;
             $invoice->update(['rent_amount' => $rent, 'vat_rate' => $data['vat_rate'], 'vat_included' => $included,
                 'vat_amount' => $vat, 'fees' => $fees, 'total_amount' => round($rent + $vat + array_sum($fees), 2)]);
             if ($invoice->invoice_type !== 'extension') {

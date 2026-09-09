@@ -757,9 +757,15 @@ class BookingController extends Controller
             'Security Deposit' => (float) $booking->security_deposit,
         ];
         $feeTotal = collect($fees)->sum(fn ($amount) => (float) $amount);
+        $vatScope = $override['vat_scope'] ?? 'rent_cleaning_agency';
+        $taxableFeeVat = $vatScope === 'rent_cleaning_agency'
+            ? round(((float) ($fees['Cleaning Fee'] ?? 0) + (float) ($fees['Agency Fee'] ?? 0)) * ($vatRate / 100), 2)
+            : 0;
 
         if ($type === 'original') {
             $vatAmount = (float) $booking->vat_amount;
+        } elseif (! array_key_exists('vat_amount', $override)) {
+            $vatAmount += $taxableFeeVat;
         }
 
         return BookingInvoice::create([
@@ -773,6 +779,7 @@ class BookingController extends Controller
             'vat_rate' => $vatRate,
             'vat_included' => $type === 'extension' ? false : (bool) $booking->vat_included,
             'vat_amount' => $vatAmount,
+            'vat_scope' => $vatScope,
             'fees' => $fees,
             'total_amount' => $rentAmount + $vatAmount + $feeTotal,
             'status' => 'unpaid',
@@ -838,8 +845,8 @@ class BookingController extends Controller
         $property = Property::findOrFail($validatedData['property_id']);
         $rentAmount = (float) $validatedData['rent_amount'];
         $vatIncluded = $request->boolean('vat_included');
-        $vatAmount = $vatIncluded ? round($rentAmount - ($rentAmount / 1.05), 2) : round($rentAmount * 0.05, 2);
-        $baseRent = $vatIncluded ? round($rentAmount - $vatAmount, 2) : $rentAmount;
+        $rentVatAmount = $vatIncluded ? round($rentAmount - ($rentAmount / 1.05), 2) : round($rentAmount * 0.05, 2);
+        $baseRent = $vatIncluded ? round($rentAmount - $rentVatAmount, 2) : $rentAmount;
         $managementFeePercent = (float) ($property->management_fee_percent ?? 0);
         $managementFeeAmount = round($baseRent * ($managementFeePercent / 100), 2);
         $ownerRentIncome = round($baseRent - $managementFeeAmount, 2);
@@ -849,6 +856,8 @@ class BookingController extends Controller
             'agency_fee' => (float) ($validatedData['agency_fee'] ?? 0),
             'security_deposit' => (float) ($validatedData['security_deposit'] ?? 0),
         ];
+        $taxableFeeVat = round(($fees['cleaning_fee'] + $fees['agency_fee']) * 0.05, 2);
+        $vatAmount = $rentVatAmount + $taxableFeeVat;
 
         return [
             'rent_amount' => $baseRent,
