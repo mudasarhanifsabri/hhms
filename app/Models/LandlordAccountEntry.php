@@ -90,29 +90,36 @@ class LandlordAccountEntry extends BaseModel
 
     public function scopeVisibleOnOwnerStatement($query)
     {
-        $invoices = BookingInvoice::query()->get(['id', 'invoice_number', 'total_amount']);
+        $invoices = BookingInvoice::query()->get(['id', 'booking_id', 'invoice_number', 'total_amount']);
+        $bookings = Booking::query()->get(['id', 'booking_reference']);
         $paidTotals = BookingInvoicePayment::query()->whereNull('reversed_at')
             ->selectRaw('booking_invoice_id, SUM(amount) as paid_total')
             ->groupBy('booking_invoice_id')->pluck('paid_total', 'booking_invoice_id');
-        $automaticReferences = $invoices->pluck('invoice_number')->filter();
+        $automaticReferences = $invoices->pluck('invoice_number')->concat($bookings->pluck('booking_reference'))->filter();
         $eligibleInvoiceIds = $invoices->filter(
             fn (BookingInvoice $invoice) => (float) ($paidTotals[$invoice->id] ?? 0) + 0.01 >= (float) $invoice->total_amount
         )->pluck('id');
         $eligibleReferences = $invoices->whereIn('id', $eligibleInvoiceIds)->pluck('invoice_number')->filter();
+        $eligibleBookingIds = $invoices->groupBy('booking_id')
+            ->filter(fn ($bookingInvoices) => $bookingInvoices->isNotEmpty() && $bookingInvoices->every(fn ($invoice) => $eligibleInvoiceIds->contains($invoice->id)))
+            ->keys();
+        $eligibleReferences = $eligibleReferences->concat($bookings->whereIn('id', $eligibleBookingIds)->pluck('booking_reference'));
         $payments = BookingInvoicePayment::query()->whereNull('reversed_at')->get(['id', 'booking_invoice_id']);
         $automaticReferences = $automaticReferences->concat($payments->pluck('id')->map(fn ($id) => 'PAY-'.$id))->unique()->values();
         $eligibleReferences = $eligibleReferences->concat(
             $payments->whereIn('booking_invoice_id', $eligibleInvoiceIds)->pluck('id')->map(fn ($id) => 'PAY-'.$id)
         )->unique()->values();
 
-        return $query->where(function ($statement) use ($automaticReferences, $eligibleReferences) {
-            $statement->whereNotIn('type', ['rent_income', 'management_fee'])
-                ->orWhereNull('reference')
-                ->orWhereNotIn('reference', $automaticReferences);
-            if ($eligibleReferences->isNotEmpty()) {
-                $statement->orWhereIn('reference', $eligibleReferences);
-            }
-        });
+        return $query
+            ->where(fn ($statement) => $statement->whereNull('reference')->orWhere('reference', 'not like', 'RECON-%'))
+            ->where(function ($statement) use ($automaticReferences, $eligibleReferences) {
+                $statement->whereNotIn('type', ['rent_income', 'management_fee'])
+                    ->orWhereNull('reference')
+                    ->orWhereNotIn('reference', $automaticReferences);
+                if ($eligibleReferences->isNotEmpty()) {
+                    $statement->orWhereIn('reference', $eligibleReferences);
+                }
+            });
     }
 
     public static function statementBalancesFor(string $landlordId, bool $ownerVisibleOnly = false): array

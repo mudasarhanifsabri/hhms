@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\AccountingEntry;
+use App\Models\BankAccount;
 use App\Models\Booking;
 use App\Models\BookingInvoice;
 use App\Models\LandlordAccountEntry;
@@ -43,15 +44,20 @@ class LegacyOwnerReconciliationTest extends TestCase
         $this->assertSame(5, LandlordAccountEntry::count());
         $this->assertEquals(-200, LandlordAccountEntry::get()->sum(fn ($e) => $e->direction === 'credit' ? $e->amount : -$e->amount));
         $this->assertSame(2, LandlordAccountEntry::where('reference', 'BK-LEGACY')->count());
+        $visibleEntries = LandlordAccountEntry::where('landlord_id', $owner->id)->visibleOnOwnerStatement()->get();
+        $this->assertCount(1, $visibleEntries);
+        $this->assertSame('EXP-1', $visibleEntries->first()->reference);
+        $this->assertFalse($visibleEntries->contains(fn ($entry) => str_starts_with((string) $entry->reference, 'RECON-')));
         $this->assertEquals(1050, $invoice->fresh()->balance_due);
         $this->assertSame(0, AccountingEntry::count());
         $migration->up();
         $this->assertSame(5, LandlordAccountEntry::count());
         $this->assertSame(1, $booking->histories()->where('title', 'Owner Posting Reconciled')->count());
+        $cashAccount = BankAccount::create(['name' => 'Legacy Cash', 'type' => 'cash', 'currency' => 'AED', 'opening_balance' => 0, 'current_balance' => 0, 'is_active' => true]);
         $this->actingAs(User::factory()->create(['role' => 'admin']))->post(route('admin.booking-invoice.payment', $invoice), [
-            'amount' => 525, 'rent_amount' => 500, 'payment_date' => '2026-09-03', 'payment_method' => 'Cash'])
+            'amount' => 525, 'rent_amount' => 500, 'payment_date' => '2026-09-03', 'payment_method' => 'Cash', 'bank_account_id' => $cashAccount->id])
             ->assertSessionHasNoErrors();
-        $this->assertEquals(250, LandlordAccountEntry::get()->sum(fn ($e) => $e->direction === 'credit' ? $e->amount : -$e->amount));
+        $this->assertEquals(272.5, LandlordAccountEntry::get()->sum(fn ($e) => $e->direction === 'credit' ? $e->amount : -$e->amount));
     }
 
     public function test_unpaid_status_with_receipt_evidence_is_flagged_and_untouched(): void

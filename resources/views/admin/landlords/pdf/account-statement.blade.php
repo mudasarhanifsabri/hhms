@@ -21,8 +21,7 @@
 <tr><td>Opening Balance</td><td class="right">AED {{ number_format($openingBalance,2) }}</td></tr>
 <tr class="strong"><td>Received Rental Income</td><td class="right green">AED {{ number_format($summary['rent'],2) }}</td></tr>
 <tr><td>Management Fee</td><td class="right red">- AED {{ number_format($summary['management'],2) }}</td></tr>
-<tr><td>Maintenance</td><td class="right red">- AED {{ number_format($summary['maintenance'],2) }}</td></tr>
-<tr><td>Other Owner Expenses</td><td class="right red">- AED {{ number_format($summary['expenses'],2) }}</td></tr>
+<tr><td><strong>Owner Expenses</strong><br><span class="muted">@forelse($summary['expense_breakdown'] as $item){{ $item['label'] }}: AED {{ number_format($item['amount'],2) }}{{ !$loop->last ? ' | ' : '' }}@empty Utilities, DEWA, gas, maintenance and other approved owner costs @endforelse</span></td><td class="right red">- AED {{ number_format($summary['owner_expenses'],2) }}</td></tr>
 <tr><td>Owner Payouts</td><td class="right red">- AED {{ number_format($summary['payouts'],2) }}</td></tr>
 <tr><td>Total Credit / Debit</td><td class="right">AED {{ number_format($accountTotals['credit'],2) }} / AED {{ number_format($accountTotals['debit'],2) }}</td></tr>
 <tr class="net"><td>Net Amount Due</td><td class="right">AED {{ number_format($accountTotals['balance'],2) }}</td></tr>

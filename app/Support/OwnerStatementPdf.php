@@ -58,6 +58,14 @@ class OwnerStatementPdf
                     });
             });
 
+        $ownerExpenseEntries = $entries->where('direction', 'debit')->whereNotIn('type', ['management_fee', 'payout']);
+        $ownerExpenseBreakdown = $ownerExpenseEntries->groupBy('type')->map(function ($typeEntries) {
+            return [
+                'label' => $typeEntries->first()->type_label,
+                'amount' => (float) $typeEntries->sum('amount'),
+            ];
+        })->values();
+
         return [
             'landlord' => $owner,
             'period' => $period,
@@ -68,8 +76,8 @@ class OwnerStatementPdf
             'summary' => [
                 'rent' => (float) $entries->where('type', 'rent_income')->where('direction', 'credit')->sum('amount'),
                 'management' => (float) $entries->where('type', 'management_fee')->where('direction', 'debit')->sum('amount'),
-                'maintenance' => (float) $entries->where('type', 'maintenance')->where('direction', 'debit')->sum('amount'),
-                'expenses' => (float) $entries->where('direction', 'debit')->whereNotIn('type', ['management_fee', 'maintenance', 'payout'])->sum('amount'),
+                'owner_expenses' => (float) $ownerExpenseEntries->sum('amount'),
+                'expense_breakdown' => $ownerExpenseBreakdown,
                 'payouts' => (float) $entries->where('type', 'payout')->where('direction', 'debit')->sum('amount'),
             ],
         ];

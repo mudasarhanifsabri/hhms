@@ -208,6 +208,13 @@ class AccountingController extends Controller
         return redirect()->away(MediaStorage::url($path));
     }
 
+    public function expenseTaxInvoice(Expense $expense)
+    {
+        abort_if((float) $expense->sale_gross_amount <= 0, 404, 'This expense has no sale amount.');
+
+        return PdfRenderer::downloadView('admin.accounting.pdf.expense-tax-invoice', compact('expense'), 'tax-invoice-'.$expense->expense_no.'.pdf', ['format' => 'A4']);
+    }
+
     private function filteredExpenses(Request $request)
     {
         return Expense::with(['property.building', 'landlord', 'booking', 'vendor', 'paidFromAccount'])
@@ -352,6 +359,8 @@ class AccountingController extends Controller
             'paid_from_account_id' => 'nullable|exists:bank_accounts,id',
             'owner_billable' => 'nullable|boolean',
             'net_amount' => 'required|numeric|min:0',
+            'sale_amount' => 'nullable|numeric|min:0',
+            'sale_vat_included' => 'nullable|boolean',
             'vat_rate' => 'nullable|numeric|min:0|max:100',
             'vat_included' => 'nullable|boolean',
             'payment_method' => 'nullable|string|max:100',
@@ -364,6 +373,7 @@ class AccountingController extends Controller
 
         $property = ! empty($data['property_id']) ? Property::find($data['property_id']) : null;
         $amounts = $this->expenseAmounts((float) $data['net_amount'], (float) ($data['vat_rate'] ?? 5), $request->boolean('vat_included'));
+        $saleAmounts = $this->expenseAmounts((float) ($data['sale_amount'] ?? 0), (float) ($data['vat_rate'] ?? 5), $request->boolean('sale_vat_included'));
         $receipt = $this->upload($request, 'receipt', 'expense_receipts');
         $invoice = $this->upload($request, 'invoice', 'expense_invoices');
 
@@ -376,6 +386,11 @@ class AccountingController extends Controller
             'vat_rate' => $amounts['rate'],
             'vat_amount' => $amounts['vat'],
             'gross_amount' => $amounts['gross'],
+            'sale_net_amount' => $saleAmounts['net'],
+            'sale_vat_amount' => $saleAmounts['vat'],
+            'sale_gross_amount' => $saleAmounts['gross'],
+            'sale_vat_included' => $request->boolean('sale_vat_included'),
+            'profit_amount' => $saleAmounts['gross'] > 0 ? round($saleAmounts['net'] - $amounts['net'], 2) : 0,
             'receipt_path' => $receipt,
             'invoice_path' => $invoice,
             'approval_status' => $data['approval_status'] ?? 'pending',
@@ -386,6 +401,7 @@ class AccountingController extends Controller
             $entry = $this->postExpenseEntry($expense);
             $expense->update(['accounting_entry_id' => $entry->id]);
             $this->syncOwnerDebit($expense);
+            $this->syncExpenseSaleIncome($expense);
         }
 
         $message = $this->expenseShouldPost($expense)
@@ -410,6 +426,8 @@ class AccountingController extends Controller
             'paid_from_account_id' => 'nullable|exists:bank_accounts,id',
             'owner_billable' => 'nullable|boolean',
             'net_amount' => 'required|numeric|min:0',
+            'sale_amount' => 'nullable|numeric|min:0',
+            'sale_vat_included' => 'nullable|boolean',
             'vat_rate' => 'nullable|numeric|min:0|max:100',
             'vat_included' => 'nullable|boolean',
             'payment_method' => 'nullable|string|max:100',
@@ -422,6 +440,7 @@ class AccountingController extends Controller
 
         $property = ! empty($data['property_id']) ? Property::find($data['property_id']) : null;
         $amounts = $this->expenseAmounts((float) $data['net_amount'], (float) ($data['vat_rate'] ?? 5), $request->boolean('vat_included'));
+        $saleAmounts = $this->expenseAmounts((float) ($data['sale_amount'] ?? 0), (float) ($data['vat_rate'] ?? 5), $request->boolean('sale_vat_included'));
         $receipt = $this->upload($request, 'receipt', 'expense_receipts');
         $invoice = $this->upload($request, 'invoice', 'expense_invoices');
 
@@ -433,6 +452,11 @@ class AccountingController extends Controller
             'vat_rate' => $amounts['rate'],
             'vat_amount' => $amounts['vat'],
             'gross_amount' => $amounts['gross'],
+            'sale_net_amount' => $saleAmounts['net'],
+            'sale_vat_amount' => $saleAmounts['vat'],
+            'sale_gross_amount' => $saleAmounts['gross'],
+            'sale_vat_included' => $request->boolean('sale_vat_included'),
+            'profit_amount' => $saleAmounts['gross'] > 0 ? round($saleAmounts['net'] - $amounts['net'], 2) : 0,
             'receipt_path' => $receipt ?? $expense->receipt_path,
             'invoice_path' => $invoice ?? $expense->invoice_path,
             'needs_review' => in_array($data['approval_status'], ['draft', 'pending'], true) ? $expense->needs_review : false,
@@ -470,6 +494,7 @@ class AccountingController extends Controller
         }
 
         $this->syncOwnerDebit($expense);
+        $this->syncExpenseSaleIncome($expense);
 
         return back()->with('success', 'Expense updated.');
     }
@@ -491,6 +516,7 @@ class AccountingController extends Controller
         }
 
         $this->syncOwnerDebit($expense);
+        $this->syncExpenseSaleIncome($expense);
 
         return back()->with('success', 'Expense approved and posted.');
     }
@@ -1452,7 +1478,7 @@ class AccountingController extends Controller
                 default => 'other_expense',
             },
             'direction' => 'debit',
-            'amount' => $expense->gross_amount,
+            'amount' => (float) $expense->sale_gross_amount > 0 ? $expense->sale_gross_amount : $expense->gross_amount,
             'description' => $expense->description ?: ucfirst($expense->category) . ' expense',
         ]);
 
@@ -1464,6 +1490,26 @@ class AccountingController extends Controller
             ->push($expense->landlord_id)
             ->unique()
             ->each(fn (string $landlordId) => LandlordAccountEntry::recalculateBalancesFor($landlordId));
+    }
+
+    private function syncExpenseSaleIncome(Expense $expense): void
+    {
+        $reference = 'SALE-'.$expense->expense_no;
+        if (! $this->expenseShouldPost($expense) || (float) $expense->sale_gross_amount <= 0) {
+            AccountingEntry::where('expense_id', $expense->id)->where('transaction_reference', $reference)->delete();
+            return;
+        }
+
+        AccountingEntry::updateOrCreate(['expense_id' => $expense->id, 'transaction_reference' => $reference], [
+            'entry_no' => AccountingEntry::where('expense_id', $expense->id)->where('transaction_reference', $reference)->value('entry_no') ?: $this->nextNumber('JE', AccountingEntry::class, 'entry_no'),
+            'entry_date' => $expense->expense_date, 'type' => 'income', 'category' => 'expense_recovery',
+            'accounting_account_id' => AccountingAccount::where('code', in_array($expense->category, ['dewa', 'gas', 'internet', 'chiller']) ? '4090' : '4070')->value('id'),
+            'description' => 'Expense recharge '.$expense->expense_no.'; margin AED '.number_format((float) $expense->profit_amount, 2, '.', ''),
+            'property_id' => $expense->property_id, 'landlord_id' => $expense->landlord_id, 'booking_id' => $expense->booking_id,
+            'credit' => $expense->sale_net_amount, 'debit' => 0, 'vat_rate' => $expense->vat_rate,
+            'vat_amount' => $expense->sale_vat_amount, 'net_amount' => $expense->sale_net_amount, 'gross_amount' => $expense->sale_gross_amount,
+            'approval_status' => $expense->approval_status === 'paid' ? 'posted' : $expense->approval_status, 'created_by' => auth()->id(),
+        ]);
     }
 
     private function upload(Request $request, string $field, string $folder): ?string

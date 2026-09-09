@@ -55,6 +55,29 @@ class AdminPagesTest extends TestCase
         ]);
     }
 
+    public function test_expense_sale_calculates_profit_posts_income_and_generates_tax_invoice(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $landlord = User::factory()->create(['role' => 'landlord']);
+        $property = Property::create(['landlord_id' => $landlord->id, 'name' => 'Markup Unit']);
+
+        $this->actingAs($admin)->post(route('admin.accounting.expenses.store'), [
+            'expense_date' => '2026-09-09', 'category' => 'maintenance', 'property_id' => $property->id,
+            'responsibility' => 'owner', 'net_amount' => 100, 'vat_rate' => 5,
+            'sale_amount' => 150, 'sale_vat_included' => 0, 'approval_status' => 'approved',
+            'description' => 'AC maintenance recharge',
+        ])->assertSessionHasNoErrors();
+
+        $expense = Expense::latest()->firstOrFail();
+        $this->assertSame('150.00', $expense->sale_net_amount);
+        $this->assertSame('7.50', $expense->sale_vat_amount);
+        $this->assertSame('157.50', $expense->sale_gross_amount);
+        $this->assertSame('50.00', $expense->profit_amount);
+        $this->assertDatabaseHas('landlord_account_entries', ['reference' => $expense->expense_no, 'amount' => 157.50]);
+        $this->assertDatabaseHas('accounting_entries', ['expense_id' => $expense->id, 'category' => 'expense_recovery', 'credit' => 150]);
+        $this->get(route('admin.accounting.expenses.tax-invoice', $expense))->assertOk()->assertHeader('content-type', 'application/pdf');
+    }
+
     #[DataProvider('mainAdminPageRoutes')]
     public function test_main_admin_pages_render(string $route): void
     {

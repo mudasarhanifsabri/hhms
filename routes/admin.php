@@ -51,6 +51,7 @@ Route::get('/accounting/expenses', [AccountingController::class, 'expenses'])->n
 Route::get('/accounting/expenses/report/pdf', [AccountingController::class, 'expenseReportPdf'])->name('accounting.expenses.report.pdf');
 Route::get('/accounting/expenses/report/csv', [AccountingController::class, 'expenseReportCsv'])->name('accounting.expenses.report.csv');
 Route::get('/e/{expense}', [AccountingController::class, 'expenseDocument'])->name('accounting.expenses.document');
+Route::get('/accounting/expenses/{expense}/tax-invoice', [AccountingController::class, 'expenseTaxInvoice'])->name('accounting.expenses.tax-invoice');
 Route::post('/accounting/expenses', [AccountingController::class, 'storeExpense'])->name('accounting.expenses.store');
 Route::put('/accounting/expenses/{expense}', [AccountingController::class, 'updateExpense'])->name('accounting.expenses.update');
 Route::delete('/accounting/expenses/{expense}', [AccountingController::class, 'destroyExpense'])->name('accounting.expenses.destroy');

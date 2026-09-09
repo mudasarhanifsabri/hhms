@@ -251,4 +251,23 @@ class OwnerPwaTest extends TestCase
 
         $this->assertSame(-12500.0, (float) LandlordAccountEntry::where('landlord_id', $owner->id)->latest('entry_date')->value('balance_after'));
     }
+
+    public function test_owner_statement_combines_owner_expenses_with_category_breakdown(): void
+    {
+        $owner = User::factory()->create(['role' => 'landlord']);
+        LandlordAccountEntry::create(['landlord_id' => $owner->id, 'entry_date' => '2026-09-01', 'type' => 'dewa', 'direction' => 'debit', 'amount' => 125]);
+        LandlordAccountEntry::create(['landlord_id' => $owner->id, 'entry_date' => '2026-09-02', 'type' => 'gas', 'direction' => 'debit', 'amount' => 75]);
+        LandlordAccountEntry::create(['landlord_id' => $owner->id, 'entry_date' => '2026-09-03', 'type' => 'maintenance', 'direction' => 'debit', 'amount' => 300]);
+        LandlordAccountEntry::create(['landlord_id' => $owner->id, 'entry_date' => '2026-09-04', 'type' => 'management_fee', 'direction' => 'debit', 'amount' => 50]);
+
+        $statement = OwnerStatementPdf::data($owner, '2026-09-01', '2026-09-30');
+
+        $this->assertSame(500.0, $statement['summary']['owner_expenses']);
+        $this->assertEqualsCanonicalizing(['DEWA', 'Gas', 'Maintenance'], $statement['summary']['expense_breakdown']->pluck('label')->all());
+        $html = view('admin.landlords.pdf.account-statement', $statement)->render();
+        $this->assertSame(1, substr_count($html, '<strong>Owner Expenses</strong>'));
+        $this->assertStringContainsString('DEWA: AED 125.00', $html);
+        $this->assertStringContainsString('Gas: AED 75.00', $html);
+        $this->assertStringContainsString('Maintenance: AED 300.00', $html);
+    }
 }
