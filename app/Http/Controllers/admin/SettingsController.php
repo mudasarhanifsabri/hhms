@@ -27,6 +27,7 @@ class SettingsController extends Controller
             'invoice_legal_name' => 'nullable|string|max:255',
             'invoice_trn' => 'nullable|digits:15',
             'invoice_address' => 'nullable|string|max:1000',
+            'default_vat_rate' => 'required|numeric|min:0|max:100',
             'media_disk' => 'required|in:public,s3',
 
             'mail_mailer' => 'required|in:log,smtp',

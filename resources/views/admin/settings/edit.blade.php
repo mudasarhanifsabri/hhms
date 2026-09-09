@@ -54,6 +54,9 @@
                         <button class="nav-link text-start" id="media-tab" data-bs-toggle="pill" data-bs-target="#media-panel" type="button" role="tab">
                             <i class="ri-cloud-line me-1"></i>Media & S3
                         </button>
+                        <button class="nav-link text-start" id="accounting-tab" data-bs-toggle="pill" data-bs-target="#accounting-panel" type="button" role="tab">
+                            <i class="ri-percent-line me-1"></i>Accounting & VAT
+                        </button>
                         <button class="nav-link text-start" id="ocr-tab" data-bs-toggle="pill" data-bs-target="#ocr-panel" type="button" role="tab">
                             <i class="ri-scan-2-line me-1"></i>AWS OCR
                         </button>
@@ -121,6 +124,12 @@
                             </div>
                         </div>
                     </div>
+                </div>
+
+                <div class="tab-pane fade" id="accounting-panel" role="tabpanel" aria-labelledby="accounting-tab">
+                    <div class="card"><div class="card-header bg-light-subtle"><h4 class="card-title mb-0">Accounting & VAT</h4></div><div class="card-body">
+                        <div class="row g-3"><div class="col-md-6"><label class="form-label" for="default_vat_rate">Default VAT Rate</label><div class="input-group"><input type="number" step="0.01" min="0" max="100" class="form-control" id="default_vat_rate" name="default_vat_rate" value="{{ $value('default_vat_rate', 5) }}" required><span class="input-group-text">%</span></div><small class="text-muted">Used automatically for expense cost and sale VAT calculations.</small></div></div>
+                    </div></div>
                 </div>
 
                 <div class="tab-pane fade" id="media-panel" role="tabpanel" aria-labelledby="media-tab">

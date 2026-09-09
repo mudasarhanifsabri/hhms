@@ -176,6 +176,7 @@ class AppSettings
             str_starts_with($key, 'sms_') => 'sms',
             str_starts_with($key, 'aws_textract_') => 'ocr',
             str_starts_with($key, 'aws_'), $key === 'media_disk' => 'storage',
+            $key === 'default_vat_rate' => 'accounting',
             str_contains($key, 'logo'), str_contains($key, 'favicon'), str_starts_with($key, 'company_') => 'branding',
             default => 'general',
         };

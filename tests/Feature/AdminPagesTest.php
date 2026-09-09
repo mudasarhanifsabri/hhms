@@ -39,7 +39,7 @@ class AdminPagesTest extends TestCase
             'property_id' => $property->id,
             'responsibility' => 'owner',
             'net_amount' => 100,
-            'vat_rate' => 5,
+            'cost_vat_mode' => 'excluded',
             'approval_status' => 'approved',
             'description' => 'Owner maintenance charge',
         ])->assertSessionHasNoErrors();
@@ -63,8 +63,8 @@ class AdminPagesTest extends TestCase
 
         $this->actingAs($admin)->post(route('admin.accounting.expenses.store'), [
             'expense_date' => '2026-09-09', 'category' => 'maintenance', 'property_id' => $property->id,
-            'responsibility' => 'owner', 'net_amount' => 100, 'vat_rate' => 5,
-            'cost_vat_mode' => 'excluded', 'sale_amount' => 150, 'sale_vat_rate' => 5,
+            'responsibility' => 'owner', 'net_amount' => 100,
+            'cost_vat_mode' => 'excluded', 'sale_amount' => 150,
             'sale_vat_mode' => 'excluded', 'approval_status' => 'approved',
             'description' => 'AC maintenance recharge',
         ])->assertSessionHasNoErrors();
@@ -172,6 +172,7 @@ class AdminPagesTest extends TestCase
                 'company_name' => 'HHMS Demo',
                 'company_email' => 'info@example.com',
                 'company_phone' => '+971501234567',
+                'default_vat_rate' => 5,
                 'media_disk' => 'public',
                 'mail_mailer' => 'smtp',
                 'mail_host' => 'smtp.example.com',
@@ -194,6 +195,10 @@ class AdminPagesTest extends TestCase
         $this->assertDatabaseHas('application_settings', [
             'key' => 'company_name',
             'value' => 'HHMS Demo',
+        ]);
+        $this->assertDatabaseHas('application_settings', [
+            'key' => 'default_vat_rate',
+            'value' => '5',
         ]);
 
         $this->assertTrue(ApplicationSetting::where('key', 'mail_password')->value('is_encrypted'));
