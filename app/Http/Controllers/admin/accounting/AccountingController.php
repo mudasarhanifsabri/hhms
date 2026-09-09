@@ -16,16 +16,20 @@ use App\Models\User;
 use App\Models\UtilityAccount;
 use App\Models\UtilityBill;
 use App\Models\Vendor;
+use App\Mail\ExpenseTaxInvoiceMail;
 use App\Support\MediaStorage;
 use App\Support\AppSettings;
 use App\Support\OwnerStatementPdf;
 use App\Support\PdfRenderer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use Throwable;
 
 class AccountingController extends Controller
 {
@@ -214,6 +218,43 @@ class AccountingController extends Controller
         abort_if((float) $expense->sale_gross_amount <= 0, 404, 'This expense has no sale amount.');
 
         return PdfRenderer::downloadView('admin.accounting.pdf.expense-tax-invoice', compact('expense'), 'tax-invoice-'.$expense->expense_no.'.pdf', ['format' => 'A4']);
+    }
+
+    public function emailExpenseTaxInvoice(Request $request, Expense $expense)
+    {
+        abort_if((float) $expense->sale_gross_amount <= 0, 404, 'This expense has no sale amount.');
+
+        $validated = $request->validate([
+            'recipient' => 'required|email:rfc|max:255',
+            'subject' => 'nullable|string|max:180',
+            'message' => 'nullable|string|max:2000',
+        ]);
+        $expense->loadMissing(['property.building', 'landlord', 'booking', 'vendor']);
+        $filename = 'tax-invoice-'.$expense->expense_no.'.pdf';
+        $pdf = PdfRenderer::output(view('admin.accounting.pdf.expense-tax-invoice', compact('expense'))->render(), ['format' => 'A4']);
+        $subject = filled($validated['subject'] ?? null)
+            ? $validated['subject']
+            : 'Tax Invoice TI-'.$expense->expense_no.' — '.AppSettings::get('invoice_legal_name', 'PATTERN Vacation Homes Rental');
+
+        try {
+            Mail::to($validated['recipient'])->send(new ExpenseTaxInvoiceMail(
+                $expense,
+                $subject,
+                $validated['message'] ?? null,
+                $pdf,
+                $filename,
+            ));
+        } catch (Throwable $exception) {
+            Log::error('Expense tax invoice email failed.', [
+                'expense_id' => $expense->id,
+                'recipient' => $validated['recipient'],
+                'message' => $exception->getMessage(),
+            ]);
+
+            return back()->withErrors(['email' => 'Tax invoice email could not be sent. Please verify the email settings and try again.'])->withInput();
+        }
+
+        return back()->with('success', 'Tax invoice PDF emailed successfully to '.$validated['recipient'].'.');
     }
 
     private function filteredExpenses(Request $request)

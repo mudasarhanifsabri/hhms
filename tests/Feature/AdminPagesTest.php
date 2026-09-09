@@ -9,7 +9,9 @@ use App\Models\LandlordAccountEntry;
 use App\Models\Property;
 use App\Models\PropertyOwnerDocument;
 use App\Models\User;
+use App\Mail\ExpenseTaxInvoiceMail;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
@@ -89,6 +91,18 @@ class AdminPagesTest extends TestCase
             'accounting_account_id' => \App\Models\AccountingAccount::where('code', '1070')->value('id'),
         ]);
         $this->get(route('admin.accounting.expenses.tax-invoice', $expense))->assertOk()->assertHeader('content-type', 'application/pdf');
+
+        Mail::fake();
+        $this->post(route('admin.accounting.expenses.tax-invoice.email', $expense), [
+            'recipient' => 'customer@example.com',
+            'message' => 'Please find your detailed tax invoice attached.',
+        ])->assertRedirect()->assertSessionHasNoErrors()->assertSessionHas('success');
+        Mail::assertSent(ExpenseTaxInvoiceMail::class, function (ExpenseTaxInvoiceMail $mail) use ($expense) {
+            return $mail->hasTo('customer@example.com')
+                && $mail->mailSubject === 'Tax Invoice TI-'.$expense->expense_no.' — PATTERN Vacation Homes Rental'
+                && str_starts_with($mail->pdfContent, '%PDF-')
+                && count($mail->attachments()) === 1;
+        });
     }
 
     #[DataProvider('mainAdminPageRoutes')]
