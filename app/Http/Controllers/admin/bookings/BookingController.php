@@ -134,10 +134,7 @@ class BookingController extends Controller
 
     public function edit(Booking $booking)
     {
-        $booking->load(['property', 'agent']);
-        if ($booking->invoices()->exists()) {
-            return view('admin.bookings.edit-guest', compact('booking'));
-        }
+        $booking->load(['property', 'agent', 'invoices.allPayments']);
         $properties = Property::with('building')->orderBy('name')->get();
         $agents = User::where('role', 'agent')->orderBy('name')->get();
 
@@ -147,20 +144,49 @@ class BookingController extends Controller
     public function update(Request $request, Booking $booking)
     {
         if ($booking->invoices()->exists()) {
-            if (! $request->boolean('edit_details_only')) {
-                return back()->withErrors(['invoice' => 'Use Edit Invoice for charges. Booking financial and stay details are locked once invoices exist.']);
+            $validatedData = $this->validateBooking($request);
+            $reason = $request->validate(['reason' => 'required|string|min:5|max:1000'])['reason'];
+            $this->ensurePropertyCanBeBooked($validatedData['property_id'], $validatedData['check_in'], $validatedData['check_out'], $booking->id);
+            $amounts = $this->calculateAmounts($validatedData, $request);
+            $primaryInvoice = $booking->invoices()->where('invoice_type', 'original')->first() ?? $booking->invoices()->oldest('issue_date')->first();
+            if ($primaryInvoice?->vat_scope !== 'rent_cleaning_agency') {
+                $legacyFeeVat = round(((float)$amounts['cleaning_fee'] + (float)$amounts['agency_fee']) * 0.05, 2);
+                $amounts['vat_amount'] -= $legacyFeeVat;
+                $amounts['total_amount'] -= $legacyFeeVat;
             }
-            $details = $request->validate(['guest_name' => 'required|string|max:255', 'guest_email' => 'required|email|max:255',
-                'guest_phone' => 'required|string|max:50', 'notes' => 'nullable|string|max:2000', 'reason' => 'required|string|min:5|max:1000']);
-            DB::transaction(function () use ($booking, $details) {
+            DB::transaction(function () use ($request, $booking, $validatedData, $amounts, $reason) {
                 $booking = Booking::whereKey($booking->id)->lockForUpdate()->firstOrFail();
-                $before = $booking->only(['guest_name', 'guest_email', 'guest_phone', 'notes']);
-                $booking->update(\Illuminate\Support\Arr::only($details, array_keys($before)));
-                $booking->histories()->create(['title' => 'Guest Details Corrected', 'description' => 'By '.auth()->user()->name.'. Reason: '.$details['reason'].' | Before: '.json_encode($before).' | After: '.json_encode($booking->only(array_keys($before)))]);
+                $invoice = $booking->invoices()->where('invoice_type', 'original')->lockForUpdate()->first()
+                    ?? $booking->invoices()->oldest('issue_date')->lockForUpdate()->firstOrFail();
+                $fees = ['DTCM Fee' => $amounts['dtcm_fee'], 'Cleaning Fee' => $amounts['cleaning_fee'],
+                    'Agency Fee' => $amounts['agency_fee'], 'Security Deposit' => $amounts['security_deposit']];
+                $financialChanged = abs((float)$invoice->rent_amount - (float)$amounts['rent_amount']) > .009
+                    || abs((float)$invoice->vat_amount - (float)$amounts['vat_amount']) > .009
+                    || abs((float)$invoice->total_amount - (float)$amounts['total_amount']) > .009
+                    || collect($fees)->contains(fn ($amount, $label) => abs((float)($invoice->fees[$label] ?? 0) - (float)$amount) > .009);
+                if ($financialChanged && ($invoice->allPayments()->whereNull('reversed_at')->exists()
+                    || \App\Models\BookingDepositEntry::where('booking_invoice_id', $invoice->id)->exists())) {
+                    throw ValidationException::withMessages(['invoice' => 'Charges cannot change after payment or deposit activity. Reverse the affected payment/deposit first, then edit the booking.']);
+                }
+                $before = $booking->only(['property_id','agent_id','guest_name','guest_email','guest_phone','guest_passport_id_no',
+                    'check_in','check_in_time','check_out','check_out_time','rent_amount','vat_amount','dtcm_fee','cleaning_fee','agency_fee','security_deposit','total_amount','notes']);
+                $payload = [...$validatedData, ...$amounts];
+                if ($request->hasFile('guest_document')) {
+                    $payload['guest_document'] = $this->uploadFile($request, 'guest_document', 'booking_documents');
+                } else {
+                    unset($payload['guest_document']);
+                }
+                $booking->update($payload);
+                if ($financialChanged) {
+                    $invoice->update(['period_from' => $booking->check_in, 'period_to' => $booking->check_out,
+                        'rent_amount' => $amounts['rent_amount'], 'vat_included' => $amounts['vat_included'],
+                        'vat_amount' => $amounts['vat_amount'], 'fees' => $fees, 'total_amount' => $amounts['total_amount']]);
+                }
+                $booking->histories()->create(['title' => 'Booking Corrected', 'description' => 'Full booking edited by '.auth()->user()->name.'. Reason: '.$reason.' | Before: '.json_encode($before).' | After: '.json_encode($booking->only(array_keys($before)))]);
             });
             \App\Support\BookingTenantProfile::sync($booking->fresh());
 
-            return redirect()->route('admin.booking.show', $booking)->with('success', 'Guest contact details updated. Invoice charges and payments are unchanged.');
+            return redirect()->route('admin.booking.show', $booking)->with('success', 'Complete booking details updated successfully.');
         }
         $validatedData = $this->validateBooking($request);
         $this->ensurePropertyCanBeBooked($validatedData['property_id'], $validatedData['check_in'], $validatedData['check_out'], $booking->id);

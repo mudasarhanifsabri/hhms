@@ -75,16 +75,20 @@ class BookingCorrectionsTest extends TestCase
         $this->get(route('admin.accounting.booking-invoices.pdf',$invoice))->assertOk()->assertHeader('content-type','application/pdf');
     }
 
-    public function test_guest_edit_is_compact_and_cannot_change_invoice_financials(): void
+    public function test_full_booking_edit_updates_unpaid_original_invoice(): void
     {
         [$booking, $invoice] = $this->setupInvoice();
-        $this->get(route('admin.booking.edit', $booking))->assertOk()->assertSee('Edit Guest Details')->assertDontSee('name="rent_amount"', false);
-        $this->put(route('admin.booking.update', $booking), ['edit_details_only' => 1, 'guest_name' => 'Correct Name',
-            'guest_email' => 'correct@example.com', 'guest_phone' => '123456', 'reason' => 'Correct guest contact', 'rent_amount' => 99999])
+        $this->get(route('admin.booking.edit', $booking))->assertOk()->assertSee('Edit Booking')->assertSee('name="rent_amount"', false);
+        $this->put(route('admin.booking.update', $booking), ['property_id' => $booking->property_id, 'guest_name' => 'Correct Name',
+            'guest_email' => 'correct@example.com', 'guest_phone' => '123456', 'guest_passport_id_no' => 'G002',
+            'check_in' => '2026-10-02', 'check_out' => '2026-10-11', 'rent_amount' => 2000,
+            'vat_included' => 0, 'dtcm_fee' => 0, 'cleaning_fee' => 100, 'agency_fee' => 200, 'security_deposit' => 0,
+            'reason' => 'Correct full booking details'])
             ->assertSessionHasNoErrors();
         $this->assertSame('Correct Name', $booking->fresh()->guest_name);
-        $this->assertEquals(1000, $booking->fresh()->rent_amount);
-        $this->assertEquals(1050, $invoice->fresh()->total_amount);
+        $this->assertEquals(2000, $booking->fresh()->rent_amount);
+        $this->assertEquals(2415, $invoice->fresh()->total_amount);
+        $this->assertSame('2026-10-02', $invoice->fresh()->period_from->toDateString());
         $this->get(route('admin.booking.create'))->assertOk()->assertSee('VAT Included')->assertSee('Add VAT');
     }
 

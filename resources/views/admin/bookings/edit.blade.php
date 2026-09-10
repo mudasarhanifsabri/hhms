@@ -66,7 +66,13 @@
             <div class="card">
                 <div class="card-header"><h4 class="card-title">Invoice Charges</h4><small class="text-muted">Enter rent only. Other fees and deposit are separate. Saving does not record payment.</small></div>
                 <div class="card-body">
-                    <div class="mb-3"><label class="form-label" for="rent_amount">Rent amount entered (AED)</label><input type="number" step="0.01" min="0" id="rent_amount" name="rent_amount" value="{{ old('rent_amount', (float)$booking->rent_amount + ($booking->vat_included ? (float)$booking->vat_amount : 0)) }}" class="form-control booking-money"></div>
+                    @php
+                        $primaryInvoice = $booking->invoices->firstWhere('invoice_type', 'original') ?? $booking->invoices->sortBy('issue_date')->first();
+                        $feeVat = $primaryInvoice?->vat_scope === 'rent_cleaning_agency'
+                            ? round(((float)$booking->cleaning_fee + (float)$booking->agency_fee) * 0.05, 2)
+                            : 0;
+                    @endphp
+                    <div class="mb-3"><label class="form-label" for="rent_amount">Rent amount entered (AED)</label><input type="number" step="0.01" min="0" id="rent_amount" name="rent_amount" value="{{ old('rent_amount', (float)$booking->rent_amount + ($booking->vat_included ? max(0, (float)$booking->vat_amount - $feeVat) : 0)) }}" class="form-control booking-money"></div>
                     <div class="btn-group w-100 mb-3" role="group" aria-label="VAT treatment">
                         <input type="radio" class="btn-check booking-money" id="vat_included" name="vat_included" value="1" @checked(old('vat_included', $booking->vat_included))><label class="btn btn-outline-primary" for="vat_included">VAT Included</label>
                         <input type="radio" class="btn-check booking-money" id="vat_added" name="vat_included" value="0" @checked(!(old('vat_included', $booking->vat_included)))><label class="btn btn-outline-primary" for="vat_added">Add VAT</label>
@@ -85,6 +91,9 @@
             </div>
 
             <div class="d-grid gap-2">
+                @if($booking->invoices->isNotEmpty())
+                    <div class="card mb-0"><div class="card-body"><label class="form-label" for="reason">Reason for change</label><textarea id="reason" name="reason" rows="2" minlength="5" maxlength="1000" class="form-control" required>{{ old('reason') }}</textarea><small class="text-muted">Saved in booking history for audit.</small>@error('invoice')<div class="text-danger mt-2">{{ $message }}</div>@enderror</div></div>
+                @endif
                 <button type="submit" class="btn btn-primary">Update Booking</button>
                 <a href="{{ route('admin.booking.show', $booking->id) }}" class="btn btn-danger">Cancel</a>
             </div>
