@@ -46,6 +46,14 @@ class AdminController extends Controller
         $arrivalsToday = (clone $liveBookings)->where('status', 'confirmed')->whereDate('check_in', $today)->count();
         $departuresToday = (clone $liveBookings)->where('status', 'checked_in')->whereDate('check_out', $today)->count();
         $overdueDepartures = (clone $liveBookings)->where('status', 'checked_in')->whereDate('check_out', '<', $today)->count();
+        $expiringBookings = Booking::query()
+            ->with(['property.building'])
+            ->whereHas('property')
+            ->whereNotIn('status', ['checked_out', 'cancelled'])
+            ->whereBetween('check_out', [$today->toDateString(), $today->copy()->addDays(3)->toDateString()])
+            ->orderBy('check_out')
+            ->orderBy('check_out_time')
+            ->get();
 
         $landlordCount = (int) ($userCounts['landlord'] ?? 0);
         $agentCount = (int) ($userCounts['agent'] ?? 0);
@@ -72,7 +80,7 @@ class AdminController extends Controller
             'propertiesRented',
             'propertiesVacant',
             'upcomingDtcmExpiry',
-            'recentProperties', 'occupiedUnits', 'occupancyPercent', 'arrivalsToday', 'departuresToday', 'overdueDepartures', 'otherUsers'
+            'recentProperties', 'occupiedUnits', 'occupancyPercent', 'arrivalsToday', 'departuresToday', 'overdueDepartures', 'otherUsers', 'expiringBookings'
         ));
     }
 }
