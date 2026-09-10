@@ -1,5 +1,5 @@
 <div class="modal fade booking-invoice-editor" id="correctInvoice{{ $invoice->id }}" tabindex="-1" aria-label="Edit invoice" aria-hidden="true">
-<div class="modal-dialog modal-dialog-centered modal-dialog-scrollable"><div class="modal-content">
+<div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable"><div class="modal-content">
 <form method="POST" action="{{ route('admin.booking-invoice.correct',$invoice) }}" data-invoice-editor data-vat-scope="{{ $invoice->vat_scope }}">
     @csrf @method('PUT')
     <div class="modal-header"><h5 class="modal-title">Edit Invoice {{ $invoice->invoice_number }} <span class="badge bg-danger-subtle text-danger ms-2">{{ ucfirst($invoice->status) }}</span></h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
@@ -14,17 +14,30 @@
         </div>
         <input type="hidden" name="vat_rate" value="{{ $invoice->vat_rate }}">
         <small class="text-muted">VAT rate: {{ number_format((float)$invoice->vat_rate,2) }}%</small>
-        <div class="invoice-breakdown mt-2">
-            <div><span>Rent excluding VAT</span><strong data-preview="rent"></strong></div>
-            <div><span>VAT {{ number_format((float)$invoice->vat_rate,2) }}%</span><strong data-preview="vat"></strong></div>
-            <div class="fw-semibold"><span>Rent including VAT</span><strong data-preview="grossRent"></strong></div>
+        <div class="table-responsive border rounded my-3">
+            <table class="table table-sm align-middle mb-0">
+                <thead class="table-light"><tr><th>Charge</th><th style="width:155px" class="text-end">Net Amount</th><th class="text-center">VAT</th><th class="text-end">VAT Amount</th><th class="text-end">Line Total</th></tr></thead>
+                <tbody>
+                    <tr><td>Rent</td><td class="text-end" data-preview="rent"></td><td class="text-center">{{ number_format((float)$invoice->vat_rate,2) }}%</td><td class="text-end" data-preview="rentVat"></td><td class="text-end fw-semibold" data-preview="rentTotal"></td></tr>
+                    @forelse($invoice->fees ?? [] as $label=>$amount)
+                        @php($feeTaxable = $invoice->vat_scope === 'rent_cleaning_agency' && in_array($label, ['Cleaning Fee','Agency Fee']))
+                        <tr data-fee-row>
+                            <td><label class="mb-0" for="charge{{ $invoice->id }}-{{ $loop->index }}">{{ $label==='Security Deposit'?'Refundable security deposit':$label }}</label></td>
+                            <td><input id="charge{{ $invoice->id }}-{{ $loop->index }}" name="fees[{{ $label }}]" type="number" min="0" step="0.01" value="{{ $amount }}" class="form-control form-control-sm text-end" data-invoice-fee data-fee-label="{{ $label }}" required></td>
+                            <td class="text-center {{ $feeTaxable ? '' : 'text-muted' }}">{{ $feeTaxable ? number_format((float)$invoice->vat_rate,2).'%' : 'No VAT' }}</td>
+                            <td class="text-end" data-fee-vat>AED 0.00</td>
+                            <td class="text-end fw-semibold" data-fee-total>AED 0.00</td>
+                        </tr>
+                    @empty
+                        <tr><td colspan="5" class="text-center text-muted">No additional charges.</td></tr>
+                    @endforelse
+                </tbody>
+                <tfoot class="table-light fw-semibold">
+                    <tr><td colspan="3">Total VAT</td><td class="text-end" data-preview="vat"></td><td></td></tr>
+                    <tr><td colspan="4">Invoice Total</td><td class="text-end" data-preview="total"></td></tr>
+                </tfoot>
+            </table>
         </div>
-        <div class="border rounded p-3 my-3"><h6>Other invoice charges</h6>
-            @forelse($invoice->fees ?? [] as $label=>$amount)
-            <div class="d-flex align-items-center justify-content-between gap-3 mt-2"><label class="small" for="charge{{ $invoice->id }}-{{ $loop->index }}">{{ $label==='Security Deposit'?'Refundable security deposit':$label }}</label><input id="charge{{ $invoice->id }}-{{ $loop->index }}" name="fees[{{ $label }}]" type="number" min="0" step="0.01" value="{{ $amount }}" class="form-control form-control-sm text-end" style="max-width:150px" data-invoice-fee required></div>
-            @empty<p class="small text-muted mb-0">No additional charges.</p>@endforelse
-        </div>
-        <div class="d-flex justify-content-between fs-5 fw-semibold mb-3"><span>Invoice total</span><strong data-preview="total"></strong></div>
         <div class="alert alert-info py-2 small">Enter rent only here. Deposit and other fees are separate.</div>
         <label class="form-label" for="invoiceReason{{ $invoice->id }}">Reason for correction</label><textarea id="invoiceReason{{ $invoice->id }}" name="reason" class="form-control" rows="2" minlength="5" maxlength="1000" placeholder="Explain the change" required></textarea>
         <p class="small text-muted mt-3 mb-0">Saving an invoice does not record payment. Use Record Payment for money received.</p>
@@ -43,9 +56,18 @@ document.addEventListener('DOMContentLoaded',()=>{
             const included=form.querySelector('[name="vat_included"]:checked').value==='1';
             const rent=included?round(entered/(1+rate/100)):entered;
             const rentVat=included?round(entered-rent):round(rent*rate/100);
-            let fees=0,taxableFees=0;form.querySelectorAll('[data-invoice-fee]').forEach(input=>{const amount=Number(input.value)||0;fees+=amount;if(form.dataset.vatScope==='rent_cleaning_agency' && ['Cleaning Fee','Agency Fee'].includes(input.name.slice(5,-1))) taxableFees+=amount;});
-            const vat=round(rentVat+taxableFees*rate/100);
-            Object.entries({rent,vat,grossRent:round(rent+vat),total:round(rent+vat+fees)}).forEach(([key,value])=>form.querySelector('[data-preview="'+key+'"]').textContent=fmt(value));
+            let fees=0,taxableFeesVat=0;
+            form.querySelectorAll('[data-invoice-fee]').forEach(input=>{
+                const amount=round(Number(input.value)||0);
+                const taxable=form.dataset.vatScope==='rent_cleaning_agency' && ['Cleaning Fee','Agency Fee'].includes(input.dataset.feeLabel);
+                const feeVat=taxable?round(amount*rate/100):0;
+                const row=input.closest('[data-fee-row]');
+                fees=round(fees+amount);taxableFeesVat=round(taxableFeesVat+feeVat);
+                row.querySelector('[data-fee-vat]').textContent=fmt(feeVat);
+                row.querySelector('[data-fee-total]').textContent=fmt(amount+feeVat);
+            });
+            const vat=round(rentVat+taxableFeesVat);
+            Object.entries({rent,rentVat,rentTotal:round(rent+rentVat),vat,total:round(rent+vat+fees)}).forEach(([key,value])=>form.querySelector('[data-preview="'+key+'"]').textContent=fmt(value));
         };
         form.addEventListener('input',calculate);form.addEventListener('change',calculate);calculate();
     });
