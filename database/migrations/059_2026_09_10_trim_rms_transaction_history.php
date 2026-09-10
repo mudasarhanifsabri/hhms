@@ -16,13 +16,15 @@ return new class extends Migration
             return;
         }
 
-        // An extension/renewal is its own stay period. Keep the parent booking as the
-        // required container when one of those periods starts on or after the cutoff.
+        // Each invoice represents a stay period. Keep the parent booking when any
+        // original/extension/renewal period overlaps the cutoff or falls after it.
         $retainedPeriodBookingIds = DB::table('booking_invoices')
-            ->whereIn('invoice_type', ['extension', 'renewal'])
-            ->whereDate('period_from', '>=', self::CUTOFF)
+            ->whereDate('period_to', '>=', self::CUTOFF)
             ->pluck('booking_id')
             ->unique();
+        $retainedPeriodBookingIds = $retainedPeriodBookingIds
+            ->merge(DB::table('bookings')->whereDate('check_out', '>=', self::CUTOFF)->pluck('id'))
+            ->unique()->values();
         $bookingIds = DB::table('bookings')->whereDate('check_in', '<', self::CUTOFF)
             ->whereNotIn('id', $retainedPeriodBookingIds)
             ->pluck('id');
@@ -31,9 +33,10 @@ return new class extends Migration
         $staleRetainedInvoiceIds = DB::table('booking_invoices')
             ->whereIn('booking_id', $retainedPeriodBookingIds)
             ->where(function ($query) {
-                $query->where('invoice_type', 'original')
-                    ->orWhereNull('period_from')
-                    ->orWhereDate('period_from', '<', self::CUTOFF);
+                $query->whereDate('period_to', '<', self::CUTOFF)
+                    ->orWhere(function ($missingPeriod) {
+                        $missingPeriod->whereNull('period_to')->whereDate('issue_date', '<', self::CUTOFF);
+                    });
             })->pluck('id');
         $invoiceIds = DB::table('booking_invoices')->whereIn('booking_id', $bookingIds)->pluck('id')
             ->merge($staleRetainedInvoiceIds)->unique()->values();
