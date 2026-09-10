@@ -10,7 +10,7 @@ class OwnerReceiptPosting
     public static function post(BookingInvoicePayment $payment): void
     {
         $booking = $payment->invoice->booking;
-        if ($booking->owner_posting_basis !== 'receipts' || ! $booking->property?->landlord_id || (float) $payment->rent_amount <= 0) {
+        if ($payment->invoice?->legacy_owner_settled || $booking->owner_posting_basis !== 'receipts' || ! $booking->property?->landlord_id || (float) $payment->rent_amount <= 0) {
             return;
         }
         $base = ['landlord_id' => $booking->property->landlord_id, 'property_id' => $booking->property_id,

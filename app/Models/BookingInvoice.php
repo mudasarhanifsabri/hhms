@@ -28,6 +28,7 @@ class BookingInvoice extends BaseModel
         'fees',
         'total_amount',
         'status',
+        'legacy_owner_settled',
         'notes',
     ];
 
@@ -41,6 +42,7 @@ class BookingInvoice extends BaseModel
         'vat_amount' => 'decimal:2',
         'fees' => 'array',
         'total_amount' => 'decimal:2',
+        'legacy_owner_settled' => 'boolean',
     ];
 
     public function booking(): BelongsTo
@@ -60,6 +62,10 @@ class BookingInvoice extends BaseModel
 
     public function getPaidAmountAttribute(): float
     {
+        if ($this->legacy_owner_settled) {
+            return (float) $this->total_amount;
+        }
+
         $paid = (float) ($this->payments_sum_amount ?? $this->payments()->sum('amount'));
 
         return $paid === 0.0 && $this->status === 'paid' ? (float) $this->total_amount : $paid;
@@ -67,6 +73,10 @@ class BookingInvoice extends BaseModel
 
     public function getBalanceDueAttribute(): float
     {
+        if ($this->legacy_owner_settled) {
+            return 0.0;
+        }
+
         return max(0, round((float) $this->total_amount - $this->paid_amount, 2));
     }
 

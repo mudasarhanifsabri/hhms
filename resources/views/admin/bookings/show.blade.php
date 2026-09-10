@@ -22,11 +22,12 @@
     $contractLimitDate = $booking->check_in?->copy()->addDays(90);
     $latestInvoice = $booking->invoices->sortByDesc('created_at')->first();
     $defaultExtensionRent = (float) ($latestInvoice?->rent_amount ?? $booking->rent_amount);
-    $totalInvoiced = (float) $booking->invoices->sum('total_amount');
-    $totalPaid = (float) $booking->invoices->sum(fn ($invoice) => $invoice->paid_amount);
+    $financialInvoices = $booking->invoices->reject(fn ($invoice) => $invoice->legacy_owner_settled);
+    $totalInvoiced = (float) $financialInvoices->sum('total_amount');
+    $totalPaid = (float) $financialInvoices->sum(fn ($invoice) => $invoice->paid_amount);
     $totalOutstanding = max(0, $totalInvoiced - $totalPaid);
-    $expectedRentOutstanding = max(0, $booking->invoices->sum('rent_amount') - $booking->invoices->sum(fn($invoice) => $invoice->payments->sum('rent_amount')));
-    $outstandingInvoices = $booking->invoices->filter(fn ($invoice) => $invoice->balance_due > 0)->sortBy('issue_date');
+    $expectedRentOutstanding = max(0, $financialInvoices->sum('rent_amount') - $financialInvoices->sum(fn($invoice) => $invoice->payments->sum('rent_amount')));
+    $outstandingInvoices = $financialInvoices->filter(fn ($invoice) => $invoice->balance_due > 0)->sortBy('issue_date');
 @endphp
 <div class="booking-page-head" role="region" aria-label="Booking details and actions">
     <div><h3>{{ $booking->booking_reference }}</h3><div class="breadcrumb-note"><a href="{{ route('admin.booking.index') }}">Bookings</a> / Booking details</div></div>
@@ -99,7 +100,7 @@
                                 <td>AED {{ number_format((float) $invoice->total_amount, 2) }}</td>
                                 <td class="text-success">AED {{ number_format($invoice->paid_amount, 2) }}</td>
                                 <td class="{{ $invoice->balance_due > 0 ? 'text-danger' : 'text-success' }}">AED {{ number_format($invoice->balance_due, 2) }}</td>
-                                <td><span class="badge {{ $invoice->status === 'paid' ? 'bg-success' : ($invoice->status === 'partial' ? 'bg-warning' : 'bg-danger') }}">{{ ucfirst($invoice->status) }}</span></td>
+                                <td>@if($invoice->legacy_owner_settled)<span class="badge bg-secondary">Legacy · Owner settled</span>@else<span class="badge {{ $invoice->status === 'paid' ? 'bg-success' : ($invoice->status === 'partial' ? 'bg-warning' : 'bg-danger') }}">{{ ucfirst($invoice->status) }}</span>@endif</td>
                                 <td><div class="d-flex gap-1 invoice-actions">
                                     <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#invoiceDetails{{ $invoice->id }}">View</button>
                                     @if($invoice->balance_due > 0)
@@ -131,7 +132,7 @@
                             <tr><td colspan="7" class="text-center text-muted py-4">No invoices created.</td></tr>
                         @endforelse
                         </tbody>
-                        @if($booking->invoices->isNotEmpty())<tfoot><tr><td colspan="2">Total</td><td>AED {{ number_format($totalInvoiced, 2) }}</td><td class="text-success">AED {{ number_format($totalPaid, 2) }}</td><td class="text-danger">AED {{ number_format($totalOutstanding, 2) }}</td><td colspan="2"></td></tr></tfoot>@endif
+                        @if($booking->invoices->isNotEmpty())<tfoot><tr><td colspan="2">RMS period total</td><td>AED {{ number_format($totalInvoiced, 2) }}</td><td class="text-success">AED {{ number_format($totalPaid, 2) }}</td><td class="text-danger">AED {{ number_format($totalOutstanding, 2) }}</td><td colspan="2"></td></tr></tfoot>@endif
                     </table>
                 </div>
                 <div class="px-3 py-2 border-top small text-muted"><iconify-icon icon="solar:info-circle-broken" class="align-middle"></iconify-icon> Each invoice has its own confirmation PDF for that invoice’s exact period. Click an invoice number to view charges and documents.</div>
