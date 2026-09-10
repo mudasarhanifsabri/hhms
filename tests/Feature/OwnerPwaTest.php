@@ -206,6 +206,43 @@ class OwnerPwaTest extends TestCase
         $this->assertCount(1, OwnerStatementPdf::data($owner, '2026-09-01', '2026-09-30')['entries']);
     }
 
+    public function test_payment_owner_postings_replace_legacy_invoice_rows_on_statement(): void
+    {
+        $owner = User::factory()->create(['role' => 'landlord']);
+        $unit = Property::create(['landlord_id' => $owner->id, 'name' => 'Duplicate Guard Unit']);
+        $booking = Booking::create([
+            'property_id' => $unit->id, 'booking_reference' => 'BK-DUPLICATE-GUARD', 'invoice_number' => 'INV-DUPLICATE-GUARD',
+            'guest_name' => 'Paid Guest', 'guest_email' => 'paid@example.com', 'guest_phone' => '0500000002',
+            'guest_passport_id_no' => 'P24680', 'check_in' => '2026-08-01', 'check_out' => '2026-08-30',
+            'rent_amount' => 8000, 'management_fee_percent' => 15, 'total_amount' => 8400,
+            'invoice_status' => 'paid', 'status' => 'confirmed', 'owner_posting_basis' => 'receipts',
+        ]);
+        $invoice = BookingInvoice::create([
+            'booking_id' => $booking->id, 'invoice_number' => 'INV-DUPLICATE-GUARD', 'invoice_type' => 'extension',
+            'issue_date' => '2026-08-01', 'period_from' => '2026-08-01', 'period_to' => '2026-08-30',
+            'rent_amount' => 8000, 'vat_amount' => 400, 'total_amount' => 8400, 'status' => 'paid',
+        ]);
+        $payment = $invoice->payments()->create([
+            'payment_date' => '2026-08-03', 'amount' => 8400, 'rent_amount' => 8000, 'payment_method' => 'Bank Transfer',
+        ]);
+        foreach ([
+            ['reference' => $invoice->invoice_number, 'type' => 'rent_income', 'direction' => 'credit', 'amount' => 8000, 'description' => 'LEGACY RENT DUPLICATE'],
+            ['reference' => $invoice->invoice_number, 'type' => 'management_fee', 'direction' => 'debit', 'amount' => 1200, 'description' => 'LEGACY FEE DUPLICATE'],
+            ['reference' => 'PAY-'.$payment->id, 'type' => 'rent_income', 'direction' => 'credit', 'amount' => 8000, 'description' => 'COLLECTED RENT ONLY'],
+            ['reference' => 'PAY-'.$payment->id, 'type' => 'management_fee', 'direction' => 'debit', 'amount' => 1200, 'description' => 'COLLECTED FEE ONLY'],
+        ] as $row) {
+            LandlordAccountEntry::create($row + ['landlord_id' => $owner->id, 'property_id' => $unit->id, 'entry_date' => '2026-08-03']);
+        }
+
+        $statement = OwnerStatementPdf::data($owner, '2026-08-01', '2026-08-31');
+        $this->assertCount(2, $statement['entries']);
+        $this->assertSame(8000.0, $statement['accountTotals']['credit']);
+        $this->assertSame(1200.0, $statement['accountTotals']['debit']);
+        $this->assertSame(6800.0, $statement['accountTotals']['balance']);
+        $this->assertFalse($statement['entries']->contains('description', 'LEGACY RENT DUPLICATE'));
+        $this->assertTrue($statement['entries']->contains('description', 'COLLECTED RENT ONLY'));
+    }
+
     public function test_owner_welcome_email_contains_login_credentials_and_app_link(): void
     {
         $owner = User::factory()->create([

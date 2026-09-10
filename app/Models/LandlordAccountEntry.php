@@ -99,12 +99,19 @@ class LandlordAccountEntry extends BaseModel
         $eligibleInvoiceIds = $invoices->filter(
             fn (BookingInvoice $invoice) => (float) ($paidTotals[$invoice->id] ?? 0) + 0.01 >= (float) $invoice->total_amount
         )->pluck('id');
-        $eligibleReferences = $invoices->whereIn('id', $eligibleInvoiceIds)->pluck('invoice_number')->filter();
+        $payments = BookingInvoicePayment::query()->whereNull('reversed_at')->get(['id', 'booking_invoice_id']);
+        $invoiceIdsWithPayments = $payments->pluck('booking_invoice_id')->unique();
+        // A settled invoice with real payment rows must use PAY-* owner postings only.
+        // Keeping its older invoice-reference posting visible would double both rent and management fee.
+        $eligibleReferences = $invoices->whereIn('id', $eligibleInvoiceIds)
+            ->whereNotIn('id', $invoiceIdsWithPayments)
+            ->pluck('invoice_number')->filter();
         $eligibleBookingIds = $invoices->groupBy('booking_id')
-            ->filter(fn ($bookingInvoices) => $bookingInvoices->isNotEmpty() && $bookingInvoices->every(fn ($invoice) => $eligibleInvoiceIds->contains($invoice->id)))
+            ->filter(fn ($bookingInvoices) => $bookingInvoices->isNotEmpty()
+                && $bookingInvoices->every(fn ($invoice) => $eligibleInvoiceIds->contains($invoice->id))
+                && $bookingInvoices->every(fn ($invoice) => ! $invoiceIdsWithPayments->contains($invoice->id)))
             ->keys();
         $eligibleReferences = $eligibleReferences->concat($bookings->whereIn('id', $eligibleBookingIds)->pluck('booking_reference'));
-        $payments = BookingInvoicePayment::query()->whereNull('reversed_at')->get(['id', 'booking_invoice_id']);
         $automaticReferences = $automaticReferences->concat($payments->pluck('id')->map(fn ($id) => 'PAY-'.$id))->unique()->values();
         $eligibleReferences = $eligibleReferences->concat(
             $payments->whereIn('booking_invoice_id', $eligibleInvoiceIds)->pluck('id')->map(fn ($id) => 'PAY-'.$id)
