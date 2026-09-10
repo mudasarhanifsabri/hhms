@@ -109,8 +109,11 @@ return new class extends Migration
                     ->orWhereIn('booking_invoice_id', $invoiceIds)
                     ->orWhereIn('booking_invoice_payment_id', $paymentIds)
                     ->delete();
-                DB::table('booking_deposit_refunds')->whereIn('booking_id', $bookingIds)
-                    ->orWhereIn('related_booking_id', $bookingIds)->delete();
+                $refunds = DB::table('booking_deposit_refunds')->whereIn('booking_id', $bookingIds);
+                if (Schema::hasColumn('booking_deposit_refunds', 'related_booking_id')) {
+                    $refunds->orWhereIn('related_booking_id', $bookingIds);
+                }
+                $refunds->delete();
                 DB::table('booking_invoice_payments')->whereIn('booking_invoice_id', $invoiceIds)->delete();
                 if (Schema::hasTable('booking_payment_batches')) {
                     DB::table('booking_payment_batches')->whereIn('booking_id', $bookingIds)->delete();
