@@ -588,6 +588,13 @@ class AccountingController extends Controller
             return back()->with('error', 'Rejected expenses cannot be approved.');
         }
 
+        DB::transaction(function () use ($expense) {
+            AccountingEntry::where('expense_id', $expense->id)
+                ->where('transaction_reference', 'like', 'DRAFT-REV-'.$expense->id.'-%')
+                ->delete();
+            LandlordAccountEntry::where('reference', 'like', 'DRAFT-REV-'.$expense->expense_no.'-%')->delete();
+        });
+
         $expense->update(array_merge(
             ['approval_status' => 'approved'],
             Schema::hasColumn('expenses', 'needs_review') ? ['needs_review' => false] : []
@@ -1196,19 +1203,28 @@ class AccountingController extends Controller
         $owner = $request->filled('landlord_id') ? User::find($request->input('landlord_id')) : $owners->first();
         $from = Carbon::parse($request->input('date_from', now()->startOfMonth()->toDateString()));
         $to = Carbon::parse($request->input('date_to', now()->endOfMonth()->toDateString()));
+        $properties = collect();
+        $propertyId = null;
         $entries = collect();
 
         if ($owner) {
+            $properties = Property::with('building')->where(function ($query) use ($owner) {
+                $query->where('landlord_id', $owner->id)
+                    ->orWhereHas('ownerShares', fn ($shareQuery) => $shareQuery->where('owner_id', $owner->id));
+            })->orderBy('name')->get();
+            $requestedPropertyId = $request->input('property_id');
+            $propertyId = $properties->contains('id', $requestedPropertyId) ? $requestedPropertyId : null;
             $entries = LandlordAccountEntry::with('property')
                 ->where('landlord_id', $owner->id)
                 ->visibleOnOwnerStatement()
                 ->whereBetween('entry_date', [$from, $to])
+                ->when($propertyId, fn ($query) => $query->where('property_id', $propertyId))
                 ->statementOrder()
                 ->get()
                 ->groupBy('property_id');
         }
 
-        return view('admin.accounting.owner-statements', compact('owners', 'owner', 'from', 'to', 'entries'));
+        return view('admin.accounting.owner-statements', compact('owners', 'owner', 'properties', 'propertyId', 'from', 'to', 'entries'));
     }
 
     public function ownerStatementPdf(Request $request)

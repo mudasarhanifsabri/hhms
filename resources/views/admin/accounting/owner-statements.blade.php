@@ -7,15 +7,16 @@
     <div class="card-header d-flex justify-content-between align-items-center">
         <h4 class="card-title mb-0">Owner Statement Preview</h4>
         @if($owner)
-            <a class="btn btn-primary" href="{{ route('admin.accounting.owner-statements.pdf', ['landlord_id' => $owner->id, 'date_from' => $from->toDateString(), 'date_to' => $to->toDateString()]) }}"><i class="ri-download-2-line me-1"></i>Download Full PDF</a>
+            <a class="btn btn-primary" href="{{ route('admin.accounting.owner-statements.pdf', array_filter(['landlord_id' => $owner->id, 'date_from' => $from->toDateString(), 'date_to' => $to->toDateString(), 'property_id' => $propertyId])) }}"><i class="ri-download-2-line me-1"></i>Download {{ $propertyId ? 'Unit' : 'Full' }} PDF</a>
         @endif
     </div>
     <div class="card-body border-bottom">
         <form class="row g-2 align-items-end">
-            <div class="col-md-4"><label class="form-label">Owner</label><select name="landlord_id" class="form-select">@foreach($owners as $candidate)<option value="{{ $candidate->id }}" @selected($owner?->id===$candidate->id)>{{ $candidate->name }}</option>@endforeach</select></div>
-            <div class="col-md-3"><label class="form-label">From</label><input type="date" name="date_from" value="{{ $from->toDateString() }}" class="form-control"></div>
-            <div class="col-md-3"><label class="form-label">To</label><input type="date" name="date_to" value="{{ $to->toDateString() }}" class="form-control"></div>
-            <div class="col-md-2"><button class="btn btn-soft-primary w-100">Preview</button></div>
+            <div class="col-lg-3"><label class="form-label">Owner</label><select name="landlord_id" class="form-select">@foreach($owners as $candidate)<option value="{{ $candidate->id }}" @selected($owner?->id===$candidate->id)>{{ $candidate->name }}</option>@endforeach</select></div>
+            <div class="col-lg-3"><label class="form-label">Unit Statement</label><select name="property_id" class="form-select"><option value="">All units</option>@foreach($properties as $property)<option value="{{ $property->id }}" @selected($propertyId===$property->id)>{{ $property->name }} — {{ $property->building?->name ?? 'No building' }}</option>@endforeach</select></div>
+            <div class="col-lg-2"><label class="form-label">From</label><input type="date" name="date_from" value="{{ $from->toDateString() }}" class="form-control"></div>
+            <div class="col-lg-2"><label class="form-label">To</label><input type="date" name="date_to" value="{{ $to->toDateString() }}" class="form-control"></div>
+            <div class="col-lg-2"><button class="btn btn-soft-primary w-100">View Statement</button></div>
         </form>
     </div>
     <div class="card-body">
