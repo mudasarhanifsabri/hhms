@@ -16,10 +16,27 @@ return new class extends Migration
             return;
         }
 
-        $bookingIds = DB::table('bookings')->whereDate('check_in', '<', self::CUTOFF)->pluck('id');
+        // An extension/renewal is its own stay period. Keep the parent booking as the
+        // required container when one of those periods starts on or after the cutoff.
+        $retainedPeriodBookingIds = DB::table('booking_invoices')
+            ->whereIn('invoice_type', ['extension', 'renewal'])
+            ->whereDate('period_from', '>=', self::CUTOFF)
+            ->pluck('booking_id')
+            ->unique();
+        $bookingIds = DB::table('bookings')->whereDate('check_in', '<', self::CUTOFF)
+            ->whereNotIn('id', $retainedPeriodBookingIds)
+            ->pluck('id');
         $expenseRows = DB::table('expenses')->whereDate('expense_date', '<', self::CUTOFF)->get(['id', 'expense_no', 'landlord_id']);
         $expenseIds = $expenseRows->pluck('id');
-        $invoiceIds = DB::table('booking_invoices')->whereIn('booking_id', $bookingIds)->pluck('id');
+        $staleRetainedInvoiceIds = DB::table('booking_invoices')
+            ->whereIn('booking_id', $retainedPeriodBookingIds)
+            ->where(function ($query) {
+                $query->where('invoice_type', 'original')
+                    ->orWhereNull('period_from')
+                    ->orWhereDate('period_from', '<', self::CUTOFF);
+            })->pluck('id');
+        $invoiceIds = DB::table('booking_invoices')->whereIn('booking_id', $bookingIds)->pluck('id')
+            ->merge($staleRetainedInvoiceIds)->unique()->values();
         $invoiceNumbers = DB::table('booking_invoices')->whereIn('id', $invoiceIds)->pluck('invoice_number');
         $paymentIds = DB::table('booking_invoice_payments')->whereIn('booking_invoice_id', $invoiceIds)->pluck('id');
         $bookingReferences = DB::table('bookings')->whereIn('id', $bookingIds)->pluck('booking_reference');
@@ -39,7 +56,7 @@ return new class extends Migration
 
         Schema::disableForeignKeyConstraints();
         try {
-            DB::transaction(function () use ($bookingIds, $expenseRows, $expenseIds, $invoiceIds, $invoiceNumbers, $paymentIds, $bookingReferences, $taskIds, $inspectionIds) {
+            DB::transaction(function () use ($bookingIds, $retainedPeriodBookingIds, $expenseRows, $expenseIds, $invoiceIds, $invoiceNumbers, $paymentIds, $bookingReferences, $taskIds, $inspectionIds) {
                 if ($expenseIds->isNotEmpty()) {
                     DB::table('expense_audits')->whereIn('expense_id', $expenseIds)->delete();
                     DB::table('accounting_entries')->whereIn('expense_id', $expenseIds)->delete();
@@ -53,11 +70,18 @@ return new class extends Migration
                     DB::table('expenses')->whereIn('id', $expenseIds)->delete();
                 }
 
-                if ($bookingIds->isEmpty()) {
+                if ($bookingIds->isEmpty() && $invoiceIds->isEmpty()) {
                     return;
                 }
 
-                DB::table('accounting_entries')->whereIn('booking_id', $bookingIds)->delete();
+                $paymentAccountingEntryIds = DB::table('booking_invoice_payments')
+                    ->whereIn('id', $paymentIds)->pluck('accounting_entry_id')->filter();
+                $depositAccountingEntryIds = DB::table('booking_deposit_entries')
+                    ->whereIn('booking_invoice_id', $invoiceIds)->pluck('accounting_entry_id')->filter();
+                DB::table('accounting_entries')->whereIn('booking_id', $bookingIds)
+                    ->orWhereIn('id', $paymentAccountingEntryIds)
+                    ->orWhereIn('id', $depositAccountingEntryIds)
+                    ->delete();
                 DB::table('landlord_account_entries')->whereIn('booking_invoice_id', $invoiceIds)
                     ->orWhereIn('reference', $bookingReferences)
                     ->orWhereIn('reference', $invoiceNumbers)
@@ -81,7 +105,10 @@ return new class extends Migration
                 DB::table('booking_task_cost_items')->whereIn('booking_task_id', $taskIds)->delete();
                 DB::table('expenses')->whereIn('booking_task_id', $taskIds)->update(['booking_task_id' => null]);
                 DB::table('booking_tasks')->whereIn('id', $taskIds)->delete();
-                DB::table('booking_deposit_entries')->whereIn('booking_id', $bookingIds)->delete();
+                DB::table('booking_deposit_entries')->whereIn('booking_id', $bookingIds)
+                    ->orWhereIn('booking_invoice_id', $invoiceIds)
+                    ->orWhereIn('booking_invoice_payment_id', $paymentIds)
+                    ->delete();
                 DB::table('booking_deposit_refunds')->whereIn('booking_id', $bookingIds)
                     ->orWhereIn('related_booking_id', $bookingIds)->delete();
                 DB::table('booking_invoice_payments')->whereIn('booking_invoice_id', $invoiceIds)->delete();
@@ -89,6 +116,8 @@ return new class extends Migration
                     DB::table('booking_payment_batches')->whereIn('booking_id', $bookingIds)->delete();
                 }
                 DB::table('booking_invoices')->whereIn('id', $invoiceIds)->delete();
+                DB::table('booking_histories')->whereIn('booking_id', $retainedPeriodBookingIds)
+                    ->whereDate('created_at', '<', self::CUTOFF)->delete();
                 DB::table('booking_histories')->whereIn('booking_id', $bookingIds)->delete();
                 DB::table('bookings')->whereIn('id', $bookingIds)->delete();
             });
