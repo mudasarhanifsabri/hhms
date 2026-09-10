@@ -182,7 +182,9 @@ class AdminPagesTest extends TestCase
 
         $this->actingAs($admin)
             ->get(route('admin.property.show', $property->id))
-            ->assertOk();
+            ->assertOk()
+            ->assertSee('Unit Account Statement')
+            ->assertSee(route('admin.landlord.account-statement', ['id' => $landlord->id, 'property_id' => $property->id]), false);
 
         $this->actingAs($admin)
             ->get(route('admin.property.edit', $property->id))
