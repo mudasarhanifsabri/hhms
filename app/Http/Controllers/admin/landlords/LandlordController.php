@@ -724,6 +724,7 @@ private function attachOwnerUnitSummary($landlords): void
 {
     $balances = LandlordAccountEntry::query()
         ->whereIn('landlord_id', $landlords->pluck('id'))
+        ->visibleOnOwnerStatement()
         ->selectRaw("landlord_id, SUM(CASE WHEN direction = 'credit' THEN amount ELSE -amount END) as account_balance")
         ->groupBy('landlord_id')
         ->pluck('account_balance', 'landlord_id');
