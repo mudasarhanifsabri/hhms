@@ -560,7 +560,10 @@ class AccountingController extends Controller
             ]);
         }
 
-        if ($this->expenseShouldPost($expense)) {
+        if (! $this->expenseShouldPost($expense)) {
+            AccountingEntry::where('expense_id', $expense->id)->delete();
+            $expense->update(['accounting_entry_id' => null]);
+        } else {
             if (! $expense->accounting_entry_id) {
                 $entry = $this->postExpenseEntry($expense);
                 $expense->update(['accounting_entry_id' => $entry->id]);
