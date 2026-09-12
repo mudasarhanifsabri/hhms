@@ -39,7 +39,7 @@ class BookingController extends Controller
         return view('admin.bookings.grid', compact('bookings'));
     }
 
-    private function filteredBookings(Request $request)
+    private function filteredBookings(Request $request, bool $paginate = true)
     {
         $filters = $request->validate([
             'search' => 'nullable|string|max:200',
@@ -49,7 +49,7 @@ class BookingController extends Controller
             'to' => 'nullable|date_format:Y-m-d'.($request->filled('from') ? '|after_or_equal:from' : ''),
             'per_page' => 'nullable|integer|in:10,12,25,50,100',
         ]);
-        $query = Booking::with(['property.building', 'agent']);
+        $query = Booking::with(['property.building', 'property.landlord', 'agent']);
         $search = trim($filters['search'] ?? '');
         if ($search !== '') {
             $query->where(function ($query) use ($search) {
@@ -75,7 +75,50 @@ class BookingController extends Controller
             $query->whereDate('check_in', '<=', $filters['to']);
         }
 
-        return $query->latest()->orderByDesc('id')->paginate($filters['per_page'] ?? 12)->withQueryString();
+        $query->latest()->orderByDesc('id');
+
+        return $paginate
+            ? $query->paginate($filters['per_page'] ?? 12)->withQueryString()
+            : $query->get();
+    }
+
+    public function exportExcel(Request $request)
+    {
+        $bookings = $this->filteredBookings($request, false);
+
+        return response()->streamDownload(function () use ($bookings) {
+            $output = fopen('php://output', 'wb');
+            fwrite($output, "\xEF\xBB\xBF");
+            fputcsv($output, ['Booking Ref.', 'Guest', 'Email', 'Phone', 'Passport / ID', 'Owner', 'Building', 'Unit', 'Agent', 'Check In', 'Check Out', 'Nights', 'Booking Status', 'Invoice Status', 'Rent', 'VAT', 'DTCM Fee', 'Cleaning Fee', 'Agency Fee', 'Security Deposit', 'Total (AED)']);
+            foreach ($bookings as $booking) {
+                $row = [
+                    $booking->booking_reference, $booking->guest_name, $booking->guest_email, $booking->guest_phone,
+                    $booking->guest_passport_id_no, $booking->property?->landlord?->name,
+                    $booking->property?->building?->building_name ?? $booking->property?->building?->name,
+                    $booking->property?->name, $booking->agent?->name,
+                    $booking->check_in?->format('Y-m-d'), $booking->check_out?->format('Y-m-d'), $booking->nights,
+                    str($booking->status)->replace('_', ' ')->headline(), str($booking->invoice_status)->headline(),
+                    (float) $booking->rent_amount, (float) $booking->vat_amount, (float) $booking->dtcm_fee,
+                    (float) $booking->cleaning_fee, (float) $booking->agency_fee, (float) $booking->security_deposit,
+                    (float) $booking->total_amount,
+                ];
+                fputcsv($output, array_map(function ($value) {
+                    if (! is_string($value)) {
+                        return $value;
+                    }
+                    return preg_match('/^[\s]*[=+@-]/u', $value) ? "'".$value : $value;
+                }, $row));
+            }
+            fclose($output);
+        }, 'booking-report-'.now()->format('Y-m-d').'.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
+    }
+
+    public function exportPdf(Request $request)
+    {
+        $bookings = $this->filteredBookings($request, false);
+        $filters = $request->only(['search', 'status', 'invoice_status', 'from', 'to']);
+
+        return PdfRenderer::downloadView('admin.bookings.pdf.list', compact('bookings', 'filters'), 'booking-report-'.now()->format('Y-m-d').'.pdf', ['format' => 'A4-L']);
     }
 
     public function create()

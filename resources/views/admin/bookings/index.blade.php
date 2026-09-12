@@ -30,6 +30,13 @@
             <div class="card-header d-flex flex-wrap gap-2 justify-content-between align-items-center border-bottom">
                 <h4 class="card-title mb-0">Bookings</h4>
                 <div class="d-flex gap-2">
+                    <div class="dropdown">
+                        <button class="btn btn-sm btn-outline-dark dropdown-toggle" data-bs-toggle="dropdown"><i class="ri-download-2-line me-1"></i>Export</button>
+                        <div class="dropdown-menu dropdown-menu-end">
+                            <a class="dropdown-item" href="{{ route('admin.booking.export.excel', request()->except(['page','per_page'])) }}"><i class="ri-file-excel-2-line me-2 text-success"></i>Excel</a>
+                            <a class="dropdown-item" href="{{ route('admin.booking.export.pdf', request()->except(['page','per_page'])) }}"><i class="ri-file-pdf-2-line me-2 text-danger"></i>PDF</a>
+                        </div>
+                    </div>
                     <a href="{{ route('admin.booking.grid', request()->except('page')) }}" class="btn btn-sm btn-outline-primary">Grid View</a>
                     <a href="{{ route('admin.booking.create') }}" class="btn btn-sm btn-primary">+ Create Booking</a>
                 </div>
