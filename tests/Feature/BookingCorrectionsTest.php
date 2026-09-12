@@ -40,7 +40,7 @@ class BookingCorrectionsTest extends TestCase
     public function test_invoice_vat_toggle_matches_the_approved_examples_and_survives_reopening(): void
     {
         [$booking, $invoice] = $this->setupInvoice(1500);
-        $data = ['rent_amount' => 10500, 'vat_rate' => 5, 'vat_included' => 1, 'fees' => $invoice->fees, 'reason' => 'Rent includes agreed VAT'];
+        $data = ['rent_amount' => 10500, 'vat_rate' => 5, 'vat_included' => 1, 'fees' => $invoice->fees, 'reason' => 'Rent includes agreed VAT', 'current_password' => 'password'];
         $this->put(route('admin.booking-invoice.correct', $invoice), $data)->assertSessionHasNoErrors();
         $this->assertEquals(10000, $invoice->fresh()->rent_amount);
         $this->assertEquals(500, $invoice->fresh()->vat_amount);
@@ -114,7 +114,9 @@ class BookingCorrectionsTest extends TestCase
     public function test_unpaid_invoice_can_be_corrected_but_paid_one_is_locked(): void
     {
         [$booking, $invoice, $bank] = $this->setupInvoice();
-        $data = ['rent_amount' => 2000, 'vat_rate' => 5, 'fees' => $invoice->fees, 'reason' => 'Correct agreed rent'];
+        $data = ['rent_amount' => 2000, 'vat_rate' => 5, 'fees' => $invoice->fees, 'reason' => 'Correct agreed rent', 'current_password' => 'password'];
+        $this->put(route('admin.booking-invoice.correct', $invoice), array_replace($data, ['current_password' => 'wrong-password']))
+            ->assertSessionHasErrors('current_password');
         $this->put(route('admin.booking-invoice.correct', $invoice), $data)->assertSessionHasNoErrors();
         $this->assertEquals(2100, $invoice->fresh()->total_amount);
         $this->assertEquals(2000, $booking->fresh()->rent_amount);

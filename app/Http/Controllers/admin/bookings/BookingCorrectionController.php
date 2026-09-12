@@ -14,6 +14,7 @@ use App\Support\DepositWallet;
 use App\Support\OwnerReceiptPosting;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
@@ -26,10 +27,15 @@ class BookingCorrectionController extends Controller
 
     public function invoice(Request $request, BookingInvoice $invoice)
     {
+        abort_unless(auth()->user()?->role === 'admin', 403, 'Only the Super Admin can edit a booking invoice.');
         $data = $request->validate(['rent_amount' => 'required|numeric|min:0|decimal:0,2',
             'vat_included' => 'nullable|boolean',
             'vat_rate' => 'required|numeric|min:0|max:100', 'fees' => 'nullable|array',
-            'fees.*' => 'required|numeric|min:0|decimal:0,2', 'reason' => 'required|string|min:5|max:1000']);
+            'fees.*' => 'required|numeric|min:0|decimal:0,2', 'reason' => 'required|string|min:5|max:1000',
+            'current_password' => 'required|string|max:255']);
+        if (! Hash::check((string) $data['current_password'], (string) auth()->user()?->password)) {
+            throw ValidationException::withMessages(['current_password' => 'The Super Admin password is incorrect.']);
+        }
         DB::transaction(function () use ($invoice, $data) {
             $booking = Booking::whereKey($invoice->booking_id)->lockForUpdate()->firstOrFail();
             $invoice = BookingInvoice::whereKey($invoice->id)->lockForUpdate()->firstOrFail();
