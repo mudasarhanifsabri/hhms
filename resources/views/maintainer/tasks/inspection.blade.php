@@ -1,7 +1,9 @@
 @extends('layouts.app')
 
 @section('content')
-<style>#inspection-wizard [hidden]{display:none!important}#inspection-wizard progress{accent-color:#6844e8}#inspection-wizard .pwa-inspection-item{margin-bottom:16px}#inspection-wizard input:not([type=radio]):not([type=file]),#inspection-wizard textarea{font-size:16px;max-width:100%;box-sizing:border-box}#inspection-wizard .pwa-inspection-item{padding:12px;border:1px solid #e5e7ef;border-radius:12px;min-width:0}#inspection-wizard button,#inspection-wizard .btn{min-height:44px}#inspection-wizard [data-photo-list] img{border-radius:8px;object-fit:cover}#wizard-navigation{padding:10px 0}</style>
+<style>
+#inspection-wizard [hidden]{display:none!important}#inspection-wizard{padding-bottom:92px}#inspection-wizard progress{accent-color:#6844e8;height:7px}#inspection-wizard .pwa-inspection-item{margin-bottom:12px;padding:14px;border:1px solid #e5e7ef;border-radius:14px;min-width:0;background:#fff}#inspection-wizard input:not([type=radio]):not([type=file]),#inspection-wizard textarea{font-size:16px;max-width:100%;box-sizing:border-box}#inspection-wizard button,#inspection-wizard .btn{min-height:44px}#inspection-wizard [data-photo-list] img{border-radius:10px;object-fit:cover}#wizard-progress{position:sticky;top:58px;z-index:8;margin-bottom:12px;background:rgba(255,255,255,.96);backdrop-filter:blur(10px)}.inspection-save-state{display:flex;align-items:center;gap:8px;padding:9px 12px;margin-bottom:12px;border-radius:12px;background:#f3f8f7;color:#315b52;font-size:13px}.inspection-save-dot{width:8px;height:8px;border-radius:50%;background:#25b56a;flex:0 0 auto}.inspection-save-state.is-busy .inspection-save-dot{background:#f0a020;animation:savePulse 1s infinite}.inspection-save-state.is-error{background:#fff1f1;color:#a52b2b}.inspection-save-state.is-error .inspection-save-dot{background:#e05252}@keyframes savePulse{50%{opacity:.3}}#wizard-navigation{position:fixed;left:max(12px,calc(50% - 215px));right:max(12px,calc(50% - 215px));bottom:calc(72px + env(safe-area-inset-bottom));z-index:30;display:grid!important;grid-template-columns:1fr 2fr;gap:8px;padding:10px;background:rgba(255,255,255,.97);border:1px solid #e5e7ef;border-radius:16px;box-shadow:0 10px 35px rgba(22,35,58,.18);backdrop-filter:blur(12px)}#wizard-navigation button{width:100%;margin:0}#wizard-submit{width:100%}@media(min-width:768px){#wizard-navigation{left:calc(50% - 260px);right:calc(50% - 260px);bottom:20px}}
+</style>
 <div class="pwa-screen">
     @include('maintainer.partials.pwa-header', ['title' => 'Inspection', 'back' => route('maintainer.task.show', $task->id)])
 
@@ -18,7 +20,7 @@
             <section data-wizard-step data-step-title="Rooms" class="pwa-section"><h3>Rooms to inspect</h3><p>Work through each room, record condition and photos, then count inventory.</p><ul>@foreach($inspection->items->groupBy('area') as $area => $roomItems)<li>{{ $area }} · {{ $roomItems->count() }} checks</li>@endforeach</ul><small>Nothing is marked Good automatically. All rooms must be reviewed.</small></section>
             @csrf
 <input type="hidden" name="draft_revision" value="{{ $inspection->draft_revision }}">
-<div class="pwa-section"><strong id="draft-status" role="status">Draft ready</strong><p class="small">Photos upload automatically. Camera access is used only when you choose Take photo.</p><button type="button" id="draft-save" class="pwa-secondary-button">Save draft</button></div>
+<div id="draft-state" class="inspection-save-state"><span class="inspection-save-dot"></span><span id="draft-status" role="status">Saved automatically</span></div>
             @foreach($inspection->items->groupBy('area') as $area => $items)
                 <section data-wizard-step data-step-title="{{ $area }}" class="pwa-section pwa-inspection-area">
                     <h3>{{ $area }}</h3>
@@ -58,8 +60,7 @@
                 <textarea id="notes" name="notes" rows="4" placeholder="Overall inspection notes.">{{ old('notes', $draft['notes'] ?? $inspection->notes) }}</textarea>
             </div>
 
-            </section><div id="wizard-navigation" class="d-flex gap-2" hidden><button type="button" id="wizard-back" class="pwa-secondary-button">Back</button><button type="button" id="wizard-next" class="pwa-primary-button purple">Next</button></div>
-            <button id="wizard-submit" class="pwa-primary-button green" type="submit">Submit Inspection</button>
+            </section><div id="wizard-navigation" hidden><button type="button" id="wizard-back" class="pwa-secondary-button">Back</button><button type="button" id="wizard-next" class="pwa-primary-button purple">Next</button><button id="wizard-submit" class="pwa-primary-button green" type="submit">Review & Submit</button></div>
         </form>
     </div>
 </div>

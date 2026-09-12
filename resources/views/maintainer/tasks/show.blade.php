@@ -13,7 +13,7 @@
         <h2 class="pwa-title">{{ $task->title }}</h2>
         <p class="pwa-subtitle">{{ $task->property?->building?->building_name ?? $task->booking?->property?->building?->building_name ?? 'Property' }} • {{ $task->property?->name ?? $task->booking?->property?->name ?? 'Unit' }}</p>
 
-        <div class="pwa-info-grid">
+        <div class="pwa-info-grid mb-3">
             <span>Category</span><strong>{{ $task->type_label }}</strong>
             <span>Assigned By</span><strong>{{ $task->createdBy?->name ?? 'Admin User' }}</strong>
             <span>Assigned To</span><strong>{{ $task->assignedUser?->name ?? auth()->user()->name }}</strong>
@@ -22,7 +22,7 @@
             <span>Estimated Cost</span><strong>AED {{ number_format((float) $task->total_cost, 2) }}</strong>
         </div>
 
-        <section class="pwa-section">
+        <section class="pwa-section mb-3">
             <h3>Description</h3>
             <p>{{ $task->description ?: 'Please check and update this task as soon as possible.' }}</p>
         </section>
@@ -44,16 +44,14 @@
         @if($finished)
             @include('maintainer.tasks.completed-history')
         @else
-        <div class="pwa-action-stack">
+        <div class="pwa-action-stack mb-3">
             @if(in_array($task->status, ['new', 'open', 'assigned'], true))
                 <a href="{{ route('maintainer.task.accept.form', $task->id) }}" class="pwa-primary-button green">Accept Task</a>
             @endif
             @if($task->isInspectionTask() && ! in_array($task->status, ['completed', 'closed', 'cancelled'], true))
-                <a href="{{ route('maintainer.task.inspection.form', $task->id) }}" class="pwa-primary-button purple">Start Inspection</a>
+                <a href="{{ route('maintainer.task.inspection.form', $task->id) }}" class="pwa-primary-button purple">{{ $task->inspection?->draft_revision > 0 ? 'Continue Inspection' : 'Start Inspection' }}</a>
             @endif
-            <a href="{{ route('maintainer.task.remark.form', $task->id) }}" class="pwa-secondary-button">Add Remark</a>
-            <a href="{{ route('maintainer.task.timeline', $task->id) }}" class="pwa-secondary-button">Timeline</a>
-            <a href="{{ route('maintainer.task.cost.form', $task->id) }}" class="pwa-secondary-button">Add Cost</a>
+            <details class="pwa-section w-100"><summary class="fw-semibold">More task actions</summary><div class="pwa-action-stack mt-3"><a href="{{ route('maintainer.task.remark.form', $task->id) }}" class="pwa-secondary-button">Add update</a><a href="{{ route('maintainer.task.timeline', $task->id) }}" class="pwa-secondary-button">View history</a><a href="{{ route('maintainer.task.cost.form', $task->id) }}" class="pwa-secondary-button">Record cost</a></div></details>
             @if(! $task->isInspectionTask() && ! in_array($task->status, ['completed', 'closed', 'cancelled'], true))
                 <a href="{{ route('maintainer.task.complete.form', $task->id) }}" class="pwa-primary-button green">Complete Task</a>
             @endif
