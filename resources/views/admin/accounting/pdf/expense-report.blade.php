@@ -35,7 +35,7 @@
     </tr></table>
 
     <table class="report">
-        <thead><tr><th>Date / No.</th><th>Category</th><th>Unit / Building</th><th>Vendor</th><th>Charged To</th><th>Paid From</th><th>Status</th><th class="right">Net</th><th class="right">VAT</th><th class="right">Total</th></tr></thead>
+        <thead><tr><th>Date / No.</th><th>Category</th><th>Unit / Building</th><th>Vendor</th><th>Paid By</th><th>Paid From</th><th>Status</th><th class="right">Net</th><th class="right">VAT</th><th class="right">Total</th></tr></thead>
         <tbody>
         @forelse($expenses as $expense)
             <tr>
