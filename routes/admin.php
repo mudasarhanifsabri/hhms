@@ -76,9 +76,12 @@ Route::post('/accounting/ledger', [AccountingController::class, 'storeEntry'])->
 Route::get('/accounting/expenses', [AccountingController::class, 'expenses'])->name('accounting.expenses');
 Route::get('/accounting/expenses/report/pdf', [AccountingController::class, 'expenseReportPdf'])->name('accounting.expenses.report.pdf');
 Route::get('/accounting/expenses/report/csv', [AccountingController::class, 'expenseReportCsv'])->name('accounting.expenses.report.csv');
-Route::get('/e/{expense}/{kind?}', [AccountingController::class, 'expenseDocument'])
+Route::get('/accounting/expenses/{expense}/document/{kind?}', [AccountingController::class, 'expenseDocument'])
     ->where('kind', 'invoice|receipt|import')
     ->name('accounting.expenses.document');
+// Keep previously exported links working after moving to the descriptive route.
+Route::get('/e/{expense}/{kind?}', [AccountingController::class, 'expenseDocument'])
+    ->where('kind', 'invoice|receipt|import');
 Route::get('/accounting/expenses/{expense}/tax-invoice', [AccountingController::class, 'expenseTaxInvoice'])->name('accounting.expenses.tax-invoice');
 Route::post('/accounting/expenses/{expense}/tax-invoice/email', [AccountingController::class, 'emailExpenseTaxInvoice'])->name('accounting.expenses.tax-invoice.email');
 Route::post('/accounting/expenses', [AccountingController::class, 'storeExpense'])->name('accounting.expenses.store');

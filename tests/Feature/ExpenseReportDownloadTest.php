@@ -36,13 +36,29 @@ class ExpenseReportDownloadTest extends TestCase
         $this->assertStringContainsString('EXP-CLEAN-001', $csv);
         $this->assertStringContainsString('View Document', $csv);
         $this->assertStringContainsString('=HYPERLINK(', $csv);
-        $this->assertStringContainsString('/admin/e/', $csv);
+        $this->assertStringContainsString('/admin/accounting/expenses/', $csv);
         $this->assertStringNotContainsString('amazonaws.com', $csv);
         $this->assertStringNotContainsString('EXP-GAS-002', $csv);
 
         $expense = Expense::where('expense_no', 'EXP-CLEAN-001')->firstOrFail();
         $this->actingAs($admin)->get(route('admin.accounting.expenses.document', $expense))->assertRedirect();
         $this->get(route('admin.accounting.expenses.document', [$expense, 'invoice']))->assertRedirect();
+        $this->get('/admin/e/'.$expense->id.'/invoice')->assertRedirect();
+    }
+
+    public function test_admin_can_open_an_expense_receipt_from_the_expense_page(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $expense = Expense::create([
+            'expense_no' => 'EXP-RECEIPT-001', 'expense_date' => '2026-09-26', 'category' => 'other',
+            'responsibility' => 'company', 'net_amount' => 100, 'vat_amount' => 5, 'gross_amount' => 105,
+            'approval_status' => 'approved', 'description' => 'Receipt route check',
+            'receipt_path' => 'expense_receipts/2026/09/26/receipt.pdf',
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('admin.accounting.expenses.document', [$expense, 'receipt']))
+            ->assertRedirect();
     }
 
     public function test_admin_can_download_expense_report_as_pdf(): void
