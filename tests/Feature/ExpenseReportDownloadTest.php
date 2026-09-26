@@ -42,6 +42,7 @@ class ExpenseReportDownloadTest extends TestCase
 
         $expense = Expense::where('expense_no', 'EXP-CLEAN-001')->firstOrFail();
         $this->actingAs($admin)->get(route('admin.accounting.expenses.document', $expense))->assertRedirect();
+        $this->get(route('admin.accounting.expenses.document', [$expense, 'invoice']))->assertRedirect();
     }
 
     public function test_admin_can_download_expense_report_as_pdf(): void

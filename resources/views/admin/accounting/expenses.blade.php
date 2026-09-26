@@ -54,10 +54,10 @@
                     <td class="{{ (float)$expense->profit_amount >= 0 ? 'text-success' : 'text-danger' }}">AED {{ number_format((float)$expense->profit_amount,2) }}</td>
                     <td>
                         @if($expense->audits->isNotEmpty())<button type="button" class="btn btn-sm btn-soft-info" data-bs-toggle="modal" data-bs-target="#expenseAudit{{ $expense->id }}" title="Audit History"><i class="ri-history-line"></i></button>@endif
-                        @if($expense->receipt_path)<a href="{{ \App\Support\MediaStorage::url($expense->receipt_path) }}" target="_blank" class="btn btn-sm btn-soft-primary" title="Receipt"><i class="ri-receipt-line"></i></a>@endif
-                        @if($expense->invoice_path)<a href="{{ \App\Support\MediaStorage::url($expense->invoice_path) }}" target="_blank" class="btn btn-sm btn-soft-info" title="Invoice"><i class="ri-file-list-3-line"></i></a>@endif
+                        @if($expense->receipt_path)<a href="{{ route('admin.accounting.expenses.document', [$expense, 'receipt']) }}" target="_blank" class="btn btn-sm btn-soft-primary" title="Receipt"><i class="ri-receipt-line"></i></a>@endif
+                        @if($expense->invoice_path)<a href="{{ route('admin.accounting.expenses.document', [$expense, 'invoice']) }}" target="_blank" class="btn btn-sm btn-soft-info" title="Invoice"><i class="ri-file-list-3-line"></i></a>@endif
                         @if((float)$expense->sale_gross_amount > 0)<a href="{{ route('admin.accounting.expenses.tax-invoice',$expense) }}" class="btn btn-sm btn-soft-success" title="Download Tax Invoice"><i class="ri-bill-line"></i></a><button type="button" class="btn btn-sm btn-soft-primary" data-bs-toggle="modal" data-bs-target="#emailTaxInvoice{{ $expense->id }}" title="Email Tax Invoice"><i class="ri-mail-send-line"></i></button>@endif
-                        @if($expense->import_source_file)<a href="{{ \App\Support\MediaStorage::url($expense->import_source_file) }}" target="_blank" class="btn btn-sm btn-soft-secondary" title="Import Source"><i class="ri-file-upload-line"></i></a>@endif
+                        @if($expense->import_source_file)<a href="{{ route('admin.accounting.expenses.document', [$expense, 'import']) }}" target="_blank" class="btn btn-sm btn-soft-secondary" title="Import Source"><i class="ri-file-upload-line"></i></a>@endif
                     </td>
                     <td>
                         @if($expense->approval_status !== 'reversed' && (! in_array($expense->approval_status, ['approved', 'paid'], true) || auth()->user()?->role === 'admin'))

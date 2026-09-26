@@ -155,7 +155,7 @@ class AccountingController extends Controller
                 ->select(['id', 'expense_id', 'user_id', 'action', 'reason', 'ip_address', 'created_at'])
                 ->with('user:id,name')])
             ->latest('expense_date')
-            ->paginate(20)
+            ->paginate(10)
             ->withQueryString();
 
         return view('admin.accounting.expenses', $this->expenseSharedData() + compact('expenses'));
@@ -211,12 +211,20 @@ class AccountingController extends Controller
         }, 'expense-report-' . now()->format('Y-m-d') . '.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
     }
 
-    public function expenseDocument(Expense $expense)
+    public function expenseDocument(Expense $expense, ?string $kind = null)
     {
-        $path = $expense->invoice_path ?: $expense->receipt_path ?: $expense->import_source_file;
+        $path = match ($kind) {
+            'invoice' => $expense->invoice_path,
+            'receipt' => $expense->receipt_path,
+            'import' => $expense->import_source_file,
+            default => $expense->invoice_path ?: $expense->receipt_path ?: $expense->import_source_file,
+        };
         abort_if(blank($path), 404, 'No invoice or receipt is attached to this expense.');
 
-        return redirect()->away(MediaStorage::url($path));
+        $url = MediaStorage::url($path);
+        abort_if(blank($url), 404, 'The expense document is unavailable.');
+
+        return redirect()->away($url);
     }
 
     public function expenseTaxInvoice(Expense $expense)
