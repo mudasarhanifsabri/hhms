@@ -278,6 +278,7 @@
         document.getElementById('booking-submit').hidden = step !== 3;
         flowError.hidden = true;
         if (step === 3) {
+            renderInvoiceSchedule();
             document.getElementById('review-guest').textContent = document.getElementById('guest_name').value.trim() || 'Not entered';
             document.getElementById('review-unit').textContent = document.getElementById('property_id').selectedOptions[0]?.textContent || 'Not selected';
             const checkIn = document.getElementById('check_in').value, checkOut = document.getElementById('check_out').value;
@@ -328,7 +329,17 @@
         if (panel) showBookingStep(Number(panel.dataset.bookingStep));
     }, true);
     bookingForm.addEventListener('submit', event => {
-        if (currentStep !== 3) { event.preventDefault(); if (validateBookingStep(currentStep)) showBookingStep(currentStep + 1); }
+        if (currentStep !== 3) { event.preventDefault(); if (validateBookingStep(currentStep)) showBookingStep(currentStep + 1); return; }
+        renderInvoiceSchedule();
+        if (!document.querySelector('#invoice-schedule-body tr')) {
+            event.preventDefault();
+            flowError.textContent = 'Invoice periods could not be prepared. Please return to Guest & stay and confirm the check-in and checkout dates.';
+            flowError.hidden = false;
+        }
+    });
+    window.addEventListener('pageshow', () => {
+        calculateBookingTotal();
+        renderInvoiceSchedule();
     });
     showBookingStep(@json($errors->has('period_rents') ? 3 : ($errors->has('rent_amount') || $errors->has('dtcm_fee') || $errors->has('cleaning_fee') || $errors->has('agency_fee') || $errors->has('security_deposit') || $errors->has('vat_included') ? 2 : 1)));
 </script>

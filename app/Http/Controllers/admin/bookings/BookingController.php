@@ -23,6 +23,7 @@ use App\Support\TtlockClient;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -234,9 +235,25 @@ class BookingController extends Controller
         });
 
         $temporaryPassword = null;
-        foreach ($bookings as $booking) \App\Support\BookingTenantProfile::sync($booking, $temporaryPassword);
+        foreach ($bookings as $booking) {
+            try {
+                \App\Support\BookingTenantProfile::sync($booking, $temporaryPassword);
+            } catch (Throwable $exception) {
+                Log::error('Booking created but tenant profile synchronization failed.', [
+                    'booking_id' => $booking->id,
+                    'message' => $exception->getMessage(),
+                ]);
+            }
+        }
         $this->markPropertyStatus($bookings->first(), 'booked');
-        \App\Support\BookingGuestCommunications::created($bookings, $temporaryPassword);
+        try {
+            \App\Support\BookingGuestCommunications::created($bookings, $temporaryPassword);
+        } catch (Throwable $exception) {
+            Log::error('Booking created but guest communications failed.', [
+                'booking_id' => $bookings->first()?->id,
+                'message' => $exception->getMessage(),
+            ]);
+        }
 
         return redirect()->route('admin.booking.show', $bookings->first()->id)
             ->with('success', count($periods).' period invoices across '.$bookings->count().' linked contract(s) created successfully.');
