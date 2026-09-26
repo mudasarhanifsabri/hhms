@@ -7,6 +7,11 @@
     $isMaintainerApp = auth()->check() && auth()->user()->role === 'maintainer';
     $appLogoUrl = \App\Support\MediaStorage::url(config('hhms.logo_path'));
     $appFaviconUrl = \App\Support\MediaStorage::url(config('hhms.favicon_path'));
+    $versionedAsset = static function (string $path): string {
+        $absolutePath = public_path($path);
+
+        return asset($path).'?v='.(is_file($absolutePath) ? filemtime($absolutePath) : '1');
+    };
 @endphp
 
     <!-- Title Meta -->
@@ -28,17 +33,17 @@
     <link rel="apple-touch-icon" href="{{ $appLogoUrl ?: asset('assets/images/logo-sm.png') }}">
 
     <!-- Vendor css (Require in all Page) -->
-    <link href="assets/css/vendor.min.css" rel="stylesheet" type="text/css" />
+    <link href="{{ $versionedAsset('assets/css/vendor.min.css') }}" rel="stylesheet" type="text/css" />
 
     <!-- Icons css (Require in all Page) -->
-    <link href="assets/css/icons.min.css" rel="stylesheet" type="text/css" />
+    <link href="{{ $versionedAsset('assets/css/icons.min.css') }}" rel="stylesheet" type="text/css" />
 
     <!-- App css (Require in all Page) -->
-    <link href="assets/css/app.min.css" rel="stylesheet" type="text/css" />
-    <link href="{{ asset('assets/css/maintainer-pwa.css') }}" rel="stylesheet" type="text/css" />
+    <link href="{{ $versionedAsset('assets/css/app.min.css') }}" rel="stylesheet" type="text/css" />
+    <link href="{{ $versionedAsset('assets/css/maintainer-pwa.css') }}" rel="stylesheet" type="text/css" />
 
     <!-- Theme Config js (Require in all Page) -->
-    <script src="assets/js/config.min.js"></script>
+    <script src="{{ $versionedAsset('assets/js/config.min.js') }}"></script>
 
     @stack('styles')
 
@@ -156,11 +161,11 @@
      @endunless
 
      <!-- Vendor Javascript (Require in all Page) -->
-     <script src="assets/js/vendor.js"></script>
+     <script src="{{ $versionedAsset('assets/js/vendor.min.js') }}"></script>
 
      <!-- App Javascript (Require in all Page) -->
-     <script src="assets/js/app.js"></script>
-     <script src="{{ asset('assets/js/pwa-register.js') }}"></script>
+     <script src="{{ $versionedAsset('assets/js/app.min.js') }}"></script>
+     <script src="{{ $versionedAsset('assets/js/pwa-register.js') }}"></script>
 
      @stack('scripts')
      @yield('script')
