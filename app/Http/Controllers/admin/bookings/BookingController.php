@@ -866,7 +866,18 @@ class BookingController extends Controller
             return null;
         }
 
-        return MediaStorage::store($request->file($field), $folder);
+        try {
+            return MediaStorage::store($request->file($field), $folder);
+        } catch (Throwable $exception) {
+            Log::error('Booking attachment upload failed.', [
+                'field' => $field,
+                'message' => $exception->getMessage(),
+            ]);
+
+            throw ValidationException::withMessages([
+                $field => 'The attachment could not be saved. Please ask the administrator to check the media storage settings, then retry.',
+            ]);
+        }
     }
 
     private function createCheckoutTasks(Booking $booking): void

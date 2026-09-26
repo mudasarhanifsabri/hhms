@@ -17,6 +17,10 @@ class MediaStorage
 
     public static function store(UploadedFile $file, string $folder): string
     {
+        if (self::disk() === 's3' && ! self::s3IsConfigured()) {
+            throw new \RuntimeException('S3 media storage is selected, but the AWS bucket or credentials are missing.');
+        }
+
         $folder = self::datedFolder($folder);
 
         $stored = Storage::disk(self::disk())->putFileAs(
@@ -63,8 +67,8 @@ class MediaStorage
             return asset($path);
         }
 
-        if ($disk === 's3' && blank(config('filesystems.disks.s3.bucket'))) {
-            Log::warning('S3 media URL requested without AWS bucket configured.', ['path' => $path]);
+        if ($disk === 's3' && ! self::s3IsConfigured()) {
+            Log::warning('S3 media URL requested without complete AWS configuration.', ['path' => $path]);
 
             return null;
         }
@@ -91,6 +95,13 @@ class MediaStorage
 
             return null;
         }
+    }
+
+    private static function s3IsConfigured(): bool
+    {
+        return filled(config('filesystems.disks.s3.key'))
+            && filled(config('filesystems.disks.s3.secret'))
+            && filled(config('filesystems.disks.s3.bucket'));
     }
 
     public static function path(string $path): string
