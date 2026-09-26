@@ -59,8 +59,38 @@ class AccessControlTest extends TestCase
         $role->givePermissionTo('dashboard.view');
 
         $this->actingAs($admin)->put(route('admin.access-control.users.update', $admin), [
+            'name' => $admin->name, 'email' => $admin->email,
             'role_id' => $role->id, 'is_active' => 1,
         ])->assertStatus(422);
         $this->assertTrue($admin->fresh()->hasRole('Super Administrator'));
+    }
+
+    public function test_super_admin_can_edit_and_delete_a_staff_user(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $role = Role::create(['name' => 'Operations', 'guard_name' => 'web']);
+        $staff = User::factory()->create(['role' => 'admin', 'email' => 'old@example.com']);
+
+        $this->actingAs($admin)->put(route('admin.access-control.users.update', $staff), [
+            'name' => 'Updated User', 'email' => 'updated@example.com', 'phone' => '0501234567',
+            'role_id' => $role->id, 'is_active' => 1,
+        ])->assertRedirect()->assertSessionHasNoErrors();
+
+        $this->assertDatabaseHas('users', ['id' => $staff->id, 'name' => 'Updated User', 'email' => 'updated@example.com']);
+        $this->assertTrue($staff->fresh()->hasRole('Operations'));
+
+        $this->delete(route('admin.access-control.users.destroy', $staff))->assertRedirect()->assertSessionHasNoErrors();
+        $this->assertSoftDeleted('users', ['id' => $staff->id]);
+    }
+
+    public function test_staff_user_cannot_delete_their_own_account(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+
+        $this->actingAs($admin)
+            ->delete(route('admin.access-control.users.destroy', $admin))
+            ->assertStatus(422);
+
+        $this->assertNotSoftDeleted('users', ['id' => $admin->id]);
     }
 }

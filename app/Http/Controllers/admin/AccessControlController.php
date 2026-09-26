@@ -88,14 +88,45 @@ class AccessControlController extends Controller
     {
         $user = $staff;
         abort_unless($user->role === 'admin', 404);
-        $data = $request->validate(['role_id' => 'required|exists:roles,id', 'is_active' => 'required|boolean']);
+        $data = $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user->id)],
+            'phone' => 'nullable|string|max:50',
+            'password' => ['nullable', 'confirmed', Password::defaults()],
+            'role_id' => 'required|exists:roles,id',
+            'is_active' => 'required|boolean',
+        ]);
         abort_if($user->is($request->user()) && ! $data['is_active'], 422, 'You cannot disable your own account.');
         $role = Role::findOrFail($data['role_id']);
         $this->guardLastSuperAdmin($user, $role->name === 'Super Administrator' && (bool) $data['is_active']);
-        $user->forceFill(['is_active' => (bool) $data['is_active']])->save();
-        $user->syncRoles([$role]);
+        DB::transaction(function () use ($user, $data, $role) {
+            $attributes = [
+                'name' => $data['name'],
+                'email' => strtolower($data['email']),
+                'phone' => $data['phone'] ?? null,
+                'is_active' => (bool) $data['is_active'],
+            ];
+            if (filled($data['password'] ?? null)) $attributes['password'] = $data['password'];
+            $user->forceFill($attributes)->save();
+            $user->syncRoles([$role]);
+        });
 
         return back()->with('success', $user->name.' access updated.');
+    }
+
+    public function destroyUser(Request $request, User $staff): RedirectResponse
+    {
+        abort_unless($staff->role === 'admin', 404);
+        abort_if($staff->is($request->user()), 422, 'You cannot delete your own account.');
+        $this->guardLastSuperAdmin($staff, false);
+        $name = $staff->name;
+
+        DB::transaction(function () use ($staff) {
+            $staff->syncRoles([]);
+            $staff->delete();
+        });
+
+        return back()->with('success', $name.' was removed from staff access.');
     }
 
     private function validateRole(Request $request, ?Role $role = null): array

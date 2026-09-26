@@ -42,6 +42,7 @@ Route::put('/access-control/roles/{role}', [AccessControlController::class, 'upd
 Route::delete('/access-control/roles/{role}', [AccessControlController::class, 'destroyRole'])->name('access-control.roles.destroy');
 Route::post('/access-control/users', [AccessControlController::class, 'storeUser'])->name('access-control.users.store');
 Route::put('/access-control/users/{staff}', [AccessControlController::class, 'updateUser'])->name('access-control.users.update');
+Route::delete('/access-control/users/{staff}', [AccessControlController::class, 'destroyUser'])->name('access-control.users.destroy');
 Route::get('/properties/{property}/guest-qr', [\App\Http\Controllers\Tenants\GuestAccessController::class, 'poster'])->name('property.guest-qr');
 Route::get('/settings', [SettingsController::class, 'edit'])->name('settings.edit');
 Route::put('/settings', [SettingsController::class, 'update'])->name('settings.update');
