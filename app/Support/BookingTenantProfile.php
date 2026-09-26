@@ -40,7 +40,7 @@ class BookingTenantProfile
             if (! $linkedTenant) {
                 $tenant = User::withTrashed()->whereRaw('LOWER(email) = ?', [$email])->first();
                 if (! $tenant) {
-                    $candidatePassword = Str::random(14);
+                    $candidatePassword = Str::password(14);
                     $tenant = User::firstOrCreate(['email' => $email], ['name' => $booking->guest_name, 'phone' => $booking->guest_phone,
                         'eid_passport_no' => $booking->guest_passport_id_no, 'password' => $candidatePassword, 'role' => 'tenant']);
                     if ($tenant->wasRecentlyCreated) $temporaryPassword = $candidatePassword;

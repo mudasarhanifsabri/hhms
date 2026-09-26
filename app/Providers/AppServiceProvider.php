@@ -9,6 +9,7 @@ use Illuminate\Pagination\Paginator;
 use App\Models\User;
 use App\Services\SmsService;                   // (you had this imported)
 use App\Support\AppSettings;
+use Illuminate\Validation\Rules\Password;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -35,6 +36,7 @@ class AppServiceProvider extends ServiceProvider
         });
 
         AppSettings::apply();
+        Password::defaults(fn () => Password::min(8)->mixedCase()->numbers()->symbols());
         Paginator::useBootstrap();
     }
 }

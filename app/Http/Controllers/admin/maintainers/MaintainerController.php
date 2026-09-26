@@ -105,7 +105,7 @@ class MaintainerController extends Controller
             unset($validatedData['camera_capture']);
 
             $maintainer = User::create(array_merge($validatedData, [
-                'password' => Hash::make(Str::random(8)),
+                'password' => Hash::make(Str::password(14)),
                 'role' => 'maintainer',
                 'profile_photo' => $profilePhotoPath,
                 'id_document' => $idDocumentPath,

@@ -130,7 +130,7 @@ class TenantController extends Controller
                 'swift_code' => $validatedData['swift_code'] ?? null,
                 'iban' => $validatedData['iban'] ?? null,
                 'bank_branch' => $validatedData['bank_branch'] ?? null,
-                'password' => Hash::make(Str::random(8)),
+                'password' => Hash::make(Str::password(14)),
                 'role' => 'tenant',
                 'profile_photo' => $profilePhotoPath,
                 'id_document' => $idDocumentPath,
