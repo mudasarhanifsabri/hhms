@@ -151,11 +151,14 @@ class AccountingController extends Controller
     public function expenses(Request $request)
     {
         $expenses = $this->filteredExpenses($request)
+            ->with(['audits' => fn ($query) => $query
+                ->select(['id', 'expense_id', 'user_id', 'action', 'reason', 'ip_address', 'created_at'])
+                ->with('user:id,name')])
             ->latest('expense_date')
             ->paginate(20)
             ->withQueryString();
 
-        return view('admin.accounting.expenses', $this->sharedData() + compact('expenses'));
+        return view('admin.accounting.expenses', $this->expenseSharedData() + compact('expenses'));
     }
 
     public function expenseReportPdf(Request $request)
@@ -262,7 +265,7 @@ class AccountingController extends Controller
 
     private function filteredExpenses(Request $request)
     {
-        return Expense::with(['property.building', 'landlord', 'booking', 'vendor', 'paidFromAccount', 'audits.user'])
+        return Expense::with(['property.building', 'landlord', 'booking', 'vendor', 'paidFromAccount'])
             ->when($request->filled('task_id'), fn($query) => $query->where('booking_task_id', $request->input('task_id')))
             ->when($request->filled('category'), fn ($query) => $query->where('category', $request->input('category')))
             ->when($request->filled('property_id'), fn ($query) => $query->where('property_id', $request->input('property_id')))
@@ -1790,6 +1793,17 @@ class AccountingController extends Controller
             'expenseCategories' => Expense::CATEGORIES,
             'utilityTypes' => UtilityAccount::TYPES,
             'responsibilities' => UtilityAccount::RESPONSIBILITIES,
+        ];
+    }
+
+    private function expenseSharedData(): array
+    {
+        return [
+            'properties' => Property::with('building:id,building_name')->orderBy('name')->get(['id', 'building_id', 'name']),
+            'bookings' => Booking::latest()->limit(100)->get(['id', 'booking_reference', 'guest_name']),
+            'bankAccounts' => BankAccount::where('is_active', true)->orderBy('name')->get(['id', 'name']),
+            'vendors' => Vendor::where('is_active', true)->orderBy('name')->get(['id', 'name']),
+            'expenseCategories' => Expense::CATEGORIES,
         ];
     }
 
