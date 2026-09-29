@@ -13,6 +13,7 @@ use App\Models\BookingTask;
 use App\Models\UnitDocument;
 use App\Support\PdfRenderer;
 use App\Support\OwnerStatementPdf;
+use App\Support\RmsStatementCutoff;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
@@ -41,7 +42,7 @@ class LandlordController extends Controller
             ->latest()
             ->get();
         $propertyIds = $properties->pluck('id');
-        $bookings = Booking::with(['property.building', 'invoices.payments'])->whereIn('property_id', $propertyIds)->latest()->take(8)->get();
+        $bookings = RmsStatementCutoff::bookings(Booking::with(['property.building', 'invoices.payments'])->whereIn('property_id', $propertyIds))->latest()->take(8)->get();
         $this->addOwnerBookingFigures($bookings);
         $entries = LandlordAccountEntry::with('property')->where('landlord_id', Auth::id())->visibleOnOwnerStatement()->latest('entry_date')->take(8)->get();
         $documents = PropertyOwnerDocument::with('property')
@@ -69,6 +70,7 @@ class LandlordController extends Controller
         $propertyIds = $properties->pluck('id');
         $bookings = Booking::with(['property.building', 'invoices.payments'])
             ->whereIn('property_id', $propertyIds)
+            ->when(RmsStatementCutoff::applies(), fn ($query) => $query->whereDate('check_in', '>=', RmsStatementCutoff::DATE))
             ->latest('check_in')
             ->get();
         $this->addOwnerBookingFigures($bookings);

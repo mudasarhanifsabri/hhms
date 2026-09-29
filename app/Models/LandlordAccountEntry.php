@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\RmsStatementCutoff;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -117,7 +118,7 @@ class LandlordAccountEntry extends BaseModel
             $payments->whereIn('booking_invoice_id', $eligibleInvoiceIds)->pluck('id')->map(fn ($id) => 'PAY-'.$id)
         )->unique()->values();
 
-        return $query
+        return RmsStatementCutoff::ownerEntries($query
             ->where(fn ($statement) => $statement->whereNull('reference')->orWhere('reference', 'not like', 'RECON-%'))
             ->where(function ($statement) use ($automaticReferences, $eligibleReferences) {
                 $statement->whereNotIn('type', ['rent_income', 'management_fee'])
@@ -126,7 +127,7 @@ class LandlordAccountEntry extends BaseModel
                 if ($eligibleReferences->isNotEmpty()) {
                     $statement->orWhereIn('reference', $eligibleReferences);
                 }
-            });
+            }));
     }
 
     public static function statementBalancesFor(string $landlordId, bool $ownerVisibleOnly = false): array

@@ -42,6 +42,7 @@ class OwnerStatementPdf
                 ->pluck('id');
         $reservations = Booking::with(['property.building', 'invoices.payments'])
             ->whereIn('property_id', $propertyIds)
+            ->when(RmsStatementCutoff::applies(), fn ($query) => $query->whereDate('check_in', '>=', RmsStatementCutoff::DATE))
             ->whereDate('check_in', '<=', $period['to'])
             ->whereDate('check_out', '>=', $period['from'])
             ->orderBy('check_in')->get()

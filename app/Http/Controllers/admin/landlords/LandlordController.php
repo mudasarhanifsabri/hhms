@@ -18,6 +18,7 @@ use App\Mail\OwnerStatementMail;
 use App\Support\MediaStorage;
 use App\Support\PdfRenderer;
 use App\Support\OwnerStatementPdf;
+use App\Support\RmsStatementCutoff;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Mail;
@@ -150,7 +151,7 @@ class LandlordController extends Controller
             ->mapWithKeys(fn (string $type) => [$type => str($type)->replace('_', ' ')->headline()->toString()])
             ->all();
         $ownerBookingInvoices = BookingInvoice::with(['booking.property.building'])
-            ->whereHas('booking', fn ($query) => $query->whereIn('property_id', $relatedProperties->pluck('id')))
+            ->whereHas('booking', fn ($query) => RmsStatementCutoff::bookings($query->whereIn('property_id', $relatedProperties->pluck('id'))))
             ->orderByDesc('period_to')
             ->get();
         $accountEntryRoute = route('admin.landlord.account-entry.store', $landlord->id);
