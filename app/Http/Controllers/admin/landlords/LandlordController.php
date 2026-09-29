@@ -150,8 +150,8 @@ class LandlordController extends Controller
             ->select('type')->distinct()->pluck('type')
             ->mapWithKeys(fn (string $type) => [$type => str($type)->replace('_', ' ')->headline()->toString()])
             ->all();
-        $ownerBookingInvoices = BookingInvoice::with(['booking.property.building'])
-            ->whereHas('booking', fn ($query) => RmsStatementCutoff::bookings($query->whereIn('property_id', $relatedProperties->pluck('id'))))
+        $ownerBookingInvoices = RmsStatementCutoff::invoices(BookingInvoice::with(['booking.property.building'])
+            ->whereHas('booking', fn ($query) => $query->whereIn('property_id', $relatedProperties->pluck('id'))))
             ->orderByDesc('period_to')
             ->get();
         $accountEntryRoute = route('admin.landlord.account-entry.store', $landlord->id);

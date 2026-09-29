@@ -2,7 +2,6 @@
 
 namespace App\Support;
 
-use App\Models\Booking;
 use App\Models\BookingInvoice;
 use App\Models\BookingInvoicePayment;
 use Illuminate\Database\Eloquent\Builder;
@@ -20,7 +19,15 @@ class RmsStatementCutoff
 
     public static function bookings(Builder $query): Builder
     {
-        return $query->when(self::applies(), fn (Builder $query) => $query->whereDate('check_in', '>=', self::DATE));
+        return $query->when(self::applies(), fn (Builder $query) => $query->whereHas(
+            'invoices',
+            fn (Builder $invoice) => self::invoices($invoice),
+        ));
+    }
+
+    public static function invoices(Builder $query): Builder
+    {
+        return $query->when(self::applies(), fn (Builder $query) => $query->whereDate('period_from', '>=', self::DATE));
     }
 
     public static function ownerEntries(Builder $query): Builder
@@ -29,17 +36,11 @@ class RmsStatementCutoff
             return $query;
         }
 
-        $legacyBookingIds = Booking::query()->whereDate('check_in', '<', self::DATE)->pluck('id');
-        if ($legacyBookingIds->isEmpty()) {
-            return $query;
-        }
-
         $legacyInvoices = BookingInvoice::query()
-            ->whereIn('booking_id', $legacyBookingIds)
+            ->whereDate('period_from', '<', self::DATE)
             ->get(['id', 'invoice_number']);
         $legacyInvoiceIds = $legacyInvoices->pluck('id');
         $legacyReferences = $legacyInvoices->pluck('invoice_number')
-            ->concat(Booking::query()->whereIn('id', $legacyBookingIds)->pluck('booking_reference'))
             ->concat(BookingInvoicePayment::query()->whereIn('booking_invoice_id', $legacyInvoiceIds)->pluck('id')->map(fn ($id) => 'PAY-'.$id))
             ->filter()->unique()->values();
 

@@ -42,12 +42,13 @@ class OwnerStatementPdf
                 ->pluck('id');
         $reservations = Booking::with(['property.building', 'invoices.payments'])
             ->whereIn('property_id', $propertyIds)
-            ->when(RmsStatementCutoff::applies(), fn ($query) => $query->whereDate('check_in', '>=', RmsStatementCutoff::DATE))
+            ->when(RmsStatementCutoff::applies(), fn ($query) => $query->whereHas('invoices', fn ($invoice) => RmsStatementCutoff::invoices($invoice)))
             ->whereDate('check_in', '<=', $period['to'])
             ->whereDate('check_out', '>=', $period['from'])
             ->orderBy('check_in')->get()
             ->flatMap(function (Booking $booking) {
                 return $booking->invoices->sortBy('period_from')
+                    ->when(RmsStatementCutoff::applies(), fn ($invoices) => $invoices->filter(fn ($invoice) => $invoice->period_from?->gte(RmsStatementCutoff::DATE)))
                     ->filter(fn ($invoice) => (float) $invoice->payments->sum('amount') + 0.01 >= (float) $invoice->total_amount)
                     ->map(function ($invoice) use ($booking) {
                         $receivedRent = (float) $invoice->payments->sum('rent_amount');

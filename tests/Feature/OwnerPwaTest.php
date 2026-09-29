@@ -243,46 +243,45 @@ class OwnerPwaTest extends TestCase
         $this->assertTrue($statement['entries']->contains('description', 'COLLECTED RENT ONLY'));
     }
 
-    public function test_rms_statement_excludes_bookings_checked_in_before_september_cutoff(): void
+    public function test_rms_statement_uses_each_invoice_period_for_the_september_cutoff(): void
     {
         config(['app.url' => 'https://rms.pattern.ae']);
         $owner = User::factory()->create(['role' => 'landlord']);
         $unit = Property::create(['landlord_id' => $owner->id, 'name' => 'Cutoff Unit']);
 
-        $makePaidBooking = function (string $reference, string $checkIn, string $entryDescription) use ($owner, $unit): Booking {
-            $booking = Booking::create([
-                'property_id' => $unit->id, 'booking_reference' => $reference, 'invoice_number' => 'INV-'.$reference,
-                'guest_name' => 'Cutoff Guest', 'guest_email' => strtolower($reference).'@example.com', 'guest_phone' => '0500000000',
-                'guest_passport_id_no' => 'P-'.$reference, 'check_in' => $checkIn, 'check_out' => '2026-09-30',
-                'rent_amount' => 1000, 'management_fee_percent' => 10, 'total_amount' => 1000,
-                'invoice_status' => 'paid', 'status' => 'confirmed', 'owner_posting_basis' => 'receipts',
-            ]);
+        $booking = Booking::create([
+            'property_id' => $unit->id, 'booking_reference' => 'BK-AUGUST', 'invoice_number' => 'INV-AUGUST',
+            'guest_name' => 'Extended Guest', 'guest_email' => 'extended@example.com', 'guest_phone' => '0500000000',
+            'guest_passport_id_no' => 'P-AUGUST', 'check_in' => '2026-08-28', 'check_out' => '2026-10-26',
+            'rent_amount' => 2000, 'management_fee_percent' => 10, 'total_amount' => 2000,
+            'invoice_status' => 'paid', 'status' => 'checked_in', 'owner_posting_basis' => 'receipts',
+        ]);
+
+        $addPaidPeriod = function (Booking $booking, string $number, string $type, string $from, string $to, string $description) use ($owner, $unit): void {
             $invoice = BookingInvoice::create([
-                'booking_id' => $booking->id, 'invoice_number' => 'INV-'.$reference, 'invoice_type' => 'original',
-                'issue_date' => '2026-09-01', 'period_from' => '2026-09-01', 'period_to' => '2026-09-30',
+                'booking_id' => $booking->id, 'invoice_number' => $number, 'invoice_type' => $type,
+                'issue_date' => $from, 'period_from' => $from, 'period_to' => $to,
                 'rent_amount' => 1000, 'vat_amount' => 0, 'total_amount' => 1000, 'status' => 'paid',
             ]);
             $payment = $invoice->payments()->create([
-                'payment_date' => '2026-09-05', 'amount' => 1000, 'rent_amount' => 1000, 'payment_method' => 'Bank Transfer',
+                'payment_date' => $from, 'amount' => 1000, 'rent_amount' => 1000, 'payment_method' => 'Bank Transfer',
             ]);
             LandlordAccountEntry::create([
                 'landlord_id' => $owner->id, 'property_id' => $unit->id, 'booking_invoice_id' => $invoice->id,
-                'entry_date' => '2026-09-05', 'type' => 'rent_income', 'direction' => 'credit', 'amount' => 1000,
-                'reference' => 'PAY-'.$payment->id, 'description' => $entryDescription,
+                'entry_date' => $from, 'type' => 'rent_income', 'direction' => 'credit', 'amount' => 1000,
+                'reference' => 'PAY-'.$payment->id, 'description' => $description,
             ]);
-
-            return $booking;
         };
 
-        $makePaidBooking('BK-AUGUST', '2026-08-20', 'AUGUST CHECKIN RENT');
-        $makePaidBooking('BK-SEPTEMBER', '2026-09-01', 'SEPTEMBER CHECKIN RENT');
+        $addPaidPeriod($booking, 'INV-AUGUST', 'original', '2026-08-28', '2026-09-27', 'AUGUST ORIGINAL RENT');
+        $addPaidPeriod($booking, 'INV-SEPTEMBER-EXT', 'extension', '2026-09-28', '2026-10-26', 'SEPTEMBER EXTENSION RENT');
 
-        $statement = OwnerStatementPdf::data($owner, '2026-09-01', '2026-09-30');
+        $statement = OwnerStatementPdf::data($owner, '2026-08-01', '2026-10-31');
 
         $this->assertCount(1, $statement['entries']);
-        $this->assertSame('SEPTEMBER CHECKIN RENT', $statement['entries']->first()->description);
+        $this->assertSame('SEPTEMBER EXTENSION RENT', $statement['entries']->first()->description);
         $this->assertCount(1, $statement['reservations']);
-        $this->assertSame('BK-SEPTEMBER', $statement['reservations']->first()->booking->booking_reference);
+        $this->assertSame('INV-SEPTEMBER-EXT', $statement['reservations']->first()->invoice_number);
     }
 
     public function test_owner_welcome_email_contains_login_credentials_and_app_link(): void

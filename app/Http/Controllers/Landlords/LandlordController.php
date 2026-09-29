@@ -70,7 +70,7 @@ class LandlordController extends Controller
         $propertyIds = $properties->pluck('id');
         $bookings = Booking::with(['property.building', 'invoices.payments'])
             ->whereIn('property_id', $propertyIds)
-            ->when(RmsStatementCutoff::applies(), fn ($query) => $query->whereDate('check_in', '>=', RmsStatementCutoff::DATE))
+            ->when(RmsStatementCutoff::applies(), fn ($query) => $query->whereHas('invoices', fn ($invoice) => RmsStatementCutoff::invoices($invoice)))
             ->latest('check_in')
             ->get();
         $this->addOwnerBookingFigures($bookings);
