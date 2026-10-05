@@ -30,6 +30,7 @@ class BookingInvoice extends BaseModel
         'total_amount',
         'status',
         'legacy_owner_settled',
+        'management_notified_at',
         'notes',
     ];
 
@@ -45,6 +46,7 @@ class BookingInvoice extends BaseModel
         'fees' => 'array',
         'total_amount' => 'decimal:2',
         'legacy_owner_settled' => 'boolean',
+        'management_notified_at' => 'datetime',
     ];
 
     public function booking(): BelongsTo

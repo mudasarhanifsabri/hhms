@@ -7,4 +7,5 @@ return [
     'logo_path' => null,
     'favicon_path' => null,
     'ttlock_api_base' => env('TTLOCK_API_BASE', 'https://api.sciener.com'),
+    'management_booking_copy_email' => env('MANAGEMENT_BOOKING_COPY_EMAIL', 'customerservice@pattern.ae'),
 ];

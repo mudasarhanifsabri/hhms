@@ -156,11 +156,25 @@
                                 <td>AED {{ number_format((float) $invoice->total_amount, 2) }}</td>
                                 <td class="text-success">AED {{ number_format($invoice->paid_amount, 2) }}</td>
                                 <td class="{{ $invoice->balance_due > 0 ? 'text-danger' : 'text-success' }}">AED {{ number_format($invoice->balance_due, 2) }}</td>
-                                <td>@if($invoice->legacy_owner_settled)<span class="badge bg-secondary">Legacy · Owner settled</span>@else<span class="badge {{ $invoice->status === 'paid' ? 'bg-success' : ($invoice->status === 'partial' ? 'bg-warning' : 'bg-danger') }}">{{ ucfirst($invoice->status) }}</span>@endif</td>
+                                <td>@if($invoice->legacy_owner_settled)<span class="badge bg-secondary">Legacy · Owner settled</span>@else<span class="badge {{ $invoice->status === 'paid' ? 'bg-success' : ($invoice->status === 'partial' ? 'bg-warning' : 'bg-danger') }}">{{ ucfirst($invoice->status) }}</span>@endif
+                                    @if($invoice->management_notified_at)
+                                        <small class="d-block mt-1 text-success" title="{{ $invoice->management_notified_at->format('d M Y, h:i:s A') }}"><iconify-icon icon="solar:letter-opened-broken" class="align-middle"></iconify-icon> Email sent {{ $invoice->management_notified_at->format('d M Y, h:i A') }}</small>
+                                    @elseif($invoice->status === 'paid')
+                                        <small class="d-block mt-1 text-muted"><iconify-icon icon="solar:letter-broken" class="align-middle"></iconify-icon> Not sent</small>
+                                    @endif
+                                </td>
                                 <td><div class="d-flex gap-1 invoice-actions">
                                     <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#invoiceDetails{{ $invoice->id }}">View</button>
                                     @if($invoice->balance_due > 0)
                                         <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#paymentModal{{ $invoice->id }}">Pay</button>
+                                    @endif
+                                    @if($invoice->status === 'paid' && $invoice->balance_due <= 0)
+                                        <form method="POST" action="{{ route('admin.booking-invoice.management-email', $invoice) }}" onsubmit="return confirm('{{ $invoice->management_notified_at ? 'Resend' : 'Send' }} the paid booking confirmation and tenant documents to building management and customer service?')">
+                                            @csrf
+                                            <button class="btn btn-sm {{ $invoice->management_notified_at ? 'btn-outline-secondary' : 'btn-outline-success' }}" title="{{ $invoice->management_notified_at ? 'Resend management email' : 'Send management email' }}">
+                                                <iconify-icon icon="solar:letter-broken" class="align-middle"></iconify-icon> {{ $invoice->management_notified_at ? 'Resend' : 'Send' }}
+                                            </button>
+                                        </form>
                                     @endif
                                     <div class="dropdown"><button class="btn btn-sm btn-light" data-bs-toggle="dropdown" aria-label="More invoice actions"><iconify-icon icon="solar:menu-dots-bold"></iconify-icon></button><div class="dropdown-menu dropdown-menu-end">
                                         @if(\Illuminate\Support\Facades\Route::has('admin.booking-invoice.confirmation'))

@@ -612,6 +612,7 @@ class BookingController extends Controller
         });
 
         \App\Support\BookingGuestCommunications::paymentRecorded($invoice, (float) $data['amount']);
+        \App\Support\BookingManagementNotification::invoicePaid($invoice);
 
         return back()->with('success', 'Payment recorded against '.$invoice->invoice_number.'.');
     }
@@ -622,6 +623,27 @@ class BookingController extends Controller
         abort_if($invoice->payments->isEmpty(), 422, 'No itemised payment records exist for this invoice. A receipt cannot be generated from an invoice status alone.');
 
         return PdfRenderer::downloadView('admin.bookings.pdf.payment-receipt', compact('invoice'), $invoice->invoice_number.'-receipt.pdf');
+    }
+
+    public function sendManagementPaymentEmail(BookingInvoice $invoice)
+    {
+        $invoice->load('booking.property.building');
+
+        if ($invoice->status !== 'paid' || $invoice->balance_due > 0) {
+            return back()->withErrors(['management_email' => 'The management email can only be sent after this invoice is fully paid.']);
+        }
+
+        $managementEmail = trim((string) $invoice->booking?->property?->building?->management_email);
+        if (! filter_var($managementEmail, FILTER_VALIDATE_EMAIL)) {
+            return back()->withErrors(['management_email' => 'Add a valid Management Email to this building before sending.']);
+        }
+
+        $resent = $invoice->management_notified_at !== null;
+        $sent = \App\Support\BookingManagementNotification::invoicePaid($invoice, force: true);
+
+        return $sent
+            ? back()->with('success', 'Management payment confirmation '.($resent ? 'resent' : 'sent').' to '.$managementEmail.' with a copy to '.config('hhms.management_booking_copy_email').'.')
+            : back()->withErrors(['management_email' => 'The email could not be sent. The previous sent status was kept; check the mail settings and application log.']);
     }
 
     public function recordCombinedPayment(Request $request, Booking $booking)
@@ -710,7 +732,9 @@ class BookingController extends Controller
         });
 
         foreach ($notifiedPayments as [$invoiceId, $amount]) {
-            \App\Support\BookingGuestCommunications::paymentRecorded(BookingInvoice::findOrFail($invoiceId), $amount);
+            $paidInvoice = BookingInvoice::findOrFail($invoiceId);
+            \App\Support\BookingGuestCommunications::paymentRecorded($paidInvoice, $amount);
+            \App\Support\BookingManagementNotification::invoicePaid($paidInvoice);
         }
 
         return back()->with('success', 'Combined payment recorded and allocated across outstanding invoices.');
