@@ -85,7 +85,9 @@ class BookingManagementNotificationTest extends TestCase
         Mail::assertSent(BookingPaidManagementMail::class, function (BookingPaidManagementMail $mail) {
             return $mail->hasTo('management@example.com')
                 && $mail->hasCc('customerservice@pattern.ae')
-                && count($mail->attachments()) === 3;
+                && count($mail->attachments()) === 3
+                && str_contains($mail->render(), '10 Oct 2026')
+                && str_contains($mail->render(), '20 Oct 2026');
         });
         $this->assertNotNull($invoice->fresh()->management_notified_at);
         $this->assertDatabaseHas('booking_histories', [

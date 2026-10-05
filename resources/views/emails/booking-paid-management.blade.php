@@ -47,10 +47,9 @@
                             'Email' => $booking?->guest_email ?: $booking?->tenant?->email,
                             'Phone' => $booking?->guest_phone ?: $booking?->tenant?->phone,
                             'Passport / ID number' => $booking?->guest_passport_id_no ?: $booking?->tenant?->eid_passport_no,
-                            'Check-in' => $booking?->check_in?->format('d M Y').($booking?->check_in_time ? ' · '.$booking->check_in_time : ''),
-                            'Check-out' => $booking?->check_out?->format('d M Y').($booking?->check_out_time ? ' · '.$booking->check_out_time : ''),
+                            'Check-in' => $invoice->period_from?->format('d M Y') ?? '—',
+                            'Check-out' => $invoice->period_to?->format('d M Y') ?? '—',
                             'Invoice' => $invoice->invoice_number.' · '.$invoice->type_label,
-                            'Invoice period' => ($invoice->period_from?->format('d M Y') ?? '—').' to '.($invoice->period_to?->format('d M Y') ?? '—'),
                             'Amount paid' => 'AED '.number_format(max($paid, (float) $invoice->total_amount), 2),
                         ] as $label => $value)
                             <tr>
