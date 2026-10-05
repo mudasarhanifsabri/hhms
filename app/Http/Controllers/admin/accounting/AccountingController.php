@@ -1042,6 +1042,33 @@ class AccountingController extends Controller
         ));
     }
 
+    public function reportPage(Request $request, string $report)
+    {
+        if ($report === 'combined') {
+            return $this->reports($request);
+        }
+
+        $request->merge(['report' => $report]);
+
+        return $this->reports($request)->with('standaloneReport', $report);
+    }
+
+    public function reportPdf(Request $request, string $report)
+    {
+        $allowed = ['financial', 'receivables', 'agency', 'expenses', 'utilities', 'combined'];
+        abort_unless(in_array($report, $allowed, true), 404);
+        $request->merge(['report' => $report === 'combined' ? 'financial' : $report]);
+        $data = $this->reports($request)->getData();
+        $data['report'] = $report;
+
+        return PdfRenderer::downloadView(
+            'admin.accounting.pdf.reports',
+            $data,
+            str($report)->replace('_', '-').'-report-'.$data['from']->format('Y-m-d').'-to-'.$data['to']->format('Y-m-d').'.pdf',
+            ['format' => 'A4', 'orientation' => 'landscape'],
+        );
+    }
+
     public function chartOfAccounts(Request $request)
     {
         $accountRows = AccountingAccount::query()

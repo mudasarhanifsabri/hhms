@@ -97,6 +97,12 @@ Route::post('/accounting/utilities/accounts', [AccountingController::class, 'sto
 Route::post('/accounting/utilities/bills', [AccountingController::class, 'storeUtilityBill'])->name('accounting.utilities.bills.store');
 Route::post('/accounting/utilities/bills/{bill}/pay', [AccountingController::class, 'payUtilityBill'])->name('accounting.utilities.bills.pay');
 Route::get('/accounting/reports', [AccountingController::class, 'reports'])->name('accounting.reports');
+Route::get('/accounting/reports/{report}/pdf', [AccountingController::class, 'reportPdf'])
+    ->where('report', 'financial|receivables|agency|expenses|utilities|combined')
+    ->name('accounting.reports.pdf');
+Route::get('/accounting/reports/{report}', [AccountingController::class, 'reportPage'])
+    ->where('report', 'financial|receivables|agency|expenses|utilities|combined')
+    ->name('accounting.reports.show');
 Route::get('/accounting/vat', [AccountingController::class, 'vatReport'])->name('accounting.vat');
 Route::get('/accounting/owner-statements', [AccountingController::class, 'ownerStatements'])->name('accounting.owner-statements');
 Route::get('/accounting/owner-statements/pdf', [AccountingController::class, 'ownerStatementPdf'])->name('accounting.owner-statements.pdf');

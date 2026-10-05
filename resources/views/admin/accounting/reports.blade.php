@@ -9,18 +9,18 @@
 @endphp
 <div class="reports-hub">
 <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-    <div><h4 class="mb-1">Accounting Reports</h4><p class="text-muted mb-0">Review performance, outstanding balances and operating costs.</p></div>
-    <span class="badge bg-primary-subtle text-primary border px-3 py-2">{{ $from->format('d M Y') }} — {{ $to->format('d M Y') }}</span>
+    <div><h4 class="mb-1">{{ isset($standaloneReport) ? $reportTabs[$standaloneReport] : 'Combined Accounting Reports' }}</h4><p class="text-muted mb-0">Review performance, outstanding balances and operating costs.</p></div>
+    <div class="d-flex flex-wrap gap-2"><a class="btn btn-outline-primary" href="{{ route('admin.accounting.reports') }}">Combined Reports</a><a class="btn btn-danger" href="{{ route('admin.accounting.reports.pdf', ['report'=>$standaloneReport ?? 'combined'] + $periodQuery) }}"><i class="ri-file-pdf-2-line me-1"></i>Download PDF</a></div>
 </div>
 <div class="card">
     <div class="card-header"><h5 class="mb-0">Reporting Period</h5></div>
-    <form method="GET" action="{{ route('admin.accounting.reports') }}" class="card-body">
+    <form method="GET" action="{{ isset($standaloneReport) ? route('admin.accounting.reports.show', $standaloneReport) : route('admin.accounting.reports') }}" class="card-body">
         <input type="hidden" name="report" id="activeReport" value="{{ $activeReport }}">
         <div class="row g-3 align-items-end">
             <div class="col-lg-3 col-sm-6"><label for="reportFrom" class="form-label">From date</label><input id="reportFrom" type="date" name="date_from" value="{{ $from->toDateString() }}" class="form-control" required></div>
             <div class="col-lg-3 col-sm-6"><label for="reportTo" class="form-label">To date</label><input id="reportTo" type="date" name="date_to" value="{{ $to->toDateString() }}" class="form-control" required></div>
             <div class="col-lg-3 col-sm-6"><label for="reportMonth" class="form-label">Fill dates from month</label><input id="reportMonth" type="month" value="{{ $from->format('Y-m') === $to->format('Y-m') ? $from->format('Y-m') : '' }}" class="form-control"><small class="text-muted">Select a month, then apply.</small></div>
-            <div class="col-lg-3 col-sm-6 d-flex gap-2"><button class="btn btn-primary flex-grow-1">Apply Period</button><a href="{{ route('admin.accounting.reports', ['report'=>$activeReport]) }}" class="btn btn-outline-secondary">Reset</a></div>
+            <div class="col-lg-3 col-sm-6 d-flex gap-2"><button class="btn btn-primary flex-grow-1">Apply Period</button><a href="{{ isset($standaloneReport) ? route('admin.accounting.reports.show', $standaloneReport) : route('admin.accounting.reports') }}" class="btn btn-outline-secondary">Reset</a></div>
         </div>
     </form>
 </div>
@@ -37,7 +37,7 @@
 <div class="card" id="reportsPanel">
     <div class="card-header p-0"><nav class="nav nav-tabs reports-tabs px-3" role="tablist" aria-label="Report categories">
         @foreach($reportTabs as $key=>$label)
-        <a id="report-tab-{{ $key }}" class="nav-link {{ $activeReport===$key?'active':'' }}" href="{{ route('admin.accounting.reports', $periodQuery + ['report'=>$key]) }}#reportsPanel" data-bs-toggle="tab" data-bs-target="#report-panel-{{ $key }}" data-report="{{ $key }}" role="tab" aria-controls="report-panel-{{ $key }}" aria-selected="{{ $activeReport===$key?'true':'false' }}">{{ $label }}</a>
+        <a id="report-tab-{{ $key }}" class="nav-link {{ $activeReport===$key?'active':'' }}" href="{{ route('admin.accounting.reports.show', ['report'=>$key] + $periodQuery) }}">{{ $label }}</a>
         @endforeach
     </nav></div>
     <div class="card-body tab-content">

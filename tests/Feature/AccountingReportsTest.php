@@ -120,6 +120,14 @@ class AccountingReportsTest extends TestCase
             ->assertSee('Commission Agent')->assertSee('BK-AGENCY-001')
             ->assertSee('AED 1,000.00')->assertSee('AED 200.00')->assertSee('AED 800.00');
 
+        $this->actingAs($admin)->get(route('admin.accounting.reports.show', [
+            'report' => 'agency', 'date_from' => '2026-09-01', 'date_to' => '2026-09-30',
+        ]))->assertOk()->assertSee('Agency Fee')->assertSee('Download PDF')->assertSee('Commission Agent');
+
+        $this->actingAs($admin)->get(route('admin.accounting.reports.pdf', [
+            'report' => 'agency', 'date_from' => '2026-09-01', 'date_to' => '2026-09-30',
+        ]))->assertOk()->assertDownload('agency-report-2026-09-01-to-2026-09-30.pdf');
+
         $this->actingAs($agent)->get(route('agent.dashboard'))
             ->assertOk()->assertSee('My Agency Fee Report')
             ->assertSee('Commission is calculated from agency fees actually collected, not from rent.')
