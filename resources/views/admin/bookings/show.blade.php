@@ -158,7 +158,10 @@
                                 <td class="{{ $invoice->balance_due > 0 ? 'text-danger' : 'text-success' }}">AED {{ number_format($invoice->balance_due, 2) }}</td>
                                 <td>@if($invoice->legacy_owner_settled)<span class="badge bg-secondary">Legacy · Owner settled</span>@else<span class="badge {{ $invoice->status === 'paid' ? 'bg-success' : ($invoice->status === 'partial' ? 'bg-warning' : 'bg-danger') }}">{{ ucfirst($invoice->status) }}</span>@endif
                                     @if($invoice->management_notified_at)
-                                        <small class="d-block mt-1 text-success" title="{{ $invoice->management_notified_at->format('d M Y, h:i:s A') }}"><iconify-icon icon="solar:letter-opened-broken" class="align-middle"></iconify-icon> Email sent {{ $invoice->management_notified_at->format('d M Y, h:i A') }}</small>
+                                        @php
+                                            $managementEmailSentDubai = $invoice->management_notified_at->copy()->timezone('Asia/Dubai');
+                                        @endphp
+                                        <small class="d-block mt-1 text-success" title="{{ $managementEmailSentDubai->format('d M Y, h:i:s A') }} Dubai time"><iconify-icon icon="solar:letter-opened-broken" class="align-middle"></iconify-icon> Email sent {{ $managementEmailSentDubai->format('d M Y, h:i A') }} GST</small>
                                     @elseif($invoice->status === 'paid')
                                         <small class="d-block mt-1 text-muted"><iconify-icon icon="solar:letter-broken" class="align-middle"></iconify-icon> Not sent</small>
                                     @endif
