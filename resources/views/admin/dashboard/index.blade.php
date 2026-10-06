@@ -74,11 +74,12 @@
                 <tbody>
                 @forelse($pendingInvoices as $invoice)
                     @php
-                        $invoiceDays = today()->diffInDays($invoice->due_date, false);
+                        $invoiceFollowUpDate = $invoice->due_date ?? $invoice->period_from;
+                        $invoiceDays = today()->diffInDays($invoiceFollowUpDate, false);
                         $invoiceBooking = $invoice->booking;
                     @endphp
                     <tr>
-                        <td><strong>{{ $invoice->due_date->format('d M Y') }}</strong><span class="badge d-block mt-1 {{ $invoiceDays < 0 ? 'bg-danger-subtle text-danger' : 'bg-warning-subtle text-warning' }}">{{ $invoiceDays < 0 ? abs($invoiceDays).' '.Str::plural('day', abs($invoiceDays)).' overdue' : ($invoiceDays === 0 ? 'Due today' : 'Due in '.$invoiceDays.' '.Str::plural('day', $invoiceDays)) }}</span></td>
+                        <td><strong>{{ $invoiceFollowUpDate?->format('d M Y') }}</strong><span class="badge d-block mt-1 {{ $invoiceDays < 0 ? 'bg-danger-subtle text-danger' : 'bg-warning-subtle text-warning' }}">{{ $invoiceDays < 0 ? abs($invoiceDays).' '.Str::plural('day', abs($invoiceDays)).' overdue' : ($invoiceDays === 0 ? 'Due today' : 'Due in '.$invoiceDays.' '.Str::plural('day', $invoiceDays)) }}</span>@if(!$invoice->due_date)<small class="d-block text-muted mt-1">Period start</small>@endif</td>
                         <td><strong>{{ $invoice->invoice_number }}</strong><small class="d-block text-muted">{{ $invoice->type_label }} · {{ $invoice->period_from?->format('d M') }} – {{ $invoice->period_to?->format('d M Y') }}</small></td>
                         <td>{{ $invoiceBooking?->guest_name }}<small class="d-block text-muted">{{ $invoiceBooking?->booking_reference }}</small></td>
                         <td>{{ $invoiceBooking?->property?->name ?? 'Unit' }}<small class="d-block text-muted">{{ $invoiceBooking?->property?->building?->building_name ?? 'No building' }}</small></td>

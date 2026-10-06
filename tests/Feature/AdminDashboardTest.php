@@ -59,7 +59,7 @@ class AdminDashboardTest extends TestCase
         $booking = Booking::create(['property_id' => $property->id, 'booking_reference' => 'BK-PENDING', 'invoice_number' => 'INV-PENDING', 'guest_name' => 'Pending Guest', 'guest_email' => 'guest@example.com', 'guest_phone' => '12345', 'guest_passport_id_no' => 'P100', 'check_in' => '2026-10-01', 'check_out' => '2026-12-01', 'status' => 'checked_in', 'rent_amount' => 100]);
 
         $overdue = BookingInvoice::create(['booking_id' => $booking->id, 'invoice_number' => 'INV-OVERDUE', 'invoice_type' => 'original', 'issue_date' => '2026-09-01', 'period_from' => '2026-09-01', 'period_to' => '2026-09-30', 'due_date' => '2026-10-01', 'total_amount' => 1000, 'status' => 'unpaid']);
-        $soon = BookingInvoice::create(['booking_id' => $booking->id, 'invoice_number' => 'INV-SOON', 'invoice_type' => 'extension', 'issue_date' => '2026-10-01', 'period_from' => '2026-10-09', 'period_to' => '2026-11-08', 'due_date' => '2026-10-09', 'total_amount' => 900, 'status' => 'unpaid']);
+        $soon = BookingInvoice::create(['booking_id' => $booking->id, 'invoice_number' => 'INV-SOON', 'invoice_type' => 'extension', 'issue_date' => '2026-10-01', 'period_from' => '2026-10-09', 'period_to' => '2026-11-08', 'due_date' => null, 'total_amount' => 900, 'status' => 'unpaid']);
         BookingInvoice::create(['booking_id' => $booking->id, 'invoice_number' => 'INV-FUTURE', 'invoice_type' => 'extension', 'issue_date' => '2026-10-01', 'period_from' => '2026-10-10', 'period_to' => '2026-11-09', 'due_date' => '2026-10-10', 'total_amount' => 800, 'status' => 'unpaid']);
         BookingInvoicePayment::create(['booking_invoice_id' => $overdue->id, 'amount' => 1000, 'payment_date' => '2026-10-06', 'payment_method' => 'cash']);
 

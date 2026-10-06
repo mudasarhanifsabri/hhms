@@ -63,12 +63,13 @@ class AdminController extends Controller
             ->withSum('payments', 'amount')
             ->withCount('allPayments')
             ->where('legacy_owner_settled', false)
-            ->whereNotNull('due_date')
             // Show three days before the due date and keep every unpaid invoice
             // visible after it becomes overdue until its balance reaches zero.
-            ->whereDate('due_date', '<=', $today->copy()->addDays(3)->toDateString())
+            // Older extension invoices may not have due_date, so their period
+            // start is the payment due date for follow-up purposes.
+            ->whereRaw('DATE(COALESCE(due_date, period_from)) <= ?', [$today->copy()->addDays(3)->toDateString()])
             ->whereHas('booking', fn ($query) => $query->where('status', '!=', 'cancelled')->whereHas('property'))
-            ->orderBy('due_date')
+            ->orderByRaw('COALESCE(due_date, period_from) ASC')
             ->get()
             ->filter(fn (BookingInvoice $invoice) => $invoice->balance_due > 0.009)
             ->values();
