@@ -59,7 +59,11 @@ class UnitManagementCancellationTest extends TestCase
         ])->assertSessionHasErrors('signature_data');
 
         $this->get(route('unit-cancellations.show', $cancellation->owner_token))
-            ->assertOk()->assertSee('height:420px', false)->assertSee('Owner Signature');
+            ->assertOk()
+            ->assertSee('height:420px', false)
+            ->assertSee('Owner Signature')
+            ->assertSee(asset('assets/images/logo-dark.png'), false)
+            ->assertDontSee(public_path('assets/images/logo-dark.png'), false);
         $this->post(route('unit-cancellations.sign', $cancellation->owner_token), [
             'signed_by_name' => $owner->name,
             'signature_data' => self::SIGNATURE,
@@ -85,6 +89,38 @@ class UnitManagementCancellationTest extends TestCase
         ]);
         $this->get(route('unit-cancellations.pdf', $cancellation->owner_token))
             ->assertOk()->assertHeader('Content-Type', 'application/pdf');
+    }
+
+    public function test_admin_can_stop_process_and_revoke_both_signing_links(): void
+    {
+        Mail::fake();
+        [$admin, $owner, $property] = $this->records();
+        $cancellation = $this->cancellation($property, $owner);
+
+        $this->actingAs($admin)->post(route('admin.property.cancellations.stop', [$property, $cancellation]), [
+            'cancellation_reason' => 'Owner requested that the cancellation be withdrawn.',
+        ])->assertRedirect()->assertSessionHasNoErrors();
+
+        $cancellation->refresh();
+        $this->assertSame('cancelled', $cancellation->status);
+        $this->assertNotNull($cancellation->cancelled_at);
+        $this->assertSame((string) $admin->id, (string) $cancellation->cancelled_by);
+
+        foreach ([$cancellation->owner_token, $cancellation->company_token] as $token) {
+            $this->get(route('unit-cancellations.show', $token))
+                ->assertOk()->assertSee('signing link has been revoked');
+            $this->post(route('unit-cancellations.sign', $token), [
+                'signed_by_name' => 'Blocked Signer',
+                'signature_data' => self::SIGNATURE,
+                'accepted' => '1',
+            ])->assertSessionHasErrors('signature_data');
+        }
+
+        $this->assertNull($cancellation->fresh()->owner_signed_at);
+        $this->assertDatabaseHas('unit_management_cancellation_events', [
+            'cancellation_id' => $cancellation->id,
+            'event' => 'cancellation_process_stopped',
+        ]);
     }
 
     private function records(): array

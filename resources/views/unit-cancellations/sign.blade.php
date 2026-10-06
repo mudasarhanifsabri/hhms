@@ -7,7 +7,8 @@ body{background:#edf2f7}.wrap{max-width:1320px;margin:18px auto;padding:0 14px}.
 @php
     $alreadySigned = $party === 'owner' ? $cancellation->owner_signed_at : $cancellation->company_signed_at;
 @endphp
-@if($cancellation->status === 'expired')<div class="alert alert-danger">This signing link expired on {{ $cancellation->expires_at->format('d M Y') }}.</div>
+@if($cancellation->cancelled_at)<div class="alert alert-danger"><strong>Cancellation process stopped.</strong><br>This signing link has been revoked and no signature can be submitted.</div>
+@elseif($cancellation->status === 'expired')<div class="alert alert-danger">This signing link expired on {{ $cancellation->expires_at->format('d M Y') }}.</div>
 @elseif($party === 'company' && !$cancellation->owner_signed_at)<div class="alert alert-warning">Waiting for the owner to sign first.</div>
 @elseif($alreadySigned)<div class="alert alert-success">Signature completed on {{ $alreadySigned->timezone('Asia/Dubai')->format('d M Y, h:i A') }} GST.</div>@if($cancellation->completed_at)<a class="btn btn-dark w-100" target="_blank" href="{{ route('unit-cancellations.pdf', $party === 'owner' ? $cancellation->owner_token : $cancellation->company_token) }}">Open Final Signed PDF</a>@endif
 @else<form method="POST" action="{{ route('unit-cancellations.sign', $party === 'owner' ? $cancellation->owner_token : $cancellation->company_token) }}" id="signForm">@csrf

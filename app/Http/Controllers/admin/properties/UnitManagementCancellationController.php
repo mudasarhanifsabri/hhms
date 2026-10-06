@@ -68,6 +68,7 @@ class UnitManagementCancellationController extends Controller
     {
         abort_unless($cancellation->property_id === $property->id, 404);
         abort_unless(in_array($party, ['owner', 'company'], true), 404);
+        if ($cancellation->cancelled_at) return back()->withErrors(['signing' => 'This cancellation process has been stopped.']);
         if ($party === 'owner' && $cancellation->owner_signed_at) return back()->withErrors(['signing' => 'The owner has already signed.']);
         if ($party === 'company' && ! $cancellation->owner_signed_at) return back()->withErrors(['signing' => 'Company signing starts after the owner signs.']);
         if ($party === 'company' && $cancellation->company_signed_at) return back()->withErrors(['signing' => 'The company has already signed.']);
@@ -77,6 +78,26 @@ class UnitManagementCancellationController extends Controller
         $this->sendLink($cancellation, $party);
 
         return back()->with('success', ucfirst($party).' signing link resent.');
+    }
+
+    public function stop(Request $request, Property $property, UnitManagementCancellation $cancellation)
+    {
+        abort_unless($cancellation->property_id === $property->id, 404);
+        if ($cancellation->completed_at) return back()->withErrors(['signing' => 'A fully signed cancellation cannot be stopped.']);
+        if ($cancellation->cancelled_at) return back()->withErrors(['signing' => 'This cancellation process is already stopped.']);
+
+        $data = $request->validate([
+            'cancellation_reason' => ['required', 'string', 'max:2000'],
+        ]);
+        $cancellation->update([
+            'status' => 'cancelled',
+            'cancelled_at' => now(),
+            'cancelled_by' => $request->user()->id,
+            'cancellation_reason' => $data['cancellation_reason'],
+        ]);
+        $this->event($cancellation, 'admin', 'cancellation_process_stopped', $request);
+
+        return back()->with('success', 'Cancellation process stopped. Both signing links are now revoked.');
     }
 
     private function referenceNo(): string

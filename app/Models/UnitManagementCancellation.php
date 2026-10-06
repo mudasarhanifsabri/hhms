@@ -14,7 +14,8 @@ class UnitManagementCancellation extends BaseModel
         'owner_signature', 'owner_signed_name', 'owner_sent_at', 'owner_viewed_at',
         'owner_signed_at', 'company_signature', 'company_signed_name', 'company_sent_at',
         'company_viewed_at', 'company_signed_at', 'completed_at', 'expires_at',
-        'final_document_path', 'document_hash',
+        'final_document_path', 'document_hash', 'cancelled_at', 'cancelled_by',
+        'cancellation_reason',
     ];
 
     protected $casts = [
@@ -22,11 +23,12 @@ class UnitManagementCancellation extends BaseModel
         'owner_sent_at' => 'datetime', 'owner_viewed_at' => 'datetime',
         'owner_signed_at' => 'datetime', 'company_sent_at' => 'datetime',
         'company_viewed_at' => 'datetime', 'company_signed_at' => 'datetime',
-        'completed_at' => 'datetime',
+        'completed_at' => 'datetime', 'cancelled_at' => 'datetime',
     ];
 
     public function property(): BelongsTo { return $this->belongsTo(Property::class); }
     public function owner(): BelongsTo { return $this->belongsTo(User::class, 'owner_id'); }
+    public function cancelledBy(): BelongsTo { return $this->belongsTo(User::class, 'cancelled_by'); }
     public function events(): HasMany { return $this->hasMany(UnitManagementCancellationEvent::class, 'cancellation_id')->oldest(); }
 
     public function getStatusLabelAttribute(): string

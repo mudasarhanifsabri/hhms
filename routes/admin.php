@@ -194,6 +194,7 @@ Route::get('/properties/{property}/cancellations/create', [UnitManagementCancell
 Route::post('/properties/{property}/cancellations', [UnitManagementCancellationController::class, 'store'])->name('property.cancellations.store');
 Route::get('/properties/{property}/cancellations/{cancellation}', [UnitManagementCancellationController::class, 'show'])->name('property.cancellations.show');
 Route::post('/properties/{property}/cancellations/{cancellation}/resend/{party}', [UnitManagementCancellationController::class, 'resend'])->name('property.cancellations.resend');
+Route::post('/properties/{property}/cancellations/{cancellation}/stop', [UnitManagementCancellationController::class, 'stop'])->name('property.cancellations.stop');
 Route::post('/properties/{property}/document-wallet', [UnitDocumentController::class, 'store'])->name('property.document-wallet.store');
 Route::put('/properties/{property}/document-wallet/{document}', [UnitDocumentController::class, 'update'])->name('property.document-wallet.update');
 Route::delete('/properties/{property}/document-wallet/{document}', [UnitDocumentController::class, 'destroy'])->name('property.document-wallet.destroy');

@@ -18,6 +18,9 @@ class UnitManagementCancellationSigningController extends Controller
     public function show(string $token)
     {
         [$cancellation, $party] = $this->resolve($token);
+        if ($cancellation->cancelled_at) {
+            return view('unit-cancellations.sign', compact('cancellation', 'party'));
+        }
         if (! $cancellation->completed_at && $cancellation->expires_at->endOfDay()->isPast()) {
             $cancellation->update(['status' => 'expired']);
         }
@@ -38,6 +41,7 @@ class UnitManagementCancellationSigningController extends Controller
     public function sign(Request $request, string $token)
     {
         [$cancellation, $party] = $this->resolve($token);
+        if ($cancellation->cancelled_at) return back()->withErrors(['signature_data' => 'This cancellation process has been stopped and the signing link is revoked.']);
         if ($cancellation->expires_at->endOfDay()->isPast()) return back()->withErrors(['signature_data' => 'This signing link has expired.']);
         if ($party === 'company' && ! $cancellation->owner_signed_at) return back()->withErrors(['signature_data' => 'The owner must sign before the company can countersign.']);
         if (($party === 'owner' && $cancellation->owner_signed_at) || ($party === 'company' && $cancellation->company_signed_at)) return back()->with('success', 'This party has already signed.');

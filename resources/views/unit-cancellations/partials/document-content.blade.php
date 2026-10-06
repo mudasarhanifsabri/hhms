@@ -1,11 +1,13 @@
 @php
-    $logo = public_path('assets/images/logo-dark.png');
+    $pdfLogo = public_path('assets/images/logo-dark.png');
+    $logo = ($forPdf ?? false) ? $pdfLogo : asset('assets/images/logo-dark.png');
+    $showLogo = ($forPdf ?? false) ? file_exists($pdfLogo) : true;
     $ownerSigned = $cancellation->owner_signature;
     $companySigned = $cancellation->company_signature;
 @endphp
 <div class="cancellation-document">
     <div class="head">
-        @if(file_exists($logo))
+        @if($showLogo)
             <img src="{{ $logo }}" alt="Pattern Vacation Homes Rental">
         @else
             <strong>PATTERN VACATION HOMES RENTAL</strong>
@@ -28,9 +30,9 @@
     <p>I confirm that I have no outstanding financial or other claims, demands, or requests against Pattern Vacation Homes Rental arising from the management of the above property up to the effective cancellation date, and I release the company from those claims.</p>
     <p>I have read and voluntarily accepted this confirmation.</p>
     <table class="sig"><tr>
-        <td><strong>For Pattern Vacation Homes Rental</strong><div class="line">@if($companySigned)<img src="{{ $companySigned }}" class="sig-img" alt="Company signature">@endif</div><strong>{{ $cancellation->company_signed_name ?: $cancellation->company_signer_name }}</strong><br><span class="muted">{{ $cancellation->company_signed_at?->timezone('Asia/Dubai')->format('d M Y, h:i A').' GST' ?? 'Awaiting signature' }}</span></td>
+        <td><strong>For Pattern Vacation Homes Rental</strong><div class="line">@if($companySigned)<img src="{{ $companySigned }}" class="sig-img" alt="Company signature">@endif</div><strong>{{ $cancellation->company_signed_name ?: $cancellation->company_signer_name }}</strong><br><span class="muted">{{ $cancellation->company_signed_at ? $cancellation->company_signed_at->timezone('Asia/Dubai')->format('d M Y, h:i A').' GST' : 'Awaiting signature' }}</span></td>
         <td class="gap"></td>
-        <td><strong>Property Owner</strong><div class="line">@if($ownerSigned)<img src="{{ $ownerSigned }}" class="sig-img" alt="Owner signature">@endif</div><strong>{{ $cancellation->owner_signed_name ?: $cancellation->owner_name }}</strong><br><span class="muted">{{ $cancellation->owner_signed_at?->timezone('Asia/Dubai')->format('d M Y, h:i A').' GST' ?? 'Awaiting signature' }}</span></td>
+        <td><strong>Property Owner</strong><div class="line">@if($ownerSigned)<img src="{{ $ownerSigned }}" class="sig-img" alt="Owner signature">@endif</div><strong>{{ $cancellation->owner_signed_name ?: $cancellation->owner_name }}</strong><br><span class="muted">{{ $cancellation->owner_signed_at ? $cancellation->owner_signed_at->timezone('Asia/Dubai')->format('d M Y, h:i A').' GST' : 'Awaiting signature' }}</span></td>
     </tr></table>
     <div class="foot">Electronically signed document · {{ $cancellation->reference_no }}@if($cancellation->document_hash) · SHA-256 {{ $cancellation->document_hash }}@endif</div>
 </div>
