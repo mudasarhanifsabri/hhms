@@ -94,7 +94,7 @@
                                 <td>
                                     <div class="d-flex align-items-center gap-2">
                                         <span class="avatar-md rounded border border-light border-3 bg-primary-subtle text-primary d-inline-flex align-items-center justify-content-center"><iconify-icon icon="solar:buildings-2-bold-duotone" class="fs-28"></iconify-icon></span>
-                                        <a href="#" class="text-dark fw-medium fs-15">{{ $building->building_name }}</a>
+                                        <a href="{{ route('admin.building.show', $building) }}" class="text-dark fw-medium fs-15">{{ $building->building_name }}</a>
                                     </div>
                                 </td>
                                 <td>{{ $building->management_email ?? '—' }}</td>
@@ -123,12 +123,12 @@
                                     @endif
                                 </td>
                                 <td>{{ $building->year_built ?? '—' }}</td>
-                                <td>{{ ucfirst($building->type ?? '—') }}</td>
+                                <td>Building</td>
                                 <td>
                                     <div class="d-flex gap-2">
-                                        <a href="#" class="btn btn-light btn-sm"><iconify-icon icon="solar:eye-broken" class="fs-18"></iconify-icon></a>
-                                        <a href="#" class="btn btn-soft-primary btn-sm"><iconify-icon icon="solar:pen-2-broken" class="fs-18"></iconify-icon></a>
-                                        <form action="#" method="POST" onsubmit="return confirm('Are you sure?');">
+                                        <a href="{{ route('admin.building.show', $building) }}" class="btn btn-light btn-sm" title="View building"><iconify-icon icon="solar:eye-broken" class="fs-18"></iconify-icon></a>
+                                        <a href="{{ route('admin.building.edit', $building) }}" class="btn btn-soft-primary btn-sm" title="Edit building"><iconify-icon icon="solar:pen-2-broken" class="fs-18"></iconify-icon></a>
+                                        <form action="{{ route('admin.building.destroy', $building) }}" method="POST" onsubmit="return confirm('Delete {{ addslashes($building->building_name) }}? This is only allowed when no units are linked.');">
                                             @csrf
                                             @method('DELETE')
                                             <button type="submit" class="btn btn-soft-danger btn-sm">

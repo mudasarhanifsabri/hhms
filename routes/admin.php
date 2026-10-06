@@ -267,6 +267,10 @@ Route::post('/inspections/{inspection}/inventory-approval', [\App\Http\Controlle
 Route::get('/buildings', [BuildingController::class, 'index'])->name('building.index');
 Route::post('/buildings', [BuildingController::class, 'store'])->name('building.store');
 Route::get('/buildings/by-landlord/{landlord}', [BuildingController::class, 'byLandlord']);
+Route::get('/buildings/{building}', [BuildingController::class, 'show'])->name('building.show');
+Route::get('/buildings/{building}/edit', [BuildingController::class, 'edit'])->name('building.edit');
+Route::put('/buildings/{building}', [BuildingController::class, 'update'])->name('building.update');
+Route::delete('/buildings/{building}', [BuildingController::class, 'destroy'])->name('building.destroy');
 
 
 // To download the PDF list of all landlords

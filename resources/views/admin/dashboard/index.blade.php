@@ -5,7 +5,7 @@
 @section('content')
 <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
     <h4 class="mb-0">Operations Dashboard</h4>
-    <span class="text-muted">As of {{ now()->format('d M Y H:i') }} ({{ config('app.timezone') }})</span>
+    <span class="text-muted">As of {{ now()->timezone('Asia/Dubai')->format('d M Y H:i') }} (Dubai time · GST)</span>
 </div>
 
 <div class="card border-warning-subtle">
