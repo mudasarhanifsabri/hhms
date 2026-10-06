@@ -321,7 +321,7 @@ class PropertyController extends Controller
 
     public function show(Property $property)
     {
-        $property->load(['landlord', 'building', 'ownerShares.owner']);
+        $property->load(['landlord', 'building', 'ownerShares.owner', 'managementCancellations']);
 
         return view('admin.properties.show', compact('property'));
     }

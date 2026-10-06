@@ -117,10 +117,17 @@
                 <a href="{{ Route::has('admin.property.document-wallet.index') ? route('admin.property.document-wallet.index', $property->id) : route('admin.property.owner-documents.index', $property->id) }}" class="btn btn-dark">
                     <i class="ri-folder-shield-2-line me-1"></i>Document Wallet
                 </a>
+                <a href="{{ route('admin.property.cancellations.create', $property) }}" class="btn btn-outline-danger">
+                    <i class="ri-file-close-line me-1"></i>Cancel Management Agreement
+                </a>
             </div>
         </div>
     </div>
 </div>
+
+@if($property->managementCancellations->isNotEmpty())
+<div class="card border-danger-subtle mb-3"><div class="card-header d-flex justify-content-between align-items-center"><h4 class="card-title mb-0">Management Agreement Cancellations</h4><span class="badge bg-danger-subtle text-danger">{{ $property->managementCancellations->count() }}</span></div><div class="table-responsive"><table class="table align-middle mb-0"><thead><tr><th>Reference</th><th>Owner</th><th>Effective Date</th><th>Status</th><th></th></tr></thead><tbody>@foreach($property->managementCancellations->sortByDesc('created_at') as $cancellation)<tr><td>{{ $cancellation->reference_no }}</td><td>{{ $cancellation->owner_name }}</td><td>{{ $cancellation->effective_date->format('d M Y') }}</td><td><span class="badge {{ $cancellation->completed_at?'bg-success':'bg-warning text-dark' }}">{{ $cancellation->status_label }}</span></td><td><a class="btn btn-sm btn-outline-primary" href="{{ route('admin.property.cancellations.show',[$property,$cancellation]) }}">Track &amp; Manage</a></td></tr>@endforeach</tbody></table></div></div>
+@endif
 
 <div class="row">
     <div class="col-xl-4 col-lg-5">

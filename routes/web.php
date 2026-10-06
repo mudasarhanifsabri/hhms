@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\GuestPortalController;
 use App\Http\Controllers\OwnerDocumentSigningController;
+use App\Http\Controllers\UnitManagementCancellationSigningController;
 use App\Http\Controllers\WhatsappWebhookController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\RegisteredUserController;
@@ -41,6 +42,9 @@ Route::middleware(['auth'])->get('/dashboard', function () {
 Route::get('/owner-documents/{token}', [OwnerDocumentSigningController::class, 'show'])->name('owner-documents.show');
 Route::post('/owner-documents/{token}/sign', [OwnerDocumentSigningController::class, 'sign'])->name('owner-documents.sign');
 Route::get('/owner-documents/{token}/pdf', [OwnerDocumentSigningController::class, 'pdf'])->name('owner-documents.pdf');
+Route::get('/unit-cancellations/{token}', [UnitManagementCancellationSigningController::class, 'show'])->name('unit-cancellations.show');
+Route::post('/unit-cancellations/{token}/sign', [UnitManagementCancellationSigningController::class, 'sign'])->middleware('throttle:10,1')->name('unit-cancellations.sign');
+Route::get('/unit-cancellations/{token}/pdf', [UnitManagementCancellationSigningController::class, 'pdf'])->name('unit-cancellations.pdf');
 Route::get('/guest/bookings/{reference}', [GuestPortalController::class, 'show'])->name('guest.booking.show');
 Route::get('/guest/bookings/{reference}/invoice', [GuestPortalController::class, 'invoice'])->name('guest.booking.invoice');
 Route::get('/guest/bookings/{reference}/confirmation', [GuestPortalController::class, 'confirmation'])->name('guest.booking.confirmation');

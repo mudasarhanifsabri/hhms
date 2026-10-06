@@ -169,6 +169,11 @@ public function ownerDocuments(): HasMany
     return $this->hasMany(PropertyOwnerDocument::class);
 }
 
+public function managementCancellations(): HasMany
+{
+    return $this->hasMany(UnitManagementCancellation::class);
+}
+
 public function unitDocuments(): HasMany
 {
     return $this->hasMany(UnitDocument::class);
