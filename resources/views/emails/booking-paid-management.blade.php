@@ -3,14 +3,13 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Booking payment confirmed</title>
+    <title>Guest check-in notification</title>
 </head>
 <body style="margin:0;background:#f3f5f9;font-family:Arial,Helvetica,sans-serif;color:#24324a;">
 @php
     $booking = $invoice->booking;
     $property = $booking?->property;
     $building = $property?->building;
-    $paid = (float) $invoice->payments->sum('amount');
     $documents = array_values(array_filter([
         filled($booking?->guest_document) ? 'Guest document' : null,
         filled($booking?->tenant?->id_document) ? 'Tenant ID - front' : null,
@@ -23,14 +22,14 @@
             <tr>
                 <td style="padding:30px 36px;background:linear-gradient(135deg,#4438ca,#6d4aff);color:#ffffff;">
                     <div style="font-size:13px;letter-spacing:1.4px;text-transform:uppercase;opacity:.85;">Pattern Vacation Homes</div>
-                    <h1 style="margin:10px 0 6px;font-size:26px;line-height:1.25;">Booking payment confirmed</h1>
-                    <div style="font-size:15px;opacity:.9;">Invoice {{ $invoice->invoice_number }} is fully paid.</div>
+                    <h1 style="margin:10px 0 6px;font-size:26px;line-height:1.25;">Guest Check-In Notification</h1>
+                    <div style="font-size:15px;opacity:.9;">Please register the guest and arrange building access.</div>
                 </td>
             </tr>
             <tr>
                 <td style="padding:30px 36px;">
                     <p style="margin:0 0 22px;font-size:15px;line-height:1.65;">Dear Management Team,</p>
-                    <p style="margin:0 0 24px;font-size:15px;line-height:1.65;">This confirms that the booking invoice below has been paid in full. The available tenant identification documents are attached for your records.</p>
+                    <p style="margin:0 0 24px;font-size:15px;line-height:1.65;">Please register the guest below and allow check-in for the stated stay period. The available identification documents are attached for your building access and security records.</p>
 
                     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;background:#f7f7ff;border:1px solid #e5e3ff;border-radius:12px;">
                         <tr><td style="padding:20px 22px;">
@@ -49,8 +48,6 @@
                             'Passport / ID number' => $booking?->guest_passport_id_no ?: $booking?->tenant?->eid_passport_no,
                             'Check-in' => $invoice->period_from?->format('d M Y') ?? '—',
                             'Check-out' => $invoice->period_to?->format('d M Y') ?? '—',
-                            'Invoice' => $invoice->invoice_number.' · '.$invoice->type_label,
-                            'Amount paid' => 'AED '.number_format(max($paid, (float) $invoice->total_amount), 2),
                         ] as $label => $value)
                             <tr>
                                 <td style="width:42%;padding:10px 0;border-bottom:1px solid #edf0f5;color:#727b8d;">{{ $label }}</td>
@@ -66,7 +63,7 @@
                         </div>
                     </div>
 
-                    <p style="margin:26px 0 0;font-size:13px;line-height:1.6;color:#7a8292;">This is an automated confirmation from the Holiday Homes Management System.</p>
+                    <p style="margin:26px 0 0;font-size:13px;line-height:1.6;color:#7a8292;">This is an automated guest check-in notification from Pattern Vacation Homes.</p>
                 </td>
             </tr>
         </table>

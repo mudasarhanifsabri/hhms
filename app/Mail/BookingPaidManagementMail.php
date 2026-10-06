@@ -20,10 +20,13 @@ class BookingPaidManagementMail extends Mailable
 
     public function envelope(): Envelope
     {
+        $booking = $this->invoice->booking;
         $unit = $this->invoice->booking?->property?->name ?? 'Unit';
+        $guest = $booking?->guest_name ?: $booking?->tenant?->name ?: 'Guest';
+        $checkIn = $this->invoice->period_from?->format('d M Y') ?? 'Date pending';
 
         return new Envelope(
-            subject: 'Payment confirmed - '.$this->invoice->invoice_number.' - '.$unit,
+            subject: 'Guest Check-In Notification - '.$guest.' - Unit '.$unit.' - '.$checkIn,
         );
     }
 

@@ -43,8 +43,8 @@ class BookingManagementNotification
             $mail->send(new BookingPaidManagementMail($invoice));
 
             $invoice->booking->histories()->create([
-                'title' => $previouslySentAt ? 'Management Payment Email Resent' : 'Management Payment Email Sent',
-                'description' => 'Paid invoice '.$invoice->invoice_number.' was emailed to '.$managementEmail
+                'title' => $previouslySentAt ? 'Management Check-In Notification Resent' : 'Management Check-In Notification Sent',
+                'description' => 'Guest check-in notification for '.$invoice->invoice_number.' was emailed to '.$managementEmail
                     .($copyEmail && strcasecmp($copyEmail, $managementEmail) !== 0 ? ' with a copy to '.$copyEmail : '').'.',
             ]);
 

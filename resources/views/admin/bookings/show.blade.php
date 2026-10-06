@@ -172,7 +172,7 @@
                                         <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#paymentModal{{ $invoice->id }}">Pay</button>
                                     @endif
                                     @if($invoice->status === 'paid' && $invoice->balance_due <= 0)
-                                        <form method="POST" action="{{ route('admin.booking-invoice.management-email', $invoice) }}" onsubmit="return confirm('{{ $invoice->management_notified_at ? 'Resend' : 'Send' }} the paid booking confirmation and tenant documents to building management and customer service?')">
+                                        <form method="POST" action="{{ route('admin.booking-invoice.management-email', $invoice) }}" onsubmit="return confirm('{{ $invoice->management_notified_at ? 'Resend' : 'Send' }} the guest check-in notification and identification documents to building management and customer service?')">
                                             @csrf
                                             <button class="btn btn-sm {{ $invoice->management_notified_at ? 'btn-outline-secondary' : 'btn-outline-success' }}" title="{{ $invoice->management_notified_at ? 'Resend management email' : 'Send management email' }}">
                                                 <iconify-icon icon="solar:letter-broken" class="align-middle"></iconify-icon> {{ $invoice->management_notified_at ? 'Resend' : 'Send' }}

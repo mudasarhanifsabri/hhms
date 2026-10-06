@@ -642,7 +642,7 @@ class BookingController extends Controller
         $sent = \App\Support\BookingManagementNotification::invoicePaid($invoice, force: true);
 
         return $sent
-            ? back()->with('success', 'Management payment confirmation '.($resent ? 'resent' : 'sent').' to '.$managementEmail.' with a copy to '.config('hhms.management_booking_copy_email').'.')
+            ? back()->with('success', 'Management check-in notification '.($resent ? 'resent' : 'sent').' to '.$managementEmail.' with a copy to '.config('hhms.management_booking_copy_email').'.')
             : back()->withErrors(['management_email' => 'The email could not be sent. The previous sent status was kept; check the mail settings and application log.']);
     }
 

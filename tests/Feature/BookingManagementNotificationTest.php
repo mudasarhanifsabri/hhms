@@ -83,23 +83,28 @@ class BookingManagementNotificationTest extends TestCase
 
         Mail::assertSent(BookingPaidManagementMail::class, 1);
         Mail::assertSent(BookingPaidManagementMail::class, function (BookingPaidManagementMail $mail) {
+            $html = $mail->render();
+
             return $mail->hasTo('management@example.com')
                 && $mail->hasCc('customerservice@pattern.ae')
+                && $mail->envelope()->subject === 'Guest Check-In Notification - Test Guest - Unit 501 - 10 Oct 2026'
                 && count($mail->attachments()) === 3
-                && str_contains($mail->render(), '10 Oct 2026')
-                && str_contains($mail->render(), '20 Oct 2026');
+                && str_contains($html, 'Guest Check-In Notification')
+                && str_contains($html, '10 Oct 2026')
+                && str_contains($html, '20 Oct 2026')
+                && ! str_contains($html, 'Amount paid');
         });
         $this->assertNotNull($invoice->fresh()->management_notified_at);
         $this->assertDatabaseHas('booking_histories', [
             'booking_id' => $booking->id,
-            'title' => 'Management Payment Email Sent',
+            'title' => 'Management Check-In Notification Sent',
         ]);
 
         BookingManagementNotification::invoicePaid($invoice, force: true);
         Mail::assertSent(BookingPaidManagementMail::class, 2);
         $this->assertDatabaseHas('booking_histories', [
             'booking_id' => $booking->id,
-            'title' => 'Management Payment Email Resent',
+            'title' => 'Management Check-In Notification Resent',
         ]);
     }
 
