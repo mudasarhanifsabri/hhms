@@ -4,6 +4,7 @@ namespace App\Http\Controllers\admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Booking;
+use App\Models\BookingInvoice;
 use App\Models\Property;
 use App\Models\UnitDocument;
 use App\Models\User;
@@ -57,6 +58,20 @@ class AdminController extends Controller
             ->orderBy('check_out')
             ->orderBy('check_out_time')
             ->get();
+        $pendingInvoices = BookingInvoice::query()
+            ->with(['booking.property.building'])
+            ->withSum('payments', 'amount')
+            ->withCount('allPayments')
+            ->where('legacy_owner_settled', false)
+            ->whereNotNull('due_date')
+            // Show three days before the due date and keep every unpaid invoice
+            // visible after it becomes overdue until its balance reaches zero.
+            ->whereDate('due_date', '<=', $today->copy()->addDays(3)->toDateString())
+            ->whereHas('booking', fn ($query) => $query->where('status', '!=', 'cancelled')->whereHas('property'))
+            ->orderBy('due_date')
+            ->get()
+            ->filter(fn (BookingInvoice $invoice) => $invoice->balance_due > 0.009)
+            ->values();
 
         $landlordCount = (int) ($userCounts['landlord'] ?? 0);
         $agentCount = (int) ($userCounts['agent'] ?? 0);
@@ -83,7 +98,7 @@ class AdminController extends Controller
             'propertiesRented',
             'propertiesVacant',
             'upcomingDtcmExpiry',
-            'recentProperties', 'occupiedUnits', 'occupancyPercent', 'arrivalsToday', 'departuresToday', 'overdueDepartures', 'otherUsers', 'expiringBookings'
+            'recentProperties', 'occupiedUnits', 'occupancyPercent', 'arrivalsToday', 'departuresToday', 'overdueDepartures', 'otherUsers', 'expiringBookings', 'pendingInvoices'
         ));
     }
 }

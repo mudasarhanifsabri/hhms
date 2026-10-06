@@ -59,6 +59,40 @@
     </div>
 </div>
 
+<div class="card border-danger-subtle">
+    <div class="card-header d-flex flex-wrap align-items-center justify-content-between gap-2">
+        <div>
+            <h4 class="card-title mb-1">Pending Booking Invoices</h4>
+            <p class="text-muted small mb-0">Unpaid invoices appear three days before their due date and remain here until fully paid.</p>
+        </div>
+        <span class="badge bg-danger-subtle text-danger fs-13">{{ $pendingInvoices->count() }} pending</span>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table align-middle table-hover mb-0">
+                <thead class="bg-light-subtle"><tr><th>Due Date</th><th>Invoice</th><th>Guest</th><th>Unit</th><th class="text-end">Balance &amp; Action</th></tr></thead>
+                <tbody>
+                @forelse($pendingInvoices as $invoice)
+                    @php
+                        $invoiceDays = today()->diffInDays($invoice->due_date, false);
+                        $invoiceBooking = $invoice->booking;
+                    @endphp
+                    <tr>
+                        <td><strong>{{ $invoice->due_date->format('d M Y') }}</strong><span class="badge d-block mt-1 {{ $invoiceDays < 0 ? 'bg-danger-subtle text-danger' : 'bg-warning-subtle text-warning' }}">{{ $invoiceDays < 0 ? abs($invoiceDays).' '.Str::plural('day', abs($invoiceDays)).' overdue' : ($invoiceDays === 0 ? 'Due today' : 'Due in '.$invoiceDays.' '.Str::plural('day', $invoiceDays)) }}</span></td>
+                        <td><strong>{{ $invoice->invoice_number }}</strong><small class="d-block text-muted">{{ $invoice->type_label }} · {{ $invoice->period_from?->format('d M') }} – {{ $invoice->period_to?->format('d M Y') }}</small></td>
+                        <td>{{ $invoiceBooking?->guest_name }}<small class="d-block text-muted">{{ $invoiceBooking?->booking_reference }}</small></td>
+                        <td>{{ $invoiceBooking?->property?->name ?? 'Unit' }}<small class="d-block text-muted">{{ $invoiceBooking?->property?->building?->building_name ?? 'No building' }}</small></td>
+                        <td class="text-end"><strong class="text-danger">AED {{ number_format($invoice->balance_due, 2) }}</strong>@if($invoiceBooking)<div class="mt-1"><a href="{{ route('admin.booking.show', $invoiceBooking) }}" class="btn btn-sm btn-primary">Open &amp; Record Payment</a></div>@endif</td>
+                    </tr>
+                @empty
+                    <tr><td colspan="5" class="text-center text-muted py-4"><i class="ri-bill-line fs-24 d-block mb-1"></i>No booking invoices require payment follow-up.</td></tr>
+                @endforelse
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
 <div class="row">
     <div class="col-md-6 col-xl-3">
         <div class="card">

@@ -3,6 +3,8 @@
 namespace Tests\Feature;
 
 use App\Models\Booking;
+use App\Models\BookingInvoice;
+use App\Models\BookingInvoicePayment;
 use App\Models\Property;
 use App\Models\UnitDocument;
 use App\Models\User;
@@ -46,5 +48,28 @@ class AdminDashboardTest extends TestCase
             ->get(route('admin.dashboard'))->assertOk()
             ->assertViewHas('totalProperties', 0)->assertViewHas('occupancyPercent', 0)
             ->assertViewHas('upcomingDtcmExpiry', 0);
+    }
+
+    public function test_pending_invoices_appear_three_days_before_due_and_remain_until_paid(): void
+    {
+        $this->travelTo(now()->setDate(2026, 10, 6)->startOfDay());
+        $admin = User::factory()->create(['role' => 'admin']);
+        $owner = User::factory()->create(['role' => 'landlord']);
+        $property = Property::create(['landlord_id' => $owner->id, 'name' => 'Unit 501', 'status' => 'rented']);
+        $booking = Booking::create(['property_id' => $property->id, 'booking_reference' => 'BK-PENDING', 'invoice_number' => 'INV-PENDING', 'guest_name' => 'Pending Guest', 'guest_email' => 'guest@example.com', 'guest_phone' => '12345', 'guest_passport_id_no' => 'P100', 'check_in' => '2026-10-01', 'check_out' => '2026-12-01', 'status' => 'checked_in', 'rent_amount' => 100]);
+
+        $overdue = BookingInvoice::create(['booking_id' => $booking->id, 'invoice_number' => 'INV-OVERDUE', 'invoice_type' => 'original', 'issue_date' => '2026-09-01', 'period_from' => '2026-09-01', 'period_to' => '2026-09-30', 'due_date' => '2026-10-01', 'total_amount' => 1000, 'status' => 'unpaid']);
+        $soon = BookingInvoice::create(['booking_id' => $booking->id, 'invoice_number' => 'INV-SOON', 'invoice_type' => 'extension', 'issue_date' => '2026-10-01', 'period_from' => '2026-10-09', 'period_to' => '2026-11-08', 'due_date' => '2026-10-09', 'total_amount' => 900, 'status' => 'unpaid']);
+        BookingInvoice::create(['booking_id' => $booking->id, 'invoice_number' => 'INV-FUTURE', 'invoice_type' => 'extension', 'issue_date' => '2026-10-01', 'period_from' => '2026-10-10', 'period_to' => '2026-11-09', 'due_date' => '2026-10-10', 'total_amount' => 800, 'status' => 'unpaid']);
+        BookingInvoicePayment::create(['booking_invoice_id' => $overdue->id, 'amount' => 1000, 'payment_date' => '2026-10-06', 'payment_method' => 'cash']);
+
+        $response = $this->actingAs($admin)->get(route('admin.dashboard'))->assertOk()
+            ->assertSee('Pending Booking Invoices')
+            ->assertSee('INV-SOON')
+            ->assertDontSee('INV-FUTURE')
+            ->assertDontSee('INV-OVERDUE');
+
+        $this->assertCount(1, $response->viewData('pendingInvoices'));
+        $this->assertSame($soon->id, $response->viewData('pendingInvoices')->first()->id);
     }
 }
