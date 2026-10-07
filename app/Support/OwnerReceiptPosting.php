@@ -14,6 +14,7 @@ class OwnerReceiptPosting
             return;
         }
         $base = ['landlord_id' => $booking->property->landlord_id, 'property_id' => $booking->property_id,
+            'booking_invoice_id' => $payment->booking_invoice_id,
             'entry_date' => $payment->payment_date, 'reference' => 'PAY-'.$payment->id];
         $description = $payment->invoice->invoice_number.' — collected rent from '.$booking->guest_name;
         LandlordAccountEntry::firstOrCreate(['reference' => $base['reference'], 'type' => 'rent_income'], $base + [
