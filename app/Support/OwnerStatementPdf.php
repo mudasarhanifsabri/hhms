@@ -56,6 +56,8 @@ class OwnerStatementPdf
                         $receivedRent = (float) $invoice->payments->sum('rent_amount');
                         $management = round($receivedRent * (float) $booking->management_fee_percent / 100, 2);
                         $invoice->setRelation('booking', $booking);
+                        $invoice->setAttribute('statement_rent_received', $receivedRent);
+                        $invoice->setAttribute('statement_management_fee', $management);
                         $invoice->setAttribute('statement_net_rent', $receivedRent - $management);
 
                         return $invoice;
@@ -69,6 +71,10 @@ class OwnerStatementPdf
                 'amount' => (float) $typeEntries->sum('amount'),
             ];
         })->values();
+        $rentIncome = (float) $entries->where('type', 'rent_income')->where('direction', 'credit')->sum('amount');
+        $managementFees = (float) $entries->where('type', 'management_fee')->where('direction', 'debit')->sum('amount');
+        $ownerExpenses = (float) $ownerExpenseEntries->sum('amount');
+        $payouts = (float) $entries->where('type', 'payout')->where('direction', 'debit')->sum('amount');
 
         return [
             'landlord' => $owner,
@@ -78,11 +84,14 @@ class OwnerStatementPdf
             'openingBalance' => $openingBalance,
             'accountTotals' => ['credit' => $credit, 'debit' => $debit, 'balance' => $running],
             'summary' => [
-                'rent' => (float) $entries->where('type', 'rent_income')->where('direction', 'credit')->sum('amount'),
-                'management' => (float) $entries->where('type', 'management_fee')->where('direction', 'debit')->sum('amount'),
-                'owner_expenses' => (float) $ownerExpenseEntries->sum('amount'),
+                'rent' => $rentIncome,
+                'management' => $managementFees,
+                'owner_expenses' => $ownerExpenses,
                 'expense_breakdown' => $ownerExpenseBreakdown,
-                'payouts' => (float) $entries->where('type', 'payout')->where('direction', 'debit')->sum('amount'),
+                'payouts' => $payouts,
+                'other_credits' => max(0, $credit - $rentIncome),
+                'other_debits' => max(0, $debit - $managementFees - $ownerExpenses - $payouts),
+                'period_movement' => $credit - $debit,
             ],
         ];
     }

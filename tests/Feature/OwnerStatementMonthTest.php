@@ -69,6 +69,11 @@ class OwnerStatementMonthTest extends TestCase
         $pdfData = OwnerStatementPdf::data($owner, '2026-10-01', '2026-10-31', $unit->id);
         $this->assertTrue($pdfData['entries']->contains('id', $rent->id));
         $this->assertSame('2026-10-05', $pdfData['entries']->firstWhere('id', $rent->id)->statement_date->toDateString());
+        $this->assertEquals(14000, $pdfData['summary']['rent']);
+        $this->assertEquals(1400, $pdfData['summary']['management']);
+        $this->assertEquals(12600, $pdfData['summary']['period_movement']);
+        $this->assertEquals(-250, $pdfData['openingBalance']);
+        $this->assertEquals(12350, $pdfData['accountTotals']['balance']);
 
         $this->get(route('admin.landlord.account-statement', [$owner, 'year' => '2026']))
             ->assertOk()->assertSee('September repair')->assertSee('October rent received');
