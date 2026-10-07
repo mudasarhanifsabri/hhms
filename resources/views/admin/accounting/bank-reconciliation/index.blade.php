@@ -1,7 +1,7 @@
 @extends('layouts.app')
 @section('content')
 @include('admin.accounting.partials.module-nav')
-<h4>Bank Reconciliation</h4>
+<div class="d-flex justify-content-between align-items-center"><h4>Bank Reconciliation</h4><a href="{{ route('admin.accounting.bank-reconciliation.system-transactions') }}" class="btn btn-outline-primary">System transactions & references</a></div>
 <p class="text-muted">Upload a Wio or ADCB CSV/Excel statement and match each bank transaction against a recorded accounting entry.</p>
 @if($errors->any())<div class="alert alert-danger">{{ $errors->first() }}</div>@endif
 @if(session('success'))<div class="alert alert-success">{{ session('success') }}</div>@endif

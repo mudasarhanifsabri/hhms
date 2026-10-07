@@ -99,4 +99,24 @@ class BankReconciliationTest extends TestCase
         $this->assertSame('confirmed', $transaction->fresh()->status);
         $this->assertSame($entry->id, $transaction->fresh()->accounting_entry_id);
     }
+
+    public function test_system_transaction_reference_list_and_csv_export(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $account = $this->account('ADCB');
+        AccountingEntry::create([
+            'entry_no' => 'JE-RENT-LIST', 'entry_date' => '2026-10-07', 'type' => 'income', 'category' => 'rent_collection',
+            'description' => 'Rent collected for October', 'paid_from_account_id' => $account->id,
+            'transaction_reference' => 'PHUB-RENT-123', 'debit' => 0, 'credit' => 7250,
+            'approval_status' => 'posted', 'status' => 'posted',
+        ]);
+
+        $this->actingAs($admin)->get(route('admin.accounting.bank-reconciliation.system-transactions', ['search' => 'PHUB-RENT-123']))
+            ->assertOk()->assertSee('PHUB-RENT-123')->assertSee('Rent collected for October')->assertSee('Not matched');
+
+        $export = $this->actingAs($admin)->get(route('admin.accounting.bank-reconciliation.system-transactions.export', ['search' => 'PHUB-RENT-123']));
+        $export->assertOk()->assertDownload();
+        $this->assertStringContainsString('PHUB-RENT-123', $export->streamedContent());
+        $this->assertStringContainsString('Rent collected for October', $export->streamedContent());
+    }
 }

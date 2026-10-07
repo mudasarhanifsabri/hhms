@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class AccountingEntry extends BaseModel
 {
@@ -94,5 +95,10 @@ class AccountingEntry extends BaseModel
     public function bankTransfer(): BelongsTo
     {
         return $this->belongsTo(BankTransfer::class);
+    }
+
+    public function bankStatementTransaction(): HasOne
+    {
+        return $this->hasOne(BankStatementTransaction::class, 'accounting_entry_id');
     }
 }

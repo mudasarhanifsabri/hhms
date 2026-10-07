@@ -10,6 +10,7 @@ use App\Models\BankStatementTransaction;
 use App\Support\BankStatementCsv;
 use App\Support\BankStatementExcel;
 use Illuminate\Http\Request;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -21,6 +22,39 @@ class BankReconciliationController extends Controller
         $imports = BankStatementImport::with('account')->withCount(['transactions', 'transactions as confirmed_count' => fn ($q) => $q->where('status', 'confirmed')])
             ->latest()->paginate(15);
         return view('admin.accounting.bank-reconciliation.index', compact('accounts', 'imports'));
+    }
+
+    public function systemTransactions(Request $request)
+    {
+        $accounts = BankAccount::where('type', 'bank')->orderBy('name')->get();
+        $entries = $this->systemTransactionsQuery($request)
+            ->with(['paidFromAccount', 'bankTransfer', 'property.building', 'booking.property.building', 'bankStatementTransaction.import'])
+            ->orderByDesc('entry_date')->orderByDesc('created_at')->paginate(100)->withQueryString();
+
+        return view('admin.accounting.bank-reconciliation.system-transactions', compact('accounts', 'entries'));
+    }
+
+    public function exportSystemTransactions(Request $request)
+    {
+        $entries = $this->systemTransactionsQuery($request)
+            ->with(['paidFromAccount', 'bankTransfer', 'property.building', 'booking.property.building', 'bankStatementTransaction.import'])
+            ->orderBy('entry_date')->orderBy('created_at')->get();
+
+        return response()->streamDownload(function () use ($entries) {
+            $handle = fopen('php://output', 'wb');
+            fputcsv($handle, ['Date', 'Entry No', 'Reference No', 'Purpose', 'Category', 'Description', 'Booking', 'Guest', 'Unit', 'Bank Account', 'Debit AED', 'Credit AED', 'Bank Match']);
+            foreach ($entries as $entry) {
+                $safe = fn ($value) => preg_match('/^[=+\-@]/', (string) $value) ? "'".$value : $value;
+                fputcsv($handle, [
+                    $entry->entry_date?->format('Y-m-d'), $safe($entry->entry_no), $safe($entry->transaction_reference ?: $entry->bankTransfer?->reference),
+                    AccountingEntry::TYPES[$entry->type] ?? ucfirst((string) $entry->type), $safe($entry->category), $safe($entry->description),
+                    $safe($entry->booking?->booking_reference), $safe($entry->booking?->guest_name), $safe($entry->property?->name ?? $entry->booking?->property?->name),
+                    $safe($entry->paidFromAccount?->name), number_format((float) $entry->debit, 2, '.', ''), number_format((float) $entry->credit, 2, '.', ''),
+                    $entry->bankStatementTransaction ? 'Matched' : 'Not matched',
+                ]);
+            }
+            fclose($handle);
+        }, 'system-bank-transactions-'.now()->format('Y-m-d').'.csv', ['Content-Type' => 'text/csv']);
     }
 
     public function upload(Request $request)
@@ -115,6 +149,36 @@ class BankReconciliationController extends Controller
         return $query->with('bankTransfer')->where(fn ($q) => $q->whereNotNull('transaction_reference')
             ->orWhereHas('bankTransfer', fn ($transfer) => $transfer->whereNotNull('reference')))
             ->get()->filter(fn ($entry) => $this->validMatch($transaction, $entry))->values();
+    }
+
+    private function systemTransactionsQuery(Request $request): Builder
+    {
+        $query = AccountingEntry::query()
+            ->whereNotNull('paid_from_account_id')
+            ->whereIn('approval_status', ['posted', 'approved', 'paid'])
+            ->where(fn (Builder $q) => $q->where('debit', '>', 0)->orWhere('credit', '>', 0));
+
+        if ($request->filled('bank_account_id')) $query->where('paid_from_account_id', $request->string('bank_account_id'));
+        if ($request->filled('from')) $query->whereDate('entry_date', '>=', $request->date('from'));
+        if ($request->filled('to')) $query->whereDate('entry_date', '<=', $request->date('to'));
+        if ($request->input('match_status') === 'matched') {
+            $query->whereIn('id', BankStatementTransaction::whereNotNull('accounting_entry_id')->select('accounting_entry_id'));
+        } elseif ($request->input('match_status') === 'unmatched') {
+            $query->whereNotIn('id', BankStatementTransaction::whereNotNull('accounting_entry_id')->select('accounting_entry_id'));
+        }
+        if ($request->filled('search')) {
+            $search = trim((string) $request->input('search'));
+            $query->where(function (Builder $q) use ($search) {
+                $q->where('transaction_reference', 'like', "%{$search}%")
+                    ->orWhere('entry_no', 'like', "%{$search}%")
+                    ->orWhere('description', 'like', "%{$search}%")
+                    ->orWhere('category', 'like', "%{$search}%")
+                    ->orWhereHas('booking', fn (Builder $booking) => $booking->where('booking_reference', 'like', "%{$search}%")->orWhere('guest_name', 'like', "%{$search}%"))
+                    ->orWhereHas('bankTransfer', fn (Builder $transfer) => $transfer->where('reference', 'like', "%{$search}%"));
+            });
+        }
+
+        return $query;
     }
 
     private function validMatch(BankStatementTransaction $transaction, AccountingEntry $entry): bool

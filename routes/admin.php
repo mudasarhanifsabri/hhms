@@ -66,6 +66,8 @@ Route::post('/accounting/bank-accounts', [AccountingController::class, 'storeBan
 Route::get('/accounting/bank-accounts/statements', [AccountingController::class, 'bankStatements'])->name('accounting.bank-statements');
 Route::get('/accounting/bank-reconciliation', [BankReconciliationController::class, 'index'])->name('accounting.bank-reconciliation');
 Route::post('/accounting/bank-reconciliation', [BankReconciliationController::class, 'upload'])->name('accounting.bank-reconciliation.upload');
+Route::get('/accounting/bank-reconciliation/system-transactions', [BankReconciliationController::class, 'systemTransactions'])->name('accounting.bank-reconciliation.system-transactions');
+Route::get('/accounting/bank-reconciliation/system-transactions/export', [BankReconciliationController::class, 'exportSystemTransactions'])->name('accounting.bank-reconciliation.system-transactions.export');
 Route::get('/accounting/bank-reconciliation/{import}', [BankReconciliationController::class, 'show'])->name('accounting.bank-reconciliation.show');
 Route::post('/accounting/bank-reconciliation/{import}/confirm-all', [BankReconciliationController::class, 'confirmAll'])->name('accounting.bank-reconciliation.confirm-all');
 Route::post('/accounting/bank-reconciliation/transactions/{transaction}/confirm', [BankReconciliationController::class, 'confirm'])->name('accounting.bank-reconciliation.confirm');
