@@ -707,17 +707,50 @@ class AccountingController extends Controller
     public function utilities(Request $request)
     {
         $month = $this->month($request);
-        $accounts = UtilityAccount::with(['property.building'])
-            ->when($request->filled('property_id'), fn ($query) => $query->where('property_id', $request->input('property_id')))
-            ->orderBy('utility_type')
-            ->get();
-        $bills = UtilityBill::with(['account', 'property', 'landlord'])
-            ->whereBetween('bill_month', [$month->copy()->startOfMonth(), $month->copy()->endOfMonth()])
-            ->get()
-            ->keyBy(fn ($bill) => $bill->property_id . '|' . $bill->account?->utility_type);
-        $properties = Property::with(['building', 'utilityAccounts'])->orderBy('name')->get();
+        $propertyId = $request->input('property_id');
+        $utilityType = $request->string('utility_type')->toString();
+        $billStatus = $request->string('bill_status')->toString();
+        $monthRange = [$month->copy()->startOfMonth(), $month->copy()->endOfMonth()];
+        $billForMonth = fn ($query) => $query->whereBetween('bill_month', $monthRange);
 
-        return view('admin.accounting.utilities', $this->sharedData() + compact('accounts', 'bills', 'properties', 'month'));
+        $accountQuery = UtilityAccount::with(['property.building'])
+            ->when($propertyId, fn ($query) => $query->where('property_id', $propertyId))
+            ->when($utilityType, fn ($query) => $query->where('utility_type', $utilityType))
+            ->when($billStatus === 'missing', fn ($query) => $query->whereDoesntHave('bills', $billForMonth))
+            ->when($billStatus === 'recorded', fn ($query) => $query->whereHas('bills', $billForMonth))
+            ->when($billStatus === 'outstanding', fn ($query) => $query->whereHas('bills', fn ($bill) => $billForMonth($bill)->whereIn('status', ['outstanding', 'overdue'])))
+            ->when($billStatus === 'paid', fn ($query) => $query->whereHas('bills', fn ($bill) => $billForMonth($bill)->whereIn('status', ['paid', 'owner_paid'])))
+            ->when($billStatus === 'overdue', fn ($query) => $query->whereHas('bills', fn ($bill) => $billForMonth($bill)->where(fn ($status) => $status->where('status', 'overdue')->orWhere(fn ($late) => $late->where('status', 'outstanding')->whereDate('due_date', '<', today())))))
+            ->orderBy(Property::select('name')->whereColumn('properties.id', 'utility_accounts.property_id'))
+            ->orderBy('utility_type');
+
+        $utilityAccounts = $accountQuery->paginate(30)->withQueryString();
+        $accountOptions = UtilityAccount::with('property')->orderBy('property_id')->orderBy('utility_type')->get();
+        $bills = UtilityBill::with(['account', 'property', 'landlord'])
+            ->whereBetween('bill_month', $monthRange)
+            ->whereIn('utility_account_id', $utilityAccounts->getCollection()->pluck('id'))
+            ->get()
+            ->keyBy('utility_account_id');
+        $summaryAccounts = UtilityAccount::query()
+            ->when($propertyId, fn ($query) => $query->where('property_id', $propertyId))
+            ->when($utilityType, fn ($query) => $query->where('utility_type', $utilityType));
+        $summaryAccountIds = $summaryAccounts->pluck('id');
+        $summaryBills = UtilityBill::whereIn('utility_account_id', $summaryAccountIds)->whereBetween('bill_month', $monthRange)->get();
+        $recorded = $summaryBills->pluck('utility_account_id')->unique()->count();
+        $utilityStats = [
+            'accounts' => $summaryAccountIds->count(),
+            'recorded' => $recorded,
+            'missing' => max(0, $summaryAccountIds->count() - $recorded),
+            'outstanding_count' => $summaryBills->whereIn('status', ['outstanding', 'overdue'])->count(),
+            'outstanding_amount' => $summaryBills->whereIn('status', ['outstanding', 'overdue'])->sum('total_amount'),
+            'paid_count' => $summaryBills->whereIn('status', ['paid', 'owner_paid'])->count(),
+        ];
+        $properties = Property::with('building')->orderBy('name')->get();
+
+        return view('admin.accounting.utilities', $this->sharedData() + compact(
+            'utilityAccounts', 'accountOptions', 'bills', 'properties', 'month',
+            'propertyId', 'utilityType', 'billStatus', 'utilityStats'
+        ));
     }
 
     public function storeUtilityAccount(Request $request)

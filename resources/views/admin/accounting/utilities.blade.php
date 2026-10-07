@@ -1,116 +1,49 @@
 @extends('layouts.app')
-
 @section('content')
 @include('admin.accounting.partials.module-nav')
 
-<div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
-    <form class="d-flex gap-2 align-items-end">
-        <div><label class="form-label">Month</label><input type="month" name="month" value="{{ $month->format('Y-m') }}" class="form-control"></div>
-        <div><label class="form-label">Unit</label><select name="property_id" class="form-select"><option value="">All Units</option>@foreach($properties as $property)<option value="{{ $property->id }}" @selected(request('property_id')===$property->id)>{{ $property->name }}</option>@endforeach</select></div>
-        <button class="btn btn-soft-primary">Apply</button>
-    </form>
-    <div class="d-flex gap-2">
-        <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#utilityAccountModal"><i class="ri-settings-3-line me-1"></i>Utility Account</button>
-        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#utilityBillModal"><i class="ri-add-line me-1"></i>Record Utilities</button>
-    </div>
+<div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-3"><div><h3 class="mb-1">Utility Bills</h3><p class="text-muted mb-0">Set up each unit's utility account once, then record and pay its monthly bills.</p></div><div class="d-flex gap-2"><button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#utilityAccountModal"><i class="ri-settings-3-line me-1"></i>Set Up Account</button><button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#utilityBillModal"><i class="ri-add-line me-1"></i>Add Monthly Bill</button></div></div>
+@if(session('success'))<div class="alert alert-success">{{ session('success') }}</div>@endif
+@if($errors->any())<div class="alert alert-danger">{{ $errors->first() }}</div>@endif
+<div class="alert alert-info"><strong>Simple workflow:</strong> 1. Set up the DEWA, gas, internet or chiller account for a unit. 2. Add that month's bill. 3. Use Pay to record settlement and upload the receipt.</div>
+
+<div class="row g-3 mb-3">
+<div class="col-md-6 col-xl-3"><div class="card h-100"><div class="card-body"><span class="text-muted">Configured Accounts</span><h3 class="mb-0 mt-2">{{ number_format($utilityStats['accounts']) }}</h3></div></div></div>
+<div class="col-md-6 col-xl-3"><div class="card h-100 border-success-subtle"><div class="card-body"><span class="text-muted">Bills Recorded · {{ $month->format('M Y') }}</span><h3 class="text-success mb-0 mt-2">{{ number_format($utilityStats['recorded']) }}</h3><small class="text-muted">{{ number_format($utilityStats['paid_count']) }} paid</small></div></div></div>
+<div class="col-md-6 col-xl-3"><div class="card h-100 border-warning-subtle"><div class="card-body"><span class="text-muted">Bills Not Recorded</span><h3 class="text-warning mb-0 mt-2">{{ number_format($utilityStats['missing']) }}</h3><small class="text-muted">Accounts awaiting this month's bill</small></div></div></div>
+<div class="col-md-6 col-xl-3"><div class="card h-100 border-danger-subtle"><div class="card-body"><span class="text-muted">Outstanding</span><h3 class="text-danger mb-0 mt-2">AED {{ number_format((float)$utilityStats['outstanding_amount'],2) }}</h3><small class="text-muted">{{ number_format($utilityStats['outstanding_count']) }} unpaid bills</small></div></div></div>
 </div>
 
-<div class="card">
-    <div class="card-header"><h4 class="card-title mb-0">Monthly Utility Register - {{ $month->format('F Y') }}</h4></div>
-    <div class="table-responsive">
-        <table class="table table-hover align-middle mb-0">
-            <thead class="bg-light-subtle">
-                <tr><th>Unit Number</th>@foreach($utilityTypes as $key => $label)<th class="utility-cell">{{ $label }}</th>@endforeach</tr>
-            </thead>
-            <tbody>
-            @forelse($properties as $property)
-                <tr>
-                    <td>
-                        <strong>{{ $property->name }}</strong>
-                        <p class="text-muted mb-0">{{ $property->building?->name }}</p>
-                    </td>
-                    @foreach($utilityTypes as $key => $label)
-                        @php($account = $property->utilityAccounts->firstWhere('utility_type', $key))
-                        @php($bill = $bills->get($property->id.'|'.$key))
-                        <td>
-                            @if($bill)
-                                <div class="fw-semibold">AED {{ number_format((float) $bill->total_amount, 2) }}</div>
-                                <span class="badge {{ in_array($bill->status, ['paid','owner_paid']) ? 'bg-success' : 'bg-warning' }}">{{ $bill->status_label }}</span>
-                                @if(! in_array($bill->status, ['paid','owner_paid']))
-                                    <button class="btn btn-xs btn-soft-success mt-1" data-bs-toggle="modal" data-bs-target="#payBill{{ $bill->id }}">Pay</button>
-                                @endif
-                            @elseif($account)
-                                <span class="badge bg-light text-dark">{{ $account->responsibility_label }}</span>
-                                <p class="text-muted mb-0 small">{{ $account->supplier ?: 'Ready to record' }}</p>
-                            @else
-                                <span class="text-muted">Not set</span>
-                            @endif
-                        </td>
-                    @endforeach
-                </tr>
-            @empty
-                <tr><td colspan="6" class="text-center text-muted py-4">No units available.</td></tr>
-            @endforelse
-            </tbody>
-        </table>
-    </div>
-</div>
+<div class="card"><div class="card-header"><h4 class="card-title mb-0">Monthly Follow-up · {{ $month->format('F Y') }}</h4></div><div class="card-body border-bottom"><form class="row g-2 align-items-end">
+<div class="col-md-2"><label class="form-label">Month</label><input type="month" name="month" value="{{ $month->format('Y-m') }}" class="form-control"></div>
+<div class="col-md-3"><label class="form-label">Unit</label><select name="property_id" class="form-select"><option value="">All Units</option>@foreach($properties as $property)<option value="{{ $property->id }}" @selected($propertyId===$property->id)>{{ $property->name }}{{ $property->building?->building_name ? ' · '.$property->building->building_name : '' }}</option>@endforeach</select></div>
+<div class="col-md-2"><label class="form-label">Utility</label><select name="utility_type" class="form-select"><option value="">All Utilities</option>@foreach($utilityTypes as $key=>$label)<option value="{{ $key }}" @selected($utilityType===$key)>{{ $label }}</option>@endforeach</select></div>
+<div class="col-md-2"><label class="form-label">Bill Status</label><select name="bill_status" class="form-select"><option value="">All</option><option value="missing" @selected($billStatus==='missing')>Not Recorded</option><option value="recorded" @selected($billStatus==='recorded')>Recorded</option><option value="outstanding" @selected($billStatus==='outstanding')>Outstanding</option><option value="overdue" @selected($billStatus==='overdue')>Overdue</option><option value="paid" @selected($billStatus==='paid')>Paid</option></select></div>
+<div class="col-md-3 d-flex gap-2"><button class="btn btn-primary">Apply Filters</button><a href="{{ route('admin.accounting.utilities') }}" class="btn btn-light">Reset</a></div>
+</form></div><div class="table-responsive"><table class="table table-hover align-middle mb-0"><thead class="bg-light-subtle"><tr><th>Unit</th><th>Utility Account</th><th>Paid By</th><th>This Month's Bill</th><th>Due Date</th><th>Status</th><th class="text-end">Action</th></tr></thead><tbody>
+@forelse($utilityAccounts as $account)
+@php
+    $bill = $bills->get($account->id);
+    $isOverdue = $bill && in_array($bill->status, ['outstanding','overdue']) && $bill->due_date?->isPast();
+@endphp
+<tr><td><strong>{{ $account->property?->name ?? 'Unknown unit' }}</strong><small class="d-block text-muted">{{ $account->property?->building?->building_name ?? 'No building' }}</small></td><td><strong>{{ $account->type_label }}</strong><small class="d-block text-muted">{{ $account->supplier ?: 'Supplier not entered' }}{{ $account->account_number ? ' · '.$account->account_number : '' }}</small></td><td><span class="badge bg-light text-dark">{{ $account->responsibility_label }}</span></td><td>@if($bill)<strong>AED {{ number_format((float)$bill->total_amount,2) }}</strong><small class="d-block text-muted">Net {{ number_format((float)$bill->bill_amount,2) }} + VAT {{ number_format((float)$bill->vat_amount,2) }}</small>@else<span class="text-muted">Not recorded</span>@endif</td><td>{{ $bill?->due_date?->format('d M Y') ?? '—' }}</td><td>@if(!$bill)<span class="badge bg-warning-subtle text-warning">Missing</span>@elseif($isOverdue)<span class="badge bg-danger-subtle text-danger">Overdue</span>@elseif(in_array($bill->status,['paid','owner_paid']))<span class="badge bg-success-subtle text-success">{{ $bill->status_label }}</span>@else<span class="badge bg-warning-subtle text-warning">{{ $bill->status_label }}</span>@endif</td><td class="text-end">@if(!$bill)<button class="btn btn-sm btn-primary record-bill" data-account="{{ $account->id }}" data-bs-toggle="modal" data-bs-target="#utilityBillModal">Record Bill</button>@elseif(!in_array($bill->status,['paid','owner_paid']))<button class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#payBill{{ $bill->id }}">Pay</button>@else<span class="text-success small"><i class="ri-checkbox-circle-line"></i> Completed</span>@endif</td></tr>
+@empty<tr><td colspan="7" class="text-center text-muted py-5"><i class="ri-filter-off-line fs-28 d-block mb-2"></i>No utility accounts match these filters.<br><button class="btn btn-sm btn-outline-primary mt-2" data-bs-toggle="modal" data-bs-target="#utilityAccountModal">Set Up an Account</button></td></tr>@endforelse
+</tbody></table></div>@if($utilityAccounts->hasPages())<div class="card-footer">{{ $utilityAccounts->links('pagination::bootstrap-5') }}</div>@endif</div>
 
 @foreach($bills as $bill)
-    @if(! in_array($bill->status, ['paid','owner_paid']))
-        <div class="modal fade" id="payBill{{ $bill->id }}" tabindex="-1" aria-hidden="true">
-            <div class="modal-dialog"><form class="modal-content" method="post" action="{{ route('admin.accounting.utilities.bills.pay', $bill->id) }}" enctype="multipart/form-data">@csrf
-                <div class="modal-header"><h5 class="modal-title">Pay {{ $bill->account?->type_label }} Bill</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-                <div class="modal-body row g-3">
-                    <div class="col-12 alert alert-info mb-0">Unit: {{ $bill->property?->name }} | Total: AED {{ number_format((float) $bill->total_amount, 2) }}</div>
-                    <div class="col-md-6"><label class="form-label">Paid Date</label><input type="date" name="paid_at" value="{{ now()->toDateString() }}" class="form-control" required></div>
-                    <div class="col-md-6"><label class="form-label">Payment Method</label><input name="payment_method" class="form-control"></div>
-                    <div class="col-12"><label class="form-label">Transaction Reference</label><input name="transaction_reference" class="form-control"></div>
-                    <div class="col-12"><label class="form-label">Receipt</label><input type="file" name="receipt" class="form-control"></div>
-                    <div class="col-12"><div class="form-check"><input type="checkbox" name="owner_paid" value="1" id="ownerPaid{{ $bill->id }}" class="form-check-input"><label for="ownerPaid{{ $bill->id }}" class="form-check-label">Owner paid directly, do not create company expense</label></div></div>
-                </div>
-                <div class="modal-footer"><button class="btn btn-success">Save Payment</button></div>
-            </form></div>
-        </div>
-    @endif
+@if(!in_array($bill->status,['paid','owner_paid']))
+<div class="modal fade" id="payBill{{ $bill->id }}" tabindex="-1"><div class="modal-dialog"><form class="modal-content" method="post" action="{{ route('admin.accounting.utilities.bills.pay',$bill) }}" enctype="multipart/form-data">@csrf<div class="modal-header"><div><h5 class="modal-title">Record Utility Payment</h5><small class="text-muted">{{ $bill->property?->name }} · {{ $bill->account?->type_label }} · AED {{ number_format((float)$bill->total_amount,2) }}</small></div><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body row g-3"><div class="col-md-6"><label class="form-label">Payment Date *</label><input type="date" name="paid_at" value="{{ today()->toDateString() }}" class="form-control" required></div><div class="col-md-6"><label class="form-label">Payment Method</label><input name="payment_method" class="form-control" placeholder="Bank transfer, card, cash"></div><div class="col-12"><label class="form-label">Transaction Reference</label><input name="transaction_reference" class="form-control"></div><div class="col-12"><label class="form-label">Receipt</label><input type="file" name="receipt" class="form-control" accept=".pdf,.jpg,.jpeg,.png"></div><div class="col-12"><div class="form-check"><input type="checkbox" name="owner_paid" value="1" id="ownerPaid{{ $bill->id }}" class="form-check-input"><label for="ownerPaid{{ $bill->id }}" class="form-check-label">Owner paid directly — do not create a company expense</label></div></div></div><div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button><button class="btn btn-success">Save Payment</button></div></form></div></div>
+@endif
 @endforeach
 
-<div class="modal fade" id="utilityAccountModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-scrollable"><form class="modal-content" method="post" action="{{ route('admin.accounting.utilities.accounts.store') }}">@csrf
-        <div class="modal-header"><h5 class="modal-title">Utility Account Setup</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-        <div class="modal-body row g-3">
-            <div class="col-md-6"><label class="form-label">Unit</label><select name="property_id" class="form-select" required>@foreach($properties as $property)<option value="{{ $property->id }}">{{ $property->name }}</option>@endforeach</select></div>
-            <div class="col-md-3"><label class="form-label">Utility</label><select name="utility_type" class="form-select" required>@foreach($utilityTypes as $key => $label)<option value="{{ $key }}">{{ $label }}</option>@endforeach</select></div>
-            <div class="col-md-3"><label class="form-label">Responsibility</label><select name="responsibility" class="form-select" required>@foreach($responsibilities as $key => $label)<option value="{{ $key }}">{{ $label }}</option>@endforeach</select></div>
-            <div class="col-md-4"><label class="form-label">Supplier</label><input name="supplier" class="form-control" placeholder="DEWA, Du, Empower"></div>
-            <div class="col-md-4"><label class="form-label">Account No.</label><input name="account_number" class="form-control"></div>
-            <div class="col-md-4"><label class="form-label">Contract No.</label><input name="contract_number" class="form-control"></div>
-            <div class="col-md-6"><label class="form-label">Portal Username</label><input name="username" class="form-control"></div>
-            <div class="col-md-6"><label class="form-label">Portal Password</label><input type="password" name="portal_password" class="form-control"></div>
-            <div class="col-md-4"><label class="form-label">Status</label><select name="connection_status" class="form-select"><option value="active">Active</option><option value="pending">Pending</option><option value="disconnected">Disconnected</option></select></div>
-            <div class="col-md-4"><label class="form-label">Start Date</label><input type="date" name="connection_start_date" class="form-control"></div>
-            <div class="col-md-4"><label class="form-label">Expiry Date</label><input type="date" name="contract_expiry_date" class="form-control"></div>
-            <div class="col-md-3"><label class="form-label">Billing Day</label><input type="number" min="1" max="31" name="billing_day" class="form-control"></div>
-            <div class="col-md-9"><label class="form-label">Notes</label><input name="notes" class="form-control"></div>
-        </div>
-        <div class="modal-footer"><button class="btn btn-primary">Save Account</button></div>
-    </form></div>
-</div>
+<div class="modal fade" id="utilityAccountModal" tabindex="-1"><div class="modal-dialog modal-lg modal-dialog-scrollable"><form class="modal-content" method="post" action="{{ route('admin.accounting.utilities.accounts.store') }}">@csrf<div class="modal-header"><div><h5 class="modal-title">Set Up Utility Account</h5><small class="text-muted">One-time setup for a unit and utility type.</small></div><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body row g-3">
+<div class="col-md-6"><label class="form-label">Unit *</label><select name="property_id" class="form-select" required>@foreach($properties as $property)<option value="{{ $property->id }}">{{ $property->name }}{{ $property->building?->building_name ? ' · '.$property->building->building_name : '' }}</option>@endforeach</select></div><div class="col-md-3"><label class="form-label">Utility *</label><select name="utility_type" class="form-select" required>@foreach($utilityTypes as $key=>$label)<option value="{{ $key }}">{{ $label }}</option>@endforeach</select></div><div class="col-md-3"><label class="form-label">Paid By *</label><select name="responsibility" class="form-select" required>@foreach($responsibilities as $key=>$label)<option value="{{ $key }}">{{ $label }}</option>@endforeach</select></div><div class="col-md-4"><label class="form-label">Supplier</label><input name="supplier" class="form-control" placeholder="e.g. DEWA, Du, Empower"></div><div class="col-md-4"><label class="form-label">Account Number</label><input name="account_number" class="form-control"></div><div class="col-md-4"><label class="form-label">Contract Number</label><input name="contract_number" class="form-control"></div><div class="col-md-6"><label class="form-label">Portal Username</label><input name="username" class="form-control" autocomplete="off"></div><div class="col-md-6"><label class="form-label">Portal Password</label><input type="password" name="portal_password" class="form-control" autocomplete="new-password"></div><div class="col-md-4"><label class="form-label">Connection Status</label><select name="connection_status" class="form-select"><option value="active">Active</option><option value="pending">Pending</option><option value="disconnected">Disconnected</option></select></div><div class="col-md-4"><label class="form-label">Start Date</label><input type="date" name="connection_start_date" class="form-control"></div><div class="col-md-4"><label class="form-label">Contract Expiry</label><input type="date" name="contract_expiry_date" class="form-control"></div><div class="col-md-3"><label class="form-label">Billing Day</label><input type="number" min="1" max="31" name="billing_day" class="form-control"></div><div class="col-md-9"><label class="form-label">Notes</label><input name="notes" class="form-control"></div>
+</div><div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary">Save Account</button></div></form></div></div>
 
-<div class="modal fade" id="utilityBillModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg"><form class="modal-content" method="post" action="{{ route('admin.accounting.utilities.bills.store') }}">@csrf
-        <div class="modal-header"><h5 class="modal-title">Record Utility Bill</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-        <div class="modal-body row g-3">
-            <div class="col-md-6"><label class="form-label">Utility Account</label><select name="utility_account_id" class="form-select" required>@foreach($accounts as $account)<option value="{{ $account->id }}">{{ $account->property?->name }} - {{ $account->type_label }} ({{ $account->responsibility_label }})</option>@endforeach</select></div>
-            <div class="col-md-3"><label class="form-label">Bill Month</label><input type="month" name="bill_month" value="{{ $month->format('Y-m') }}" class="form-control" required></div>
-            <div class="col-md-3"><label class="form-label">Due Date</label><input type="date" name="due_date" class="form-control"></div>
-            <div class="col-md-4"><label class="form-label">Bill Date</label><input type="date" name="bill_date" class="form-control"></div>
-            <div class="col-md-4"><label class="form-label">Net Amount</label><input type="number" step="0.01" name="bill_amount" class="form-control" required></div>
-            <div class="col-md-4"><label class="form-label">VAT %</label><input type="number" step="0.01" name="vat_rate" value="5" class="form-control"></div>
-            <div class="col-md-6"><label class="form-label">Booking Link</label><select name="booking_id" class="form-select"><option value="">No booking</option>@foreach($bookings as $booking)<option value="{{ $booking->id }}">{{ $booking->booking_reference }} - {{ $booking->guest_name }}</option>@endforeach</select></div>
-            <div class="col-md-6"><label class="form-label">Notes</label><input name="notes" class="form-control"></div>
-        </div>
-        <div class="modal-footer"><button class="btn btn-primary">Record Bill</button></div>
-    </form></div>
-</div>
+<div class="modal fade" id="utilityBillModal" tabindex="-1"><div class="modal-dialog modal-lg"><form class="modal-content" method="post" action="{{ route('admin.accounting.utilities.bills.store') }}">@csrf<div class="modal-header"><div><h5 class="modal-title">Add Monthly Utility Bill</h5><small class="text-muted">Select a configured account and enter the supplier's net bill.</small></div><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body row g-3">
+@if($accountOptions->isEmpty())<div class="col-12"><div class="alert alert-warning mb-0">Set up a utility account before recording a bill.</div></div>@else<div class="col-md-6"><label class="form-label">Unit &amp; Utility Account *</label><select name="utility_account_id" id="utilityAccountForBill" class="form-select" required>@foreach($accountOptions as $account)<option value="{{ $account->id }}">{{ $account->property?->name }} · {{ $account->type_label }} · {{ $account->responsibility_label }}</option>@endforeach</select></div><div class="col-md-3"><label class="form-label">Bill Month *</label><input type="month" name="bill_month" value="{{ $month->format('Y-m') }}" class="form-control" required></div><div class="col-md-3"><label class="form-label">Due Date</label><input type="date" name="due_date" class="form-control"></div><div class="col-md-4"><label class="form-label">Bill Date</label><input type="date" name="bill_date" class="form-control"></div><div class="col-md-4"><label class="form-label">Net Amount (AED) *</label><input type="number" step="0.01" min="0" name="bill_amount" class="form-control" required></div><div class="col-md-4"><label class="form-label">VAT %</label><input type="number" step="0.01" min="0" max="100" name="vat_rate" value="5" class="form-control"></div><div class="col-md-6"><label class="form-label">Related Booking (optional)</label><select name="booking_id" class="form-select"><option value="">No booking</option>@foreach($bookings as $booking)<option value="{{ $booking->id }}">{{ $booking->booking_reference }} · {{ $booking->guest_name }}</option>@endforeach</select></div><div class="col-md-6"><label class="form-label">Notes</label><input name="notes" class="form-control"></div>@endif
+</div><div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>@if($accountOptions->isNotEmpty())<button class="btn btn-primary">Record Bill</button>@endif</div></form></div></div>
 @endsection
+@push('scripts')
+<script>document.querySelectorAll('.record-bill').forEach(button=>button.addEventListener('click',()=>{const select=document.getElementById('utilityAccountForBill');if(select)select.value=button.dataset.account;}));</script>
+@endpush
