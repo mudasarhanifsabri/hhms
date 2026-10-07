@@ -12,9 +12,10 @@ class OwnerStatementPdf
 {
     public static function data(User $owner, ?string $from = null, ?string $to = null, ?string $propertyId = null): array
     {
-        $base = LandlordAccountEntry::with('property.building')->where('landlord_id', $owner->id)->visibleOnOwnerStatement();
-        $first = (clone $base)->oldest('entry_date')->value('entry_date');
-        $last = (clone $base)->latest('entry_date')->value('entry_date');
+        $base = LandlordAccountEntry::with(['property.building', 'bookingInvoice'])->where('landlord_id', $owner->id)->visibleOnOwnerStatement();
+        $datedEntries = (clone $base)->get();
+        $first = $datedEntries->min(fn ($entry) => $entry->statement_date);
+        $last = $datedEntries->max(fn ($entry) => $entry->statement_date);
         $period = [
             'from' => Carbon::parse($from ?: ($first ?: now()->startOfMonth())),
             'to' => Carbon::parse($to ?: ($last ?: now()->endOfMonth())),
@@ -22,10 +23,10 @@ class OwnerStatementPdf
         $openingBalance = (float) LandlordAccountEntry::where('landlord_id', $owner->id)
             ->visibleOnOwnerStatement()
             ->when($propertyId, fn ($query) => $query->where('property_id', $propertyId))
-            ->whereDate('entry_date', '<', $period['from'])
+            ->beforeStatementDate($period['from']->toDateString())
             ->selectRaw("COALESCE(SUM(CASE WHEN direction='credit' THEN amount ELSE -amount END),0) balance")
             ->value('balance');
-        $entries = $base->whereBetween('entry_date', [$period['from']->toDateString(), $period['to']->toDateString()])
+        $entries = $base->forStatementPeriod($period['from']->toDateString(), $period['to']->toDateString())
             ->when($propertyId, fn ($query) => $query->where('property_id', $propertyId))
             ->statementOrder()->get();
         $credit = (float) $entries->where('direction', 'credit')->sum('amount');
@@ -46,9 +47,10 @@ class OwnerStatementPdf
             ->whereDate('check_in', '<=', $period['to'])
             ->whereDate('check_out', '>=', $period['from'])
             ->orderBy('check_in')->get()
-            ->flatMap(function (Booking $booking) {
+            ->flatMap(function (Booking $booking) use ($period) {
                 return $booking->invoices->sortBy('period_from')
                     ->when(RmsStatementCutoff::applies(), fn ($invoices) => $invoices->filter(fn ($invoice) => $invoice->period_from?->gte(RmsStatementCutoff::DATE)))
+                    ->filter(fn ($invoice) => $invoice->period_from?->lte($period['to']) && $invoice->period_to?->gte($period['from']))
                     ->filter(fn ($invoice) => (float) $invoice->payments->sum('amount') + 0.01 >= (float) $invoice->total_amount)
                     ->map(function ($invoice) use ($booking) {
                         $receivedRent = (float) $invoice->payments->sum('rent_amount');

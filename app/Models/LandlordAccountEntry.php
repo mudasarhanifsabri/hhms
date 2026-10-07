@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Support\RmsStatementCutoff;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -72,6 +73,24 @@ class LandlordAccountEntry extends BaseModel
         return self::allTypes()[$this->type] ?? ucfirst(str_replace('_', ' ', $this->type));
     }
 
+    public function getStatementDateAttribute(): Carbon
+    {
+        if (in_array($this->type, ['rent_income', 'management_fee'], true)
+            && $this->booking_invoice_id
+            && $this->bookingInvoice?->period_from) {
+            return $this->bookingInvoice->period_from->copy();
+        }
+
+        return $this->entry_date->copy();
+    }
+
+    public static function statementDateSql(): string
+    {
+        return "CASE WHEN type IN ('rent_income','management_fee') AND booking_invoice_id IS NOT NULL "
+            .'THEN COALESCE((SELECT period_from FROM booking_invoices WHERE booking_invoices.id = landlord_account_entries.booking_invoice_id), entry_date) '
+            .'ELSE entry_date END';
+    }
+
     public static function allTypes(): array
     {
         return self::CREDIT_TYPES + self::DEBIT_TYPES;
@@ -84,9 +103,19 @@ class LandlordAccountEntry extends BaseModel
 
     public function scopeStatementOrder($query)
     {
-        return $query->orderBy('entry_date')->orderBy('reference')
+        return $query->orderByRaw(self::statementDateSql())->orderBy('reference')
             ->orderByRaw("CASE WHEN direction = 'credit' THEN 0 WHEN type = 'management_fee' THEN 1 ELSE 2 END")
             ->orderBy('created_at')->orderBy('id');
+    }
+
+    public function scopeForStatementPeriod($query, $from, $to)
+    {
+        return $query->whereRaw(self::statementDateSql().' BETWEEN ? AND ?', [$from, $to]);
+    }
+
+    public function scopeBeforeStatementDate($query, $date)
+    {
+        return $query->whereRaw(self::statementDateSql().' < ?', [$date]);
     }
 
     public function scopeVisibleOnOwnerStatement($query)
@@ -134,7 +163,7 @@ class LandlordAccountEntry extends BaseModel
     {
         $balance = 0;
         $balances = [];
-        foreach (self::where('landlord_id', $landlordId)->when($ownerVisibleOnly, fn ($query) => $query->visibleOnOwnerStatement())->statementOrder()->get() as $entry) {
+        foreach (self::with('bookingInvoice')->where('landlord_id', $landlordId)->when($ownerVisibleOnly, fn ($query) => $query->visibleOnOwnerStatement())->statementOrder()->get() as $entry) {
             $balance += $entry->direction === 'credit' ? (float) $entry->amount : -(float) $entry->amount;
             $balances[$entry->id] = $balance;
         }

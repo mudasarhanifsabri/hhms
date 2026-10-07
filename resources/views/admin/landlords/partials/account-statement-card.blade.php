@@ -14,6 +14,19 @@
                 </button>
             </div>
         </div>
+        @if($statementMonths->isNotEmpty())
+            <div class="mt-3">
+                <div class="text-muted small mb-2">Monthly statements</div>
+                <div class="d-flex flex-wrap gap-2">
+                    @foreach($statementMonths as $statementMonth)
+                        <a class="btn btn-sm {{ ($filters['month'] ?? '') === $statementMonth['value'] ? 'btn-primary' : 'btn-outline-primary' }}"
+                           href="{{ route('admin.landlord.account-statement', array_filter(['id' => $landlord->id, 'month' => $statementMonth['value'], 'property_id' => $filters['property_id'] ?? null, 'per_page' => $perPage])) }}">
+                            {{ $statementMonth['label'] }}
+                        </a>
+                    @endforeach
+                </div>
+            </div>
+        @endif
         <form method="GET" action="{{ route('admin.landlord.account-statement', $landlord->id) }}" class="row g-2 mt-3 align-items-end">
             <div class="col-lg-2">
                 <label for="date_from" class="form-label">From</label>
@@ -57,7 +70,7 @@
             </div>
             <div class="col-lg-4">
                 <div class="border p-2 rounded h-100">
-                    <p class="text-muted mb-1">Current Balance</p>
+                    <p class="text-muted mb-1">Period Net</p>
                     <h4 class="mb-0 {{ $accountTotals['balance'] >= 0 ? 'text-primary' : 'text-danger' }}">{{ number_format($accountTotals['balance'], 2) }} AED</h4>
                 </div>
             </div>
@@ -78,7 +91,7 @@
             <table class="table table-hover align-middle mb-0">
                 <thead class="bg-light-subtle">
                     <tr>
-                        <th>Date</th>
+                        <th>Statement Date</th>
                         <th>Type</th>
                         <th>Property</th>
                         <th>Reference</th>
@@ -96,7 +109,12 @@
                             $hasAttachments = $invoiceUrl || $receiptUrl;
                         @endphp
                         <tr>
-                            <td>{{ $entry->entry_date?->format('d M Y') }}</td>
+                            <td>
+                                {{ $entry->statement_date->format('d M Y') }}
+                                @if(!$entry->statement_date->isSameDay($entry->entry_date))
+                                    <div class="text-muted fs-12">Paid {{ $entry->entry_date?->format('d M Y') }}</div>
+                                @endif
+                            </td>
                             <td>
                                 <span class="badge {{ $entry->direction === 'credit' ? 'bg-success-subtle text-success' : 'bg-danger-subtle text-danger' }}">
                                     {{ $entry->type_label }}
@@ -186,7 +204,7 @@
                 <div class="modal-header">
                     <div>
                         <h5 class="modal-title" id="statementAttachments{{ $entry->id }}Label">Statement Attachments</h5>
-                        <div class="text-muted small">{{ $entry->entry_date?->format('d M Y') }} · {{ $entry->type_label }} · {{ $entry->reference ?? 'No reference' }}</div>
+                        <div class="text-muted small">{{ $entry->statement_date->format('d M Y') }} · {{ $entry->type_label }} · {{ $entry->reference ?? 'No reference' }}</div>
                     </div>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>

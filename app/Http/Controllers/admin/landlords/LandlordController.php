@@ -124,7 +124,8 @@ class LandlordController extends Controller
     {
         $landlord = User::where('role', 'landlord')->findOrFail($id);
         $relatedProperties = $this->ownerUnitsQuery($landlord->id)->latest()->get();
-        $filters = $this->accountStatementFilters($request);
+        $statementMonths = $this->statementMonthsFor($landlord->id, $request->input('property_id'));
+        $filters = $this->accountStatementFilters($request, $statementMonths->first()['value'] ?? now()->format('Y-m'));
         $perPage = $request->integer('per_page', 25);
         $perPage = in_array($perPage, [10, 25, 50, 100], true) ? $perPage : 25;
         $accountEntries = $this->accountEntriesQuery($landlord->id, $filters)
@@ -182,7 +183,8 @@ class LandlordController extends Controller
             'statementPdfRoute',
             'statementEmailRoute',
             'filters',
-            'perPage'
+            'perPage',
+            'statementMonths'
         ));
     }
 
@@ -695,21 +697,43 @@ private function accountTotalsFor(string $landlordId, array $filters = []): arra
 
 private function accountEntriesQuery(string $landlordId, array $filters = [])
 {
-    return LandlordAccountEntry::with('property.building')
+    return LandlordAccountEntry::with(['property.building', 'bookingInvoice'])
         ->where('landlord_id', $landlordId)
         ->visibleOnOwnerStatement()
-        ->when(! empty($filters['date_from']), fn ($query) => $query->whereDate('entry_date', '>=', $filters['date_from']))
-        ->when(! empty($filters['date_to']), fn ($query) => $query->whereDate('entry_date', '<=', $filters['date_to']))
+        ->when(! empty($filters['date_from']) && ! empty($filters['date_to']), fn ($query) => $query->forStatementPeriod($filters['date_from'], $filters['date_to']))
         ->when(! empty($filters['property_id']), fn ($query) => $query->where('property_id', $filters['property_id']));
 }
 
-private function accountStatementFilters(Request $request): array
+private function accountStatementFilters(Request $request, ?string $defaultMonth = null): array
 {
+    $month = $request->input('month');
+    if (! preg_match('/^\d{4}-\d{2}$/', (string) $month)) {
+        $month = null;
+    }
+    if (! $request->filled('date_from') && ! $request->filled('date_to')) {
+        $month ??= $defaultMonth;
+    }
+
     return [
-        'date_from' => $request->input('date_from'),
-        'date_to' => $request->input('date_to'),
+        'date_from' => $month ? \Carbon\Carbon::createFromFormat('Y-m', $month)->startOfMonth()->toDateString() : $request->input('date_from'),
+        'date_to' => $month ? \Carbon\Carbon::createFromFormat('Y-m', $month)->endOfMonth()->toDateString() : $request->input('date_to'),
         'property_id' => $request->input('property_id'),
+        'month' => $month,
     ];
+}
+
+private function statementMonthsFor(string $landlordId, ?string $propertyId = null)
+{
+    return LandlordAccountEntry::with('bookingInvoice')
+        ->where('landlord_id', $landlordId)
+        ->visibleOnOwnerStatement()
+        ->when($propertyId, fn ($query) => $query->where('property_id', $propertyId))
+        ->get()
+        ->map(fn (LandlordAccountEntry $entry) => [
+            'value' => $entry->statement_date->format('Y-m'),
+            'label' => $entry->statement_date->format('F Y'),
+        ])
+        ->unique('value')->sortByDesc('value')->values();
 }
 
 private function ownerUnitsQuery(string $landlordId)
