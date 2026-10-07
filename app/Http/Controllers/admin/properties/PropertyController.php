@@ -4,6 +4,7 @@ namespace App\Http\Controllers\admin\properties;
 
 use App\Http\Controllers\Controller;
 use App\Models\Property;
+use App\Models\LandlordAccountEntry;
 use App\Models\UtilityAccount;
 use App\Models\User;
 use App\Models\Building;
@@ -43,6 +44,52 @@ class PropertyController extends Controller
         $unitStats = $this->unitStats();
 
         return view('admin.properties.showgrid', compact('properties', 'unitStats', 'status', 'search'));
+    }
+
+    public function exportExcel(Request $request)
+    {
+        $rows = $this->unitExportRows($request->input('status'), trim((string) $request->input('q')));
+
+        return response()->streamDownload(function () use ($rows) {
+            $output = fopen('php://output', 'wb');
+            fwrite($output, "\xEF\xBB\xBF");
+            fputcsv($output, ['Units & Owner Statement Balances']);
+            fputcsv($output, ['Generated at', now()->timezone('Asia/Dubai')->format('d M Y H:i').' GST']);
+            fputcsv($output, []);
+            fputcsv($output, ['Unit', 'Building', 'Owner', 'Owner Email', 'Type', 'Community / Location', 'Rent (AED)', 'Unit Status', 'Statement Balance (AED)', 'Balance Position']);
+            foreach ($rows as $property) {
+                $balance = (float) $property->statement_balance;
+                $values = [
+                    $property->name,
+                    $property->building?->building_name ?? 'No building',
+                    $property->landlord?->name ?? 'Not assigned',
+                    $property->landlord?->email ?? '',
+                    $property->unit_type_label,
+                    $property->community ?: ($property->building?->address ?? ''),
+                    (float) ($property->rent ?? 0),
+                    $property->status_label,
+                    $balance,
+                    $this->statementBalancePosition($balance),
+                ];
+                fputcsv($output, array_map(fn ($value) => is_string($value) && preg_match('/^[\s]*[=+@-]/u', $value) ? "'".$value : $value, $values));
+            }
+            fclose($output);
+        }, 'units-statement-balances-'.now()->format('Y-m-d').'.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
+    }
+
+    public function exportPdf(Request $request)
+    {
+        $status = $request->input('status');
+        $search = trim((string) $request->input('q'));
+        $properties = $this->unitExportRows($status, $search);
+        $totalBalance = (float) $properties->sum('statement_balance');
+
+        return PdfRenderer::downloadView(
+            'admin.properties.pdf.units-statement-balances',
+            compact('properties', 'status', 'search', 'totalBalance'),
+            'units-statement-balances-'.now()->format('Y-m-d').'.pdf',
+            ['format' => 'A4-L']
+        );
     }
 
     public function dtcmPermits(Request $request)
@@ -190,6 +237,29 @@ class PropertyController extends Controller
                         });
                 });
             });
+    }
+
+    private function unitExportRows(?string $status, ?string $search)
+    {
+        $balances = LandlordAccountEntry::query()
+            ->visibleOnOwnerStatement()
+            ->whereNotNull('property_id')
+            ->selectRaw("property_id, SUM(CASE WHEN direction = 'credit' THEN amount ELSE -amount END) as statement_balance")
+            ->groupBy('property_id')
+            ->pluck('statement_balance', 'property_id');
+
+        return $this->unitListQuery($status, $search)
+            ->orderBy('name')
+            ->get()
+            ->each(fn (Property $property) => $property->setAttribute('statement_balance', (float) ($balances[$property->id] ?? 0)));
+    }
+
+    private function statementBalancePosition(float $balance): string
+    {
+        if ($balance > 0.009) return 'Due to Owner';
+        if ($balance < -0.009) return 'Due from Owner';
+
+        return 'Settled';
     }
 
     private function unitStats(): array

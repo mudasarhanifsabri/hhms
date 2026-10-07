@@ -187,6 +187,8 @@ Route::post('/properties/store', [PropertyController::class, 'store'])->name('pr
 Route::get('/properties/dtcm-permits', [PropertyController::class, 'dtcmPermits'])->name('property.dtcm-permits');
 Route::get('/properties/dtcm-permits/report/excel', [PropertyController::class, 'dtcmPermitsExcel'])->name('property.dtcm-permits.excel');
 Route::get('/properties/dtcm-permits/report/pdf', [PropertyController::class, 'dtcmPermitsPdf'])->name('property.dtcm-permits.pdf');
+Route::get('/properties/report/excel', [PropertyController::class, 'exportExcel'])->name('property.export.excel');
+Route::get('/properties/report/pdf', [PropertyController::class, 'exportPdf'])->name('property.export.pdf');
 Route::get('/properties/{property}/owner-documents', [PropertyOwnerDocumentController::class, 'index'])->name('property.owner-documents.index');
 Route::post('/properties/{property}/owner-documents', [PropertyOwnerDocumentController::class, 'store'])->name('property.owner-documents.store');
 Route::get('/properties/{property}/document-wallet', [UnitDocumentController::class, 'index'])->name('property.document-wallet.index');

@@ -91,6 +91,8 @@
                     <h4 class="card-title mb-0">All Units List</h4>
                 </div>
                 <div class="d-flex gap-2">
+                    <a href="{{ route('admin.property.export.excel', ['q' => $search, 'status' => $status]) }}" class="btn btn-sm btn-outline-success"><i class="ri-file-excel-2-line me-1"></i>Export Excel</a>
+                    <a href="{{ route('admin.property.export.pdf', ['q' => $search, 'status' => $status]) }}" class="btn btn-sm btn-outline-danger"><i class="ri-file-pdf-2-line me-1"></i>Export PDF</a>
                     <a href="{{ route('admin.property.create') }}" class="btn btn-sm btn-primary">+ Add New Unit</a>
                 </div>
             </div>
