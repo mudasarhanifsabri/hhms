@@ -12,6 +12,7 @@ class Booking extends BaseModel
 
     protected $fillable = [
         'booking_reference',
+        'reservation_date',
         'tenant_id',
         'owner_posting_basis',
         'renewed_from_booking_id',
@@ -48,6 +49,7 @@ class Booking extends BaseModel
     ];
 
     protected $casts = [
+        'reservation_date' => 'date',
         'agent_commission_percent' => 'decimal:2',
         'check_in' => 'date',
         'check_out' => 'date',

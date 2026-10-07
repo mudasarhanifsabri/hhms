@@ -493,6 +493,7 @@ class BookingController extends Controller
 
         $newBooking = Booking::create([
             ...$payload,
+            'reservation_date' => today(),
             'owner_posting_basis' => 'receipts',
             'renewed_from_booking_id' => $booking->id,
             'booking_reference' => $this->nextReference('BK'),
@@ -1072,6 +1073,7 @@ class BookingController extends Controller
             'guest_phone' => 'required|string|max:50',
             'guest_passport_id_no' => 'required|string|max:100',
             'guest_document' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:10240',
+            'reservation_date' => 'required|date',
             'check_in' => 'required|date',
             'check_in_time' => 'nullable|date_format:H:i',
             'check_out' => 'required|date|after:check_in',

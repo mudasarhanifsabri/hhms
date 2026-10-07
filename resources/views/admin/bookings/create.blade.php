@@ -90,6 +90,7 @@
                 <div class="card-header"><h4 class="card-title">Booking Details</h4></div>
                 <div class="card-body">
                     <div class="row g-3">
+                        <div class="col-lg-3"><label class="form-label" for="reservation_date">Reservation Date</label><input type="date" id="reservation_date" name="reservation_date" value="{{ old('reservation_date', today()->toDateString()) }}" class="form-control" required>@error('reservation_date')<span class="text-danger">{{ $message }}</span>@enderror</div>
                         <div class="col-lg-3"><label class="form-label" for="check_in">Check In</label><input type="date" id="check_in" name="check_in" value="{{ old('check_in') }}" class="form-control" required>@error('check_in')<span class="text-danger">{{ $message }}</span>@enderror</div>
                         <div class="col-lg-3"><label class="form-label" for="check_in_time">Check In Time</label><input type="time" id="check_in_time" name="check_in_time" value="{{ old('check_in_time', '15:00') }}" class="form-control">@error('check_in_time')<span class="text-danger">{{ $message }}</span>@enderror</div>
                         <div class="col-lg-3"><label class="form-label" for="check_out">Check Out Date</label><input type="date" id="check_out" name="check_out" value="{{ old('check_out') }}" class="form-control" required>@error('check_out')<span class="text-danger">{{ $message }}</span>@enderror</div>
