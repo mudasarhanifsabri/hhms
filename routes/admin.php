@@ -245,6 +245,7 @@ Route::post('/bookings/{booking}/deposit-wallet/refunds/{refund}/pay', [DepositC
 Route::post('/bookings/{booking}/deposit-wallet/carry', [DepositController::class, 'carry'])->name('booking.deposit.carry');
 Route::get('/bookings/{booking}/deposit-wallet/receipt/{entry}', [DepositController::class, 'receipt'])->name('booking.deposit.receipt');
 Route::get('/bookings/{booking}/invoice', [BookingController::class, 'invoice'])->name('booking.invoice');
+Route::get('/bookings/{booking}/reservation-form', [BookingController::class, 'reservationForm'])->name('booking.reservation-form');
 Route::get('/bookings/{booking}/confirmation', [BookingController::class, 'confirmation'])->name('booking.confirmation');
 Route::get('/bookings/{booking}/complete-pack', [BookingController::class, 'completePack'])->name('booking.complete-pack');
 

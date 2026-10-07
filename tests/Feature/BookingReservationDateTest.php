@@ -51,4 +51,21 @@ class BookingReservationDateTest extends TestCase
         $this->assertSame('2026-08-15', $booking->reservation_date->toDateString());
         $this->assertSame('2026-08-27', $booking->check_in->toDateString());
     }
+
+    public function test_reservation_form_is_available_without_paid_invoices(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $owner = User::factory()->create(['role' => 'landlord']);
+        $property = Property::create(['landlord_id' => $owner->id, 'name' => 'Reservation Form Unit']);
+        $booking = Booking::create([
+            'property_id' => $property->id, 'booking_reference' => 'BK-RES-FORM', 'invoice_number' => 'INV-RES-FORM',
+            'reservation_date' => '2026-08-15', 'guest_name' => 'Form Guest', 'guest_email' => 'form@example.com',
+            'guest_phone' => '123', 'guest_passport_id_no' => 'P789', 'check_in' => '2026-08-27', 'check_out' => '2026-09-27',
+            'rent_amount' => 5000, 'total_amount' => 5000, 'status' => 'confirmed', 'invoice_status' => 'unpaid',
+        ]);
+
+        $response = $this->actingAs($admin)->get(route('admin.booking.reservation-form', $booking));
+
+        $response->assertOk()->assertHeader('content-type', 'application/pdf');
+    }
 }
