@@ -8,6 +8,7 @@ use App\Models\BankAccount;
 use App\Models\BankStatementImport;
 use App\Models\BankStatementTransaction;
 use App\Support\BankStatementCsv;
+use App\Support\BankStatementExcel;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -27,7 +28,7 @@ class BankReconciliationController extends Controller
         $data = $request->validate([
             'bank_account_id' => 'required|exists:bank_accounts,id',
             'bank' => 'required|in:wio,adcb',
-            'statement' => 'required|file|mimes:csv,txt|max:5120',
+            'statement' => 'required|file|mimes:csv,txt,xls,xlsx|max:15360',
         ]);
         $account = BankAccount::findOrFail($data['bank_account_id']);
         if ($account->type !== 'bank') throw ValidationException::withMessages(['bank_account_id' => 'Select a bank account.']);
@@ -40,7 +41,10 @@ class BankReconciliationController extends Controller
         if (BankStatementImport::where('bank_account_id', $account->id)->where('file_hash', $hash)->exists()) {
             throw ValidationException::withMessages(['statement' => 'This file has already been imported for this account.']);
         }
-        $rows = BankStatementCsv::parse($file->getRealPath());
+        $extension = strtolower($file->getClientOriginalExtension());
+        $rows = in_array($extension, ['xls', 'xlsx'], true)
+            ? BankStatementExcel::parse($file->getRealPath())
+            : BankStatementCsv::parse($file->getRealPath());
         $import = DB::transaction(function () use ($account, $data, $file, $hash, $rows) {
             $import = BankStatementImport::create(['bank_account_id' => $account->id, 'bank' => $data['bank'],
                 'filename' => $file->getClientOriginalName(), 'file_hash' => $hash, 'uploaded_by' => auth()->id()]);
@@ -79,6 +83,25 @@ class BankReconciliationController extends Controller
                 'confirmed_by' => auth()->id(), 'confirmed_at' => now()]);
         });
         return back()->with('success', 'Transaction confirmed.');
+    }
+
+    public function confirmAll(BankStatementImport $import)
+    {
+        $confirmed = 0;
+        DB::transaction(function () use ($import, &$confirmed) {
+            foreach ($import->transactions()->where('status', '!=', 'confirmed')->orderBy('row_number')->lockForUpdate()->get() as $transaction) {
+                $matches = $this->candidates($transaction);
+                if ($matches->count() !== 1) continue;
+                $entry = AccountingEntry::whereKey($matches->first()->id)->lockForUpdate()->first();
+                if (! $entry || ! $this->validMatch($transaction, $entry)) continue;
+                if (BankStatementTransaction::where('accounting_entry_id', $entry->id)->exists()) continue;
+                $transaction->update(['status' => 'confirmed', 'accounting_entry_id' => $entry->id,
+                    'confirmed_by' => auth()->id(), 'confirmed_at' => now()]);
+                $confirmed++;
+            }
+        });
+
+        return back()->with('success', $confirmed.' unique reference and amount matches confirmed. Remaining rows require review.');
     }
 
     private function candidates(BankStatementTransaction $transaction)

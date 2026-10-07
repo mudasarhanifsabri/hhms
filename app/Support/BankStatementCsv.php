@@ -35,7 +35,7 @@ class BankStatementCsv
                 if (count($cells) === 1 && trim((string) $cells[0]) === '') continue;
                 $value = fn (?int $index) => $index === null ? '' : trim((string) ($cells[$index] ?? ''));
                 $rawDate = $value($date);
-                $parsedDate = self::date($rawDate);
+                $parsedDate = self::parseDate($rawDate);
                 if (! $parsedDate) throw ValidationException::withMessages(['statement' => "Invalid date on CSV row {$line}: {$rawDate}"]);
                 $out = self::money($value($debit), $line);
                 $in = self::money($value($credit), $line);
@@ -68,9 +68,9 @@ class BankStatementCsv
         foreach ($names as $name) { $index = array_search($name, $headers, true); if ($index !== false) return $index; }
         return null;
     }
-    private static function date(string $value): ?string
+    public static function parseDate(string $value): ?string
     {
-        foreach (['Y-m-d', 'd/m/Y', 'd-m-Y', 'd M Y', 'm/d/Y', 'Y/m/d', 'Y-m-d H:i:s', 'd/m/Y H:i:s'] as $format) {
+        foreach (['Y-m-d', 'd/m/Y', 'd-m-Y', 'd-M-Y', 'd M Y', 'm/d/Y', 'Y/m/d', 'Y-m-d H:i:s', 'd/m/Y H:i:s'] as $format) {
             $date = DateTimeImmutable::createFromFormat('!'.$format, $value);
             if ($date && $date->format($format) === $value) return $date->format('Y-m-d');
         }

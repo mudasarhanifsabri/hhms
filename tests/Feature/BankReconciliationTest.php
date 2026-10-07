@@ -4,10 +4,13 @@ namespace Tests\Feature;
 
 use App\Models\AccountingEntry;
 use App\Models\BankAccount;
+use App\Models\BankStatementImport;
 use App\Models\BankStatementTransaction;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xls;
 use Tests\TestCase;
 
 class BankReconciliationTest extends TestCase
@@ -56,5 +59,44 @@ class BankReconciliationTest extends TestCase
         $this->assertSame(125.5, (float) BankStatementTransaction::firstOrFail()->debit);
         $this->actingAs($admin)->post(route('admin.accounting.bank-reconciliation.upload'), $upload())->assertSessionHasErrors('statement');
         $this->assertDatabaseCount('bank_statement_imports', 1);
+    }
+
+    public function test_adcb_excel_upload_and_one_click_unique_reference_matching(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $account = $this->account('ADCB');
+        $entry = AccountingEntry::create([
+            'entry_no' => 'JE-ADCB-1', 'entry_date' => '2026-08-01', 'type' => 'income', 'category' => 'rent',
+            'description' => 'August rent', 'paid_from_account_id' => $account->id,
+            'transaction_reference' => 'PHUB695492802', 'debit' => 0, 'credit' => 4000,
+            'approval_status' => 'posted', 'status' => 'posted',
+        ]);
+        $spreadsheet = new Spreadsheet;
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->fromArray([
+            ['Customer Account Statement'],
+            [],
+            ['Sr.No', 'Date', 'Value Date', 'Bank Reference No', 'Customer Reference No', 'Description', 'Debit Amount', 'Credit Amount'],
+            [1, '01-Aug-2026', '01-Aug-2026', 'PHUB695492802', '.', 'Rent received', '-', '4,000.00'],
+        ]);
+        $path = tempnam(sys_get_temp_dir(), 'adcb-xls-');
+        (new Xls($spreadsheet))->save($path);
+
+        $response = $this->actingAs($admin)->post(route('admin.accounting.bank-reconciliation.upload'), [
+            'bank' => 'adcb', 'bank_account_id' => $account->id,
+            'statement' => UploadedFile::fake()->createWithContent('Bank Statement.xls', file_get_contents($path)),
+        ]);
+        @unlink($path);
+
+        $response->assertRedirect();
+        $transaction = BankStatementTransaction::firstOrFail();
+        $this->assertSame('PHUB695492802', $transaction->reference);
+        $this->assertSame(4000.0, (float) $transaction->credit);
+
+        $import = BankStatementImport::firstOrFail();
+        $this->actingAs($admin)->post(route('admin.accounting.bank-reconciliation.confirm-all', $import))
+            ->assertRedirect()->assertSessionHas('success');
+        $this->assertSame('confirmed', $transaction->fresh()->status);
+        $this->assertSame($entry->id, $transaction->fresh()->accounting_entry_id);
     }
 }
