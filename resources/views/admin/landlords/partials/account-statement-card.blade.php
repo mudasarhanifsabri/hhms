@@ -29,12 +29,21 @@
         @endif
         <form method="GET" action="{{ route('admin.landlord.account-statement', $landlord->id) }}" class="row g-2 mt-3 align-items-end">
             <div class="col-lg-2">
-                <label for="date_from" class="form-label">From</label>
-                <input type="date" id="date_from" name="date_from" class="form-control" value="{{ $filters['date_from'] ?? '' }}">
+                <label for="statement_year" class="form-label">Year</label>
+                <select id="statement_year" name="year" class="form-control">
+                    @foreach($statementYears as $statementYear)
+                        <option value="{{ $statementYear }}" @selected(($filters['year'] ?? '') === $statementYear)>{{ $statementYear }}</option>
+                    @endforeach
+                </select>
             </div>
-            <div class="col-lg-2">
-                <label for="date_to" class="form-label">To</label>
-                <input type="date" id="date_to" name="date_to" class="form-control" value="{{ $filters['date_to'] ?? '' }}">
+            <div class="col-lg-3">
+                <label for="statement_month" class="form-label">Month</label>
+                <select id="statement_month" name="month" class="form-control">
+                    <option value="">All months in selected year</option>
+                    @foreach($statementMonths as $statementMonth)
+                        <option value="{{ $statementMonth['value'] }}" @selected(($filters['month'] ?? '') === $statementMonth['value'])>{{ $statementMonth['label'] }}</option>
+                    @endforeach
+                </select>
             </div>
             <div class="col-lg-3">
                 <label for="statement_property_id" class="form-label">Unit</label>
@@ -48,7 +57,7 @@
                     @endforeach
                 </select>
             </div>
-            <div class="col-lg-3 d-flex gap-2">
+            <div class="col-lg-2 d-flex gap-2">
                 <button type="submit" class="btn btn-outline-primary">Apply</button>
                 <a href="{{ route('admin.landlord.account-statement', $landlord->id) }}" class="btn btn-light">Reset</a>
             </div>
@@ -181,8 +190,9 @@
                         <div class="col-lg-6"><label class="form-label">Custom Email</label><input type="email" class="form-control" name="custom_email" placeholder="accounts@example.com"></div>
                         <div class="col-lg-6"><label class="form-label">Purpose</label><select class="form-control" name="purpose" id="statement_purpose" required><option>Monthly Statement</option><option>Payout Summary</option><option>Account Reconciliation</option><option>Custom</option></select></div>
                         <div class="col-lg-6"><label class="form-label">Custom Purpose</label><input type="text" class="form-control" name="custom_purpose" maxlength="120" placeholder="Example: August final settlement"></div>
-                        <div class="col-lg-4"><label class="form-label">From</label><input type="date" class="form-control" name="date_from" value="{{ $filters['date_from'] ?? '' }}"></div>
-                        <div class="col-lg-4"><label class="form-label">To</label><input type="date" class="form-control" name="date_to" value="{{ $filters['date_to'] ?? '' }}"></div>
+                        <input type="hidden" name="date_from" value="{{ $filters['date_from'] ?? '' }}">
+                        <input type="hidden" name="date_to" value="{{ $filters['date_to'] ?? '' }}">
+                        <div class="col-lg-8"><label class="form-label">Statement Period</label><div class="form-control bg-light">{{ \Carbon\Carbon::parse($filters['date_from'])->format('d M Y') }} – {{ \Carbon\Carbon::parse($filters['date_to'])->format('d M Y') }}</div></div>
                         <div class="col-lg-4"><label class="form-label">Unit</label><select class="form-control" name="property_id"><option value="">All units</option>@foreach($relatedProperties as $property)<option value="{{ $property->id }}" @selected(($filters['property_id'] ?? '')===$property->id)>{{ $property->name }} - {{ $property->building?->building_name ?? 'No building' }}</option>@endforeach</select></div>
                         <div class="col-12"><label class="form-label">Message to Owner</label><textarea class="form-control" name="message" rows="4" maxlength="2000" placeholder="Optional personal message shown inside the email"></textarea></div>
                     </div>

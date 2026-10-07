@@ -125,6 +125,7 @@ class LandlordController extends Controller
         $landlord = User::where('role', 'landlord')->findOrFail($id);
         $relatedProperties = $this->ownerUnitsQuery($landlord->id)->latest()->get();
         $statementMonths = $this->statementMonthsFor($landlord->id, $request->input('property_id'));
+        $statementYears = $statementMonths->pluck('value')->map(fn ($month) => substr($month, 0, 4))->unique()->values();
         $filters = $this->accountStatementFilters($request, $statementMonths->first()['value'] ?? now()->format('Y-m'));
         $perPage = $request->integer('per_page', 25);
         $perPage = in_array($perPage, [10, 25, 50, 100], true) ? $perPage : 25;
@@ -184,7 +185,8 @@ class LandlordController extends Controller
             'statementEmailRoute',
             'filters',
             'perPage',
-            'statementMonths'
+            'statementMonths',
+            'statementYears'
         ));
     }
 
@@ -710,15 +712,37 @@ private function accountStatementFilters(Request $request, ?string $defaultMonth
     if (! preg_match('/^\d{4}-\d{2}$/', (string) $month)) {
         $month = null;
     }
-    if (! $request->filled('date_from') && ! $request->filled('date_to')) {
-        $month ??= $defaultMonth;
+    $year = $request->input('year');
+    if (! preg_match('/^\d{4}$/', (string) $year)) {
+        $year = null;
+    }
+
+    $dateFrom = $request->input('date_from');
+    $dateTo = $request->input('date_to');
+    if (! $dateFrom && ! $dateTo) {
+        if ($month) {
+            $period = \Carbon\Carbon::createFromFormat('Y-m', $month);
+            $dateFrom = $period->copy()->startOfMonth()->toDateString();
+            $dateTo = $period->copy()->endOfMonth()->toDateString();
+            $year = $period->format('Y');
+        } elseif ($year) {
+            $dateFrom = $year.'-01-01';
+            $dateTo = $year.'-12-31';
+        } elseif ($defaultMonth) {
+            $month = $defaultMonth;
+            $period = \Carbon\Carbon::createFromFormat('Y-m', $month);
+            $dateFrom = $period->copy()->startOfMonth()->toDateString();
+            $dateTo = $period->copy()->endOfMonth()->toDateString();
+            $year = $period->format('Y');
+        }
     }
 
     return [
-        'date_from' => $month ? \Carbon\Carbon::createFromFormat('Y-m', $month)->startOfMonth()->toDateString() : $request->input('date_from'),
-        'date_to' => $month ? \Carbon\Carbon::createFromFormat('Y-m', $month)->endOfMonth()->toDateString() : $request->input('date_to'),
+        'date_from' => $dateFrom,
+        'date_to' => $dateTo,
         'property_id' => $request->input('property_id'),
         'month' => $month,
+        'year' => $year,
     ];
 }
 
