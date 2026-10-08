@@ -27,4 +27,10 @@ class FinancialApprovalRequest extends BaseModel
             default => str($this->type)->replace('_', ' ')->headline(),
         };
     }
+
+    public function getApprovalNoAttribute(): string
+    {
+        $date = $this->requested_at?->format('Ymd') ?? $this->created_at?->format('Ymd') ?? now()->format('Ymd');
+        return 'APR-'.$date.'-'.strtoupper(substr(str_replace('-', '', (string)$this->id), 0, 8));
+    }
 }

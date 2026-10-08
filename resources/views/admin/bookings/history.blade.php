@@ -26,7 +26,7 @@
                         <tr>
                             <td>{{ $history->created_at->format('d M Y h:i A') }}</td>
                             <td>{{ $history->title }}</td>
-                            <td class="text-wrap text-break" style="min-width:300px">{{ $history->description ?? '-' }}</td>
+                            <td class="text-wrap text-break" style="min-width:300px">{{ $history->display_description ?: '-' }}</td>
                         </tr>
                     @empty
                         <tr><td colspan="3" class="text-center text-muted py-4">No history found.</td></tr>

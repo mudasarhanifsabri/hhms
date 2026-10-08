@@ -25,4 +25,10 @@ class BookingInvoicePayment extends BaseModel
     {
         return $this->belongsTo(BankAccount::class);
     }
+
+    public function getTransactionNoAttribute(): string
+    {
+        $date = $this->payment_date?->format('Ymd') ?? $this->created_at?->format('Ymd') ?? now()->format('Ymd');
+        return 'TRX-'.$date.'-'.strtoupper(substr(str_replace('-', '', (string)$this->id), 0, 8));
+    }
 }

@@ -51,7 +51,7 @@ class BookingCorrectionController extends Controller
             $approval = FinancialApproval::submit('invoice_edit', $payload, [
                 'booking_id' => $invoice->booking_id, 'booking_invoice_id' => $invoice->id,
             ], null, $invoice->only(['rent_amount', 'vat_rate', 'vat_included', 'vat_amount', 'fees', 'total_amount']));
-            $invoice->booking->histories()->create(['title' => 'Invoice Edit Approval Requested', 'description' => 'Request '.$approval->id.' for '.$invoice->invoice_number.' submitted by '.auth()->user()->name.'. Invoice remains unchanged until approved.']);
+            $invoice->booking->histories()->create(['title' => 'Invoice Edit Approval Requested', 'description' => 'Request '.$approval->approval_no.' for '.$invoice->invoice_number.' submitted by '.auth()->user()->name.'. Invoice remains unchanged until approved.']);
             return back()->with('success', 'Invoice edit submitted for Admin/Accounting approval. The invoice remains unchanged.');
         }
         DB::transaction(function () use ($invoice, $data) {
@@ -112,7 +112,7 @@ class BookingCorrectionController extends Controller
                 'booking_id' => $payment->invoice->booking_id, 'booking_invoice_id' => $payment->booking_invoice_id,
                 'booking_invoice_payment_id' => $payment->id,
             ], null, $payment->only(['reference', 'notes']));
-            $payment->invoice->booking->histories()->create(['title' => 'Payment Edit Approval Requested', 'description' => 'Request '.$approval->id.' for payment '.$payment->id.' submitted by '.auth()->user()->name.'. Original details remain active until approved.']);
+            $payment->invoice->booking->histories()->create(['title' => 'Payment Edit Approval Requested', 'description' => 'Request '.$approval->approval_no.' for payment '.$payment->transaction_no.' submitted by '.auth()->user()->name.'. Original details remain active until approved.']);
             return back()->with('success', 'Payment edit submitted for Admin/Accounting approval. The original details remain unchanged.');
         }
         DB::transaction(function () use ($payment, $data) {
@@ -134,7 +134,7 @@ class BookingCorrectionController extends Controller
             if ($payment->payment_batch_id) {
                 DB::table('booking_payment_batches')->where('id', $payment->payment_batch_id)->update(['reference' => $data['reference'], 'updated_at' => now()]);
             }
-            $booking->histories()->create(['title' => 'Payment Details Corrected', 'description' => $payment->id.' by '.auth()->user()->name.'. Reason: '.$data['reason'].' | Before: '.json_encode($before).' | After: '.json_encode($payment->only(['reference', 'notes']))]);
+            $booking->histories()->create(['title' => 'Payment Details Corrected', 'description' => $payment->transaction_no.' by '.auth()->user()->name.'. Reason: '.$data['reason'].' | Before: '.json_encode($before).' | After: '.json_encode($payment->only(['reference', 'notes']))]);
         });
 
         return back()->with('success', 'Payment reference and notes updated. Financial amounts were not changed.');
@@ -150,7 +150,7 @@ class BookingCorrectionController extends Controller
                 'booking_id' => $payment->invoice->booking_id, 'booking_invoice_id' => $payment->booking_invoice_id,
                 'booking_invoice_payment_id' => $payment->id,
             ], null, $payment->only(['payment_date', 'amount', 'payment_method', 'bank_account_id', 'reference', 'notes']));
-            $payment->invoice->booking->histories()->create(['title' => 'Payment Deletion Approval Requested', 'description' => 'Request '.$approval->id.' for payment '.$payment->id.' submitted by '.auth()->user()->name.'. Payment remains active until approved.']);
+            $payment->invoice->booking->histories()->create(['title' => 'Payment Deletion Approval Requested', 'description' => 'Request '.$approval->approval_no.' for payment '.$payment->transaction_no.' submitted by '.auth()->user()->name.'. Payment remains active until approved.']);
             return back()->with('success', 'Payment deletion submitted for Admin/Accounting approval. It remains active until approved.');
         }
         DB::transaction(function () use ($payment, $data) {
@@ -190,7 +190,7 @@ class BookingCorrectionController extends Controller
                 $account = BankAccount::whereKey($payment->bank_account_id)->lockForUpdate()->firstOrFail();
                 $account->update(['current_balance' => (float) $account->opening_balance + (float) $account->entries()->whereIn('approval_status', ['posted', 'approved', 'paid'])->selectRaw('COALESCE(SUM(credit - debit),0) as movement')->value('movement')]);
             }
-            $booking->histories()->create(['title' => 'Payment Reversed', 'description' => $payment->id.' / '.$invoice->invoice_number.' — AED '.$payment->amount.' by '.auth()->user()->name.'. Reason: '.$data['reason'].'. Original payment preserved; replacement must be entered separately.']);
+            $booking->histories()->create(['title' => 'Payment Reversed', 'description' => $payment->transaction_no.' / '.$invoice->invoice_number.' — AED '.$payment->amount.' by '.auth()->user()->name.'. Reason: '.$data['reason'].'. Original payment preserved; replacement must be entered separately.']);
         });
 
         return back()->with('success', 'Incorrect recorded payment removed from active totals and reversed with an audit trail. Record the correct replacement payment on the invoice. This did not send a bank refund.');

@@ -14,7 +14,7 @@
 @php($payload=$item->payload ?? [])
 <tr>
 <td>{{ $item->requested_at?->timezone('Asia/Dubai')->format('d M Y H:i') }}<small class="d-block text-muted">Dubai time</small></td>
-<td><strong>{{ $item->type_label }}</strong><small class="d-block text-muted">{{ $item->request_reason ?: '—' }}</small></td>
+<td><strong>{{ $item->type_label }}</strong><small class="d-block text-primary">{{ $item->approval_no }}</small><small class="d-block text-muted">{{ $item->request_reason ?: '—' }}</small></td>
 <td>@if($item->booking)<a href="{{ route('admin.booking.show',$item->booking) }}">{{ $item->booking->booking_reference }}</a><small class="d-block">{{ $item->booking->guest_name }}</small>@endif<small class="d-block text-muted">{{ $item->invoice?->invoice_number }}</small></td>
 <td>@if(isset($payload['amount']))<strong>AED {{ number_format((float)$payload['amount'],2) }}</strong>@endif<small class="d-block">{{ $payload['payment_date'] ?? '' }} · {{ $payload['payment_method'] ?? '' }}</small><small class="d-block text-muted">Ref: {{ $payload['reference'] ?? '—' }}</small>@if($item->proof_path)<a class="btn btn-sm btn-outline-secondary mt-1" target="_blank" href="{{ route('admin.financial-approvals.proof',$item) }}"><i class="ri-attachment-line"></i> View proof</a>@endif @if($item->before_snapshot)<details class="mt-1"><summary class="small text-primary">Before / requested change</summary><pre class="small bg-light p-2">{{ json_encode(['before'=>$item->before_snapshot,'requested'=>$payload], JSON_PRETTY_PRINT|JSON_UNESCAPED_SLASHES) }}</pre></details>@endif</td>
 <td>{{ $item->requester?->name }}<small class="d-block text-muted">{{ $item->requester?->email }}</small></td>

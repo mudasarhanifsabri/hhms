@@ -102,6 +102,10 @@ class FinancialApprovalWorkflowTest extends TestCase
         $deletion = FinancialApprovalRequest::where('type', 'payment_reverse')->firstOrFail();
         $this->assertNull($payment->fresh()->reversed_at);
         $this->assertSame('paid', $invoice->fresh()->status);
+        $historyText = $invoice->booking->histories()->where('title', 'Payment Deletion Approval Requested')->firstOrFail()->display_description;
+        $this->assertStringContainsString($deletion->approval_no, $historyText);
+        $this->assertStringContainsString($payment->transaction_no, $historyText);
+        $this->assertStringNotContainsString($payment->id, $historyText);
         $this->actingAs($manager)->post(route('admin.financial-approvals.approve', $deletion))->assertSessionHasNoErrors();
         $this->assertNotNull($payment->fresh()->reversed_at);
         $this->assertSame('unpaid', $invoice->fresh()->status);

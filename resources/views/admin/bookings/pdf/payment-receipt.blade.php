@@ -10,7 +10,7 @@ Booking: {{ $invoice->booking?->booking_reference }}<br>Received from: {{ $invoi
 Unit: {{ $invoice->booking?->property?->building?->name }} — {{ $invoice->booking?->property?->name }}</p>
 <table><thead><tr><th>Payment ID</th><th>Date</th><th>Method / Reference</th><th class="amount">Amount paid (AED)</th></tr></thead><tbody>
 @foreach($invoice->payments->sortBy('payment_date') as $payment)
-<tr><td>{{ $payment->id }}</td><td>{{ $payment->payment_date?->format('d M Y') }}</td><td>{{ $payment->payment_method }}<br>{{ $payment->reference }}</td><td class="amount">{{ number_format((float)$payment->amount,2) }}</td></tr>
+<tr><td>{{ $payment->transaction_no }}</td><td>{{ $payment->payment_date?->format('d M Y') }}</td><td>{{ $payment->payment_method }}<br>{{ $payment->reference }}</td><td class="amount">{{ number_format((float)$payment->amount,2) }}</td></tr>
 @endforeach
 <tr><th colspan="3">Total actually received</th><th class="amount">{{ number_format((float)$invoice->payments->sum('amount'),2) }}</th></tr>
 <tr><td colspan="3">Invoice total</td><td class="amount">{{ number_format((float)$invoice->total_amount,2) }}</td></tr>

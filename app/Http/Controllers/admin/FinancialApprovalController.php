@@ -86,7 +86,7 @@ class FinancialApprovalController extends Controller
             'status' => 'rejected', 'reviewed_by' => auth()->id(), 'reviewed_at' => now(), 'review_notes' => $data['review_notes'], 'updated_at' => now(),
         ]);
         if (! $updated) throw ValidationException::withMessages(['approval' => 'This request has already been reviewed.']);
-        $approval->booking?->histories()->create(['title' => 'Financial Request Rejected', 'description' => 'Request '.$approval->id.' rejected by '.auth()->user()->name.'. Reason: '.$data['review_notes']]);
+        $approval->booking?->histories()->create(['title' => 'Financial Request Rejected', 'description' => 'Request '.$approval->approval_no.' rejected by '.auth()->user()->name.'. Reason: '.$data['review_notes']]);
         return back()->with('success', 'Request rejected. No financial records were changed.');
     }
 }
