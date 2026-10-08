@@ -19,8 +19,8 @@ class FinancialApprovalController extends Controller
 {
     private function authorizeReviewer(): void
     {
-        abort_unless(auth()->user()?->hasAnyRole(['Admin', 'Accounting', 'Super Administrator']), 403,
-            'Only an Admin, Accounting user or Super Administrator can review financial requests.');
+        abort_unless(auth()->user()?->hasAnyRole(['Manager', 'Admin', 'Accounting', 'Super Administrator']), 403,
+            'Only a Manager, Admin, Accounting user or Super Administrator can review financial requests.');
     }
 
     public function index(Request $request)
@@ -44,7 +44,7 @@ class FinancialApprovalController extends Controller
         $this->authorizeReviewer();
         $data = $request->validate(['review_notes' => 'nullable|string|max:2000']);
         if ((string) $approval->requested_by === (string) auth()->id()) {
-            throw ValidationException::withMessages(['approval' => 'You cannot approve your own request. A different Admin or Accounting user must review it.']);
+            throw ValidationException::withMessages(['approval' => 'You cannot approve your own request. A different Manager, Admin or Accounting user must review it.']);
         }
 
         DB::transaction(function () use ($approval, $data) {

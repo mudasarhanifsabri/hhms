@@ -75,6 +75,24 @@ class FinancialApprovalWorkflowTest extends TestCase
         $this->assertEquals(0, $bank->fresh()->current_balance);
     }
 
+    public function test_manager_dashboard_shows_and_can_review_pending_payment_action(): void
+    {
+        [$maker, , , $invoice, $bank] = $this->context();
+        $this->actingAs($maker)->post(route('admin.booking-invoice.payment', $invoice), [
+            'payment_date' => '2026-10-08', 'amount' => $invoice->total_amount, 'payment_method' => 'Bank Transfer',
+            'bank_account_id' => $bank->id, 'reference' => 'ADCB-MANAGER-001',
+        ]);
+        $approval = FinancialApprovalRequest::firstOrFail();
+        $manager = User::factory()->create(['role' => 'admin']);
+        $manager->syncRoles(['Manager']);
+
+        $this->actingAs($manager)->get(route('admin.dashboard'))->assertOk()
+            ->assertSee('Pending Financial Approvals')->assertSee($approval->approval_no);
+        $this->get(route('admin.financial-approvals.index'))->assertOk()->assertSee($approval->approval_no);
+        $this->post(route('admin.financial-approvals.approve', $approval))->assertSessionHasNoErrors();
+        $this->assertSame('approved', $approval->fresh()->status);
+    }
+
     public function test_payment_edit_and_deletion_wait_for_manager_approval(): void
     {
         [$maker, $manager, , $invoice, $bank] = $this->context();
