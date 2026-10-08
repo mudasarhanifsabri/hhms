@@ -25,12 +25,17 @@ use App\Http\Controllers\admin\DocumentOcrController;
 use App\Http\Controllers\admin\AccessControlController;
 use App\Http\Controllers\admin\SmartlockController;
 use App\Http\Controllers\admin\CompanyDocumentController;
+use App\Http\Controllers\admin\FinancialApprovalController;
 
 
 
 // Admin Routes
 Route::middleware(['auth', 'role:admin', 'admin.permission'])->prefix('admin')->name('admin.')->group(function () {
 Route::get('/dashboard', [AdminController::class, 'dashboard'])->name('dashboard');
+Route::get('/financial-approvals', [FinancialApprovalController::class, 'index'])->name('financial-approvals.index');
+Route::get('/financial-approvals/{approval}/proof', [FinancialApprovalController::class, 'proof'])->name('financial-approvals.proof');
+Route::post('/financial-approvals/{approval}/approve', [FinancialApprovalController::class, 'approve'])->name('financial-approvals.approve');
+Route::post('/financial-approvals/{approval}/reject', [FinancialApprovalController::class, 'reject'])->name('financial-approvals.reject');
 Route::get('/access-control', [AccessControlController::class, 'index'])->name('access-control.index');
 Route::get('/smartlocks', [SmartlockController::class, 'index'])->name('smartlocks.index');
 Route::post('/smartlocks/connection', [SmartlockController::class, 'connection'])->name('smartlocks.connection');

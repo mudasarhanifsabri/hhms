@@ -8,6 +8,7 @@ use App\Models\BookingInvoice;
 use App\Models\Property;
 use App\Models\UnitDocument;
 use App\Models\User;
+use App\Models\FinancialApprovalRequest;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -73,6 +74,9 @@ class AdminController extends Controller
             ->get()
             ->filter(fn (BookingInvoice $invoice) => $invoice->balance_due > 0.009)
             ->values();
+        $pendingFinancialApprovals = auth()->user()?->hasAnyRole(['Manager', 'Super Administrator'])
+            ? FinancialApprovalRequest::with(['booking', 'invoice', 'requester'])->where('status', 'pending')->latest('requested_at')->limit(8)->get()
+            : collect();
 
         $landlordCount = (int) ($userCounts['landlord'] ?? 0);
         $agentCount = (int) ($userCounts['agent'] ?? 0);
@@ -99,7 +103,7 @@ class AdminController extends Controller
             'propertiesRented',
             'propertiesVacant',
             'upcomingDtcmExpiry',
-            'recentProperties', 'occupiedUnits', 'occupancyPercent', 'arrivalsToday', 'departuresToday', 'overdueDepartures', 'otherUsers', 'expiringBookings', 'pendingInvoices'
+            'recentProperties', 'occupiedUnits', 'occupancyPercent', 'arrivalsToday', 'departuresToday', 'overdueDepartures', 'otherUsers', 'expiringBookings', 'pendingInvoices', 'pendingFinancialApprovals'
         ));
     }
 }

@@ -12,6 +12,7 @@ use App\Models\BookingInvoicePayment;
 use App\Models\LandlordAccountEntry;
 use App\Support\DepositWallet;
 use App\Support\OwnerReceiptPosting;
+use App\Support\FinancialApproval;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -22,7 +23,7 @@ class BookingCorrectionController extends Controller
 {
     private function authorizeFinancialCorrection(): void
     {
-        abort_unless(auth()->user()?->hasAnyRole(['Super Administrator', 'Backend IT']), 403,
+        abort_unless(request()->attributes->get('financial_approval_execution') || auth()->user()?->hasAnyRole(['Super Administrator', 'Backend IT']), 403,
             'Only Super Administrator or Backend IT can correct or delete recorded financial entries.');
     }
 
@@ -38,9 +39,20 @@ class BookingCorrectionController extends Controller
             'vat_included' => 'nullable|boolean',
             'vat_rate' => 'required|numeric|min:0|max:100', 'fees' => 'nullable|array',
             'fees.*' => 'required|numeric|min:0|decimal:0,2', 'reason' => 'required|string|min:5|max:1000',
-            'current_password' => 'required|string|max:255']);
-        if (! Hash::check((string) $data['current_password'], (string) auth()->user()?->password)) {
-            throw ValidationException::withMessages(['current_password' => 'The Super Admin password is incorrect.']);
+            'current_password' => FinancialApproval::trusted($request) ? 'nullable' : 'required|string|max:255']);
+        if (! FinancialApproval::trusted($request) && ! Hash::check((string) $data['current_password'], (string) auth()->user()?->password)) {
+            throw ValidationException::withMessages(['current_password' => 'Your password is incorrect.']);
+        }
+        if (! FinancialApproval::trusted($request)) {
+            if (\App\Models\FinancialApprovalRequest::where('status', 'pending')->where('type', 'invoice_edit')->where('booking_invoice_id', $invoice->id)->exists()) {
+                throw ValidationException::withMessages(['correction' => 'This invoice already has a pending edit request.']);
+            }
+            $payload = collect($data)->except('current_password')->all();
+            $approval = FinancialApproval::submit('invoice_edit', $payload, [
+                'booking_id' => $invoice->booking_id, 'booking_invoice_id' => $invoice->id,
+            ], null, $invoice->only(['rent_amount', 'vat_rate', 'vat_included', 'vat_amount', 'fees', 'total_amount']));
+            $invoice->booking->histories()->create(['title' => 'Invoice Edit Approval Requested', 'description' => 'Request '.$approval->id.' for '.$invoice->invoice_number.' submitted by '.auth()->user()->name.'. Invoice remains unchanged until approved.']);
+            return back()->with('success', 'Invoice edit submitted for Manager approval. The invoice remains unchanged.');
         }
         DB::transaction(function () use ($invoice, $data) {
             $booking = Booking::whereKey($invoice->booking_id)->lockForUpdate()->firstOrFail();
@@ -92,8 +104,17 @@ class BookingCorrectionController extends Controller
     public function paymentDetails(Request $request, BookingInvoicePayment $payment)
     {
         $this->authorizeFinancialCorrection();
-        $data = $request->validate(['reference' => 'nullable|string|max:150', 'notes' => 'nullable|string|max:2000',
+        $data = $request->validate(['reference' => 'required|string|max:150', 'notes' => 'nullable|string|max:2000',
             'reason' => 'required|string|min:5|max:1000']);
+        if (! FinancialApproval::trusted($request)) {
+            FinancialApproval::assertNoPendingPaymentChange($payment->id);
+            $approval = FinancialApproval::submit('payment_edit', $data, [
+                'booking_id' => $payment->invoice->booking_id, 'booking_invoice_id' => $payment->booking_invoice_id,
+                'booking_invoice_payment_id' => $payment->id,
+            ], null, $payment->only(['reference', 'notes']));
+            $payment->invoice->booking->histories()->create(['title' => 'Payment Edit Approval Requested', 'description' => 'Request '.$approval->id.' for payment '.$payment->id.' submitted by '.auth()->user()->name.'. Original details remain active until approved.']);
+            return back()->with('success', 'Payment edit submitted for Manager approval. The original details remain unchanged.');
+        }
         DB::transaction(function () use ($payment, $data) {
             $booking = Booking::whereKey($payment->invoice->booking_id)->lockForUpdate()->firstOrFail();
             $payment = BookingInvoicePayment::whereKey($payment->id)->lockForUpdate()->firstOrFail();
@@ -123,6 +144,15 @@ class BookingCorrectionController extends Controller
     {
         $this->authorizeFinancialCorrection();
         $data = $request->validate(['reason' => 'required|string|min:5|max:1000', 'confirm' => 'accepted']);
+        if (! FinancialApproval::trusted($request)) {
+            FinancialApproval::assertNoPendingPaymentChange($payment->id);
+            $approval = FinancialApproval::submit('payment_reverse', $data, [
+                'booking_id' => $payment->invoice->booking_id, 'booking_invoice_id' => $payment->booking_invoice_id,
+                'booking_invoice_payment_id' => $payment->id,
+            ], null, $payment->only(['payment_date', 'amount', 'payment_method', 'bank_account_id', 'reference', 'notes']));
+            $payment->invoice->booking->histories()->create(['title' => 'Payment Deletion Approval Requested', 'description' => 'Request '.$approval->id.' for payment '.$payment->id.' submitted by '.auth()->user()->name.'. Payment remains active until approved.']);
+            return back()->with('success', 'Payment deletion submitted for Manager approval. It remains active until approved.');
+        }
         DB::transaction(function () use ($payment, $data) {
             $booking = Booking::whereKey($payment->invoice->booking_id)->lockForUpdate()->firstOrFail();
             $invoice = BookingInvoice::whereKey($payment->booking_invoice_id)->lockForUpdate()->firstOrFail();

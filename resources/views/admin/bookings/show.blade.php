@@ -14,6 +14,9 @@
 @endpush
 
 @section('content')
+@if(($financialApprovals ?? collect())->isNotEmpty())
+<div class="card border-info-subtle mb-3"><div class="card-header"><h5 class="mb-0">Financial Approval History</h5></div><div class="card-body py-2"><div class="d-flex flex-wrap gap-2">@foreach($financialApprovals as $approval)<span class="badge {{ $approval->status==='pending'?'bg-warning text-dark':($approval->status==='approved'?'bg-success':'bg-danger') }}">{{ $approval->type_label }} · {{ ucfirst($approval->status) }} · {{ $approval->requested_at?->timezone('Asia/Dubai')->format('d M H:i') }}</span>@endforeach</div></div></div>
+@endif
 @include('admin.bookings.partials.compact-style')
 <div class="booking-workspace">
 @if($booking->renewed_from_booking_id || $booking->renewals()->exists())
@@ -42,8 +45,8 @@
     <div class="booking-head-actions">
         <div class="dropdown"><button class="btn btn-light dropdown-toggle" data-bs-toggle="dropdown"><iconify-icon icon="solar:documents-broken" class="align-middle fs-18"></iconify-icon> Documents</button><div class="dropdown-menu dropdown-menu-end"><a href="{{ route('admin.booking.reservation-form', $booking) }}" class="dropdown-item fw-semibold text-primary">Reservation form</a><a href="{{ route('admin.booking.invoice', $booking) }}" class="dropdown-item">First period tax invoice</a>@if($booking->invoices->isNotEmpty() && $booking->invoices->every(fn($item) => $item->status === 'paid' && $item->balance_due <= 0))<a href="{{ route('admin.booking.confirmation', $booking) }}" class="dropdown-item">Overall booking confirmation</a>@else<span class="dropdown-item-text small text-muted">Overall confirmation available after all invoices are paid</span>@endif @if(\Illuminate\Support\Facades\Route::has('admin.booking.complete-pack') && $booking->invoices->isNotEmpty() && $booking->invoices->every(fn($item) => $item->status === 'paid' && $item->balance_due <= 0))<a href="{{ route('admin.booking.complete-pack', $booking) }}" class="dropdown-item fw-semibold text-success">Complete booking pack</a>@endif<a href="{{ route('admin.booking.history', $booking) }}" class="dropdown-item">History & corrections</a></div></div>
         <a href="{{ route('admin.booking.edit', $booking) }}" class="btn btn-outline-dark"><iconify-icon icon="solar:pen-2-broken" class="align-middle fs-18"></iconify-icon> Edit booking</a>
-        @if($latestInvoice && $latestInvoice->balance_due > 0)<button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#paymentModal{{ $latestInvoice->id }}"><iconify-icon icon="solar:card-transfer-broken" class="align-middle fs-18"></iconify-icon> Record payment</button>@endif
-        @if($outstandingInvoices->count() > 1)<button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#combinedPaymentModal"><iconify-icon icon="solar:layers-minimalistic-broken" class="align-middle fs-18"></iconify-icon> Combined payment</button>@endif
+        @if($latestInvoice && $latestInvoice->balance_due > 0)<button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#paymentModal{{ $latestInvoice->id }}"><iconify-icon icon="solar:card-transfer-broken" class="align-middle fs-18"></iconify-icon> Submit payment</button>@endif
+        @if($outstandingInvoices->count() > 1)<button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#combinedPaymentModal"><iconify-icon icon="solar:layers-minimalistic-broken" class="align-middle fs-18"></iconify-icon> Submit combined payment</button>@endif
         <div class="dropdown"><button class="btn btn-light" data-bs-toggle="dropdown" aria-label="More booking actions"><iconify-icon icon="solar:menu-dots-bold"></iconify-icon></button><div class="dropdown-menu dropdown-menu-end"><a class="dropdown-item" href="{{ route('admin.booking.history', $booking) }}">View history</a><div class="dropdown-divider"></div><a class="dropdown-item text-danger" href="{{ route('admin.booking.delete', $booking) }}">Delete booking</a></div></div>
     </div>
 </div>
@@ -483,7 +486,7 @@
 <div class="modal fade" id="paymentModal{{ $invoice->id }}" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-lg"><div class="modal-content">
         <form action="{{ route('admin.booking-invoice.payment', $invoice->id) }}" method="POST" enctype="multipart/form-data">@csrf
-            <div class="modal-header"><h5 class="modal-title">Record Payment — {{ $invoice->invoice_number }}</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-header"><h5 class="modal-title">Submit Payment for Approval — {{ $invoice->invoice_number }}</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
             <div class="modal-body">
                 <div class="row g-3 mb-3">
                     <div class="col-md-4"><div class="border rounded p-3"><span class="text-muted small">Invoice Total</span><h5>AED {{ number_format((float) $invoice->total_amount, 2) }}</h5></div></div>
@@ -498,12 +501,12 @@
                     <table class="table table-sm mb-0"><tbody>@foreach(['rent'=>'Rent (before management fee)', 'vat'=>'VAT payable', 'cleaning'=>'Cleaning income', 'agency'=>'Agency fee', 'tourism'=>'Tourism fees payable', 'other'=>'Other fees', 'deposit'=>'Company-held refundable deposit'] as $key=>$label)<tr><td>{{ $label }}</td><td class="text-end">AED {{ number_format($automaticAllocation[$key], 2) }}</td></tr>@endforeach
                     <tr class="table-light"><td>Agent commission — {{ $commissionRate }}% of agency fee</td><td class="text-end">AED {{ number_format(round($automaticAllocation['agency'] * $commissionRate / 100, 2), 2) }}</td></tr><tr class="table-light"><td>Company agency income</td><td class="text-end">AED {{ number_format($automaticAllocation['agency'] - round($automaticAllocation['agency'] * $commissionRate / 100, 2), 2) }}</td></tr></tbody></table><small class="text-muted">Agent commission is part of the agency fee, not an additional guest charge. It is recorded as payable, not paid to the agent.</small>@endif
                     </div></div>
-                    <div class="col-md-6"><label class="form-label">Bank transaction reference</label><input name="reference" class="form-control" placeholder="Reference shown on the bank statement"><small class="text-muted">Keep this reference for comparison with your bank statement.</small></div>
+                    <div class="col-md-6"><label class="form-label">Bank transaction reference</label><input name="reference" class="form-control" placeholder="Reference shown on the bank statement" required><small class="text-muted">Required for Manager review and bank-statement matching.</small></div>
                     <div class="col-md-6"><label class="form-label">Upload Receipt</label><input type="file" name="receipt" class="form-control" accept=".pdf,.jpg,.jpeg,.png"></div>
                     <div class="col-12"><label class="form-label">Notes</label><textarea name="notes" class="form-control" rows="2"></textarea></div>
                 </div>
             </div>
-            <div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-primary" @disabled($allocationError)>Record Payment</button></div>
+            <div class="modal-footer"><span class="me-auto small text-muted">Invoice and bank balance change only after Manager approval.</span><button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-primary" @disabled($allocationError)>Submit for Approval</button></div>
         </form>
     </div></div>
 </div>
@@ -518,7 +521,7 @@
 <div class="row g-3"><div class="col-md-6"><label class="form-label">Transfer date</label><input class="form-control" type="date" name="payment_date" value="{{ today()->toDateString() }}" required></div><div class="col-md-6"><label class="form-label">Amount received (AED)</label><input class="form-control" type="number" name="amount" min="0.01" max="{{ $outstandingInvoices->sum(fn($item) => $item->balance_due) }}" step="0.01" required></div>
 <div class="col-md-6"><label class="form-label">Payment method</label><select class="form-select" name="payment_method" required><option>Bank Transfer</option><option>Cash Deposit</option><option>Cash</option><option>Card</option><option>Cheque</option><option>Online Payment</option></select></div><div class="col-md-6"><label class="form-label">Received into account</label><select class="form-select" name="bank_account_id" required><option value="">Select bank / cash account</option>@foreach($bankAccounts as $account)<option value="{{ $account->id }}">{{ $account->name }}</option>@endforeach</select></div>
 <div class="col-md-6"><label class="form-label">Bank transaction reference</label><input class="form-control" name="reference" required maxlength="150"></div><div class="col-md-6"><label class="form-label">Transfer proof</label><input class="form-control" type="file" name="receipt" accept=".pdf,.jpg,.jpeg,.png"></div><div class="col-12"><label class="form-label">Notes</label><textarea class="form-control" name="notes" rows="2"></textarea></div></div></div>
-<div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button><button class="btn btn-success">Record & Allocate Transfer</button></div></form></div></div>
+<div class="modal-footer"><span class="me-auto small text-muted">Allocation occurs only after Manager approval.</span><button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button><button class="btn btn-success">Submit for Approval</button></div></form></div></div>
 @endif
 
 <div class="modal fade" id="checkoutConfirmModal" tabindex="-1" aria-hidden="true"><div class="modal-dialog modal-dialog-centered"><div class="modal-content">

@@ -10,12 +10,14 @@ class CheckAdminPermission
 {
     private const ROUTE_MODULES = [
         'dashboard' => 'dashboard', 'property' => 'units', 'building' => 'units',
-        'landlord' => 'owners', 'tenant' => 'tenants', 'booking' => 'bookings', 'deposit' => 'bookings',
+        'landlord' => 'owners', 'tenant' => 'tenants', 'booking' => 'bookings', 'booking-invoice' => 'bookings',
+        'booking-payment' => 'bookings', 'deposit' => 'bookings',
         'task' => 'tasks', 'inspection' => 'inspections', 'inventory' => 'inspections',
         'accounting' => 'accounting', 'agent' => 'agents', 'maintainer' => 'maintainers',
         'settings' => 'administration', 'software-update' => 'administration',
         'access-control' => 'administration', 'document-ocr' => 'administration',
         'smartlocks' => 'administration',
+        'financial-approvals' => 'accounting',
     ];
 
     public function handle(Request $request, Closure $next): Response

@@ -38,13 +38,13 @@
                 </tfoot>
             </table>
         </div>
-        <div class="alert alert-warning py-2 small"><strong>Protected financial correction.</strong> Enter rent only here. Deposit and other fees are separate. Your Super Admin password and a written reason are required.</div>
+        <div class="alert alert-warning py-2 small"><strong>Protected financial correction.</strong> Enter rent only here. Deposit and other fees are separate. Your password and a written reason are required; the invoice remains unchanged until a different Manager approves.</div>
         <label class="form-label" for="invoiceReason{{ $invoice->id }}">Reason for correction</label><textarea id="invoiceReason{{ $invoice->id }}" name="reason" class="form-control" rows="2" minlength="5" maxlength="1000" placeholder="Explain the change" required></textarea>
-        <label class="form-label mt-3" for="invoicePassword{{ $invoice->id }}">Super Admin Password</label>
+        <label class="form-label mt-3" for="invoicePassword{{ $invoice->id }}">Your Password</label>
         <input id="invoicePassword{{ $invoice->id }}" name="current_password" type="password" class="form-control" autocomplete="current-password" placeholder="Confirm your password" required>
         <p class="small text-muted mt-3 mb-0">Saving an invoice does not record payment. Use Record Payment for money received.</p>
     </div>
-    <div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary">Save Invoice</button></div>
+    <div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary">Submit Edit for Approval</button></div>
 </form></div></div></div>
 @once
 @push('scripts')

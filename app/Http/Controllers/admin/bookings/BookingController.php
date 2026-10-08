@@ -14,6 +14,7 @@ use App\Models\LandlordAccountEntry;
 use App\Models\Property;
 use App\Models\User;
 use App\Support\MediaStorage;
+use App\Support\FinancialApproval;
 use App\Support\BookingDeletion;
 use App\Support\BookingInvoiceSchedule;
 use App\Support\BookingPaymentSummary;
@@ -539,8 +540,10 @@ class BookingController extends Controller
 
         $bankAccounts = BankAccount::where('is_active', true)->orderBy('name')->get();
         $depositTotals = \App\Support\DepositWallet::totals($booking);
+        $financialApprovals = \App\Models\FinancialApprovalRequest::with(['requester', 'reviewer'])
+            ->where('booking_id', $booking->id)->latest('requested_at')->limit(10)->get();
 
-        return view('admin.bookings.show', compact('booking', 'bankAccounts', 'depositTotals'));
+        return view('admin.bookings.show', compact('booking', 'bankAccounts', 'depositTotals', 'financialApprovals'));
     }
 
     public function recordInvoicePayment(Request $request, BookingInvoice $invoice)
@@ -551,10 +554,20 @@ class BookingController extends Controller
             'deposit_submission_id' => 'nullable|uuid',
             'payment_method' => 'required|string|max:100',
             'bank_account_id' => 'required|exists:bank_accounts,id,is_active,1',
-            'reference' => 'nullable|string|max:150',
+            'reference' => 'required|string|max:150',
             'receipt' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:10240',
             'notes' => 'nullable|string|max:2000',
         ]);
+
+        if (! FinancialApproval::trusted($request)) {
+            FinancialApproval::assertUniqueReference($data['reference']);
+            $proof = $request->hasFile('receipt') ? MediaStorage::store($request->file('receipt'), 'payment_approval_proofs') : null;
+            $approval = FinancialApproval::submit('payment_create', collect($data)->except(['receipt'])->all(), [
+                'booking_id' => $invoice->booking_id, 'booking_invoice_id' => $invoice->id,
+            ], $proof);
+            $invoice->booking->histories()->create(['title' => 'Payment Approval Requested', 'description' => 'Request '.$approval->id.' for '.$invoice->invoice_number.' — AED '.number_format((float)$data['amount'], 2).' submitted by '.auth()->user()->name.'. No financial posting has occurred.']);
+            return back()->with('success', 'Payment submitted for Manager approval. The invoice and bank balance will remain unchanged until approved.');
+        }
 
         $invoice->load('payments', 'booking.property');
         DB::transaction(function () use ($request, $invoice, $data) {
@@ -590,7 +603,7 @@ class BookingController extends Controller
                 'payment_date' => $data['payment_date'], 'amount' => $data['amount'],
                 'payment_method' => $data['payment_method'], 'bank_account_id' => $data['bank_account_id'] ?? null,
                 'reference' => $data['reference'] ?? null,
-                'receipt_path' => $this->uploadFile($request, 'receipt', 'booking_payment_proofs'),
+                'receipt_path' => $request->attributes->get('approval_proof_path') ?: $this->uploadFile($request, 'receipt', 'booking_payment_proofs'),
                 'notes' => $data['notes'] ?? null, 'accounting_entry_id' => $entry->id, 'created_by' => auth()->id(),
                 'rent_amount' => $invoice->booking->owner_posting_basis === 'receipts' ? $data['rent_amount'] : null,
                 'allocation' => $allocation,
@@ -659,10 +672,19 @@ class BookingController extends Controller
             'notes' => 'nullable|string|max:2000',
             'submission_id' => 'required|uuid',
         ]);
+        if (! FinancialApproval::trusted($request)) {
+            FinancialApproval::assertUniqueReference($data['reference']);
+            $proof = $request->hasFile('receipt') ? MediaStorage::store($request->file('receipt'), 'payment_approval_proofs') : null;
+            $approval = FinancialApproval::submit('combined_payment_create', collect($data)->except(['receipt'])->all(), [
+                'booking_id' => $booking->id,
+            ], $proof);
+            $booking->histories()->create(['title' => 'Combined Payment Approval Requested', 'description' => 'Request '.$approval->id.' — AED '.number_format((float)$data['amount'], 2).' submitted by '.auth()->user()->name.'. No financial posting has occurred.']);
+            return back()->with('success', 'Combined payment submitted for Manager approval. No invoice or bank balance has changed.');
+        }
         if (DB::table('booking_payment_batches')->where('id', $data['submission_id'])->exists()) {
             return back()->with('success', 'This combined payment was already recorded.');
         }
-        $receiptPath = $this->uploadFile($request, 'receipt', 'booking_payment_proofs');
+        $receiptPath = $request->attributes->get('approval_proof_path') ?: $this->uploadFile($request, 'receipt', 'booking_payment_proofs');
 
         $notifiedPayments = [];
         DB::transaction(function () use ($booking, $data, $receiptPath, &$notifiedPayments) {
