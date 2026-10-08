@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class AccountingEntry extends BaseModel
 {
@@ -100,5 +101,27 @@ class AccountingEntry extends BaseModel
     public function bankStatementTransaction(): HasOne
     {
         return $this->hasOne(BankStatementTransaction::class, 'accounting_entry_id');
+    }
+
+    public function bookingInvoicePayments(): HasMany
+    {
+        return $this->hasMany(BookingInvoicePayment::class, 'accounting_entry_id');
+    }
+
+    public function getBankDebitAttribute(): float
+    {
+        return (float) $this->debit;
+    }
+
+    public function getBankCreditAttribute(): float
+    {
+        $received = $this->getAttributeFromArray('booking_invoice_payments_sum_amount');
+        if ($received === null && ! array_key_exists('booking_invoice_payments_sum_amount', $this->attributes)) {
+            $received = $this->bookingInvoicePayments()->exists()
+                ? $this->bookingInvoicePayments()->sum('amount')
+                : null;
+        }
+
+        return $received !== null ? (float) $received : (float) $this->credit;
     }
 }
