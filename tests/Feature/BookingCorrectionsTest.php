@@ -9,6 +9,7 @@ use App\Models\LandlordAccountEntry;
 use App\Models\Property;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
 class BookingCorrectionsTest extends TestCase
@@ -22,6 +23,7 @@ class BookingCorrectionsTest extends TestCase
         $unit = Property::create(['landlord_id' => $owner->id, 'name' => 'U100', 'management_fee_percent' => 10]);
         $this->post(route('admin.booking.store'), ['property_id' => $unit->id, 'guest_name' => 'Test Guest',
             'guest_email' => 'guest@example.com', 'guest_phone' => '0500000000', 'guest_passport_id_no' => 'G001',
+            'reservation_date' => '2026-09-15',
             'check_in' => '2026-10-01', 'check_out' => '2026-10-10', 'rent_amount' => 1000, 'security_deposit' => $deposit])
             ->assertSessionHasNoErrors();
         $booking = Booking::firstOrFail();
@@ -157,5 +159,29 @@ class BookingCorrectionsTest extends TestCase
         $this->post(route('admin.booking.payment-proof', $booking))->assertSessionHasErrors('payment');
         $this->assertEquals(0, AccountingEntry::count());
         $this->actingAs($owner)->put(route('admin.booking-invoice.correct', $invoice), [])->assertForbidden();
+    }
+
+    public function test_only_backend_it_or_super_admin_can_delete_wrong_recorded_payment(): void
+    {
+        [$booking, $invoice, $bank] = $this->setupInvoice();
+        $this->pay($invoice, $bank, 1050, 1000)->assertSessionHasNoErrors();
+        $payment = $invoice->payments()->firstOrFail();
+
+        $officerRole = Role::create(['name' => 'Booking Manager', 'guard_name' => 'web']);
+        $officerRole->givePermissionTo(['bookings.view', 'bookings.manage']);
+        $officer = User::factory()->create(['role' => 'admin']);
+        $officer->syncRoles([$officerRole]);
+        $this->actingAs($officer)->post(route('admin.booking-payment.reverse', $payment), [
+            'reason' => 'Wrong payment entered', 'confirm' => 1,
+        ])->assertForbidden();
+        $this->assertNull($payment->fresh()->reversed_at);
+
+        $backend = User::factory()->create(['role' => 'admin']);
+        $backend->syncRoles(['Backend IT']);
+        $this->actingAs($backend)->post(route('admin.booking-payment.reverse', $payment), [
+            'reason' => 'Wrong payment entered', 'confirm' => 1,
+        ])->assertRedirect()->assertSessionHasNoErrors();
+        $this->assertNotNull($payment->fresh()->reversed_at);
+        $this->assertEquals(0, $bank->fresh()->current_balance);
     }
 }

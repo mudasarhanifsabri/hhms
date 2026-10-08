@@ -15,6 +15,8 @@ use Spatie\Permission\PermissionRegistrar;
 
 class AccessControlController extends Controller
 {
+    private const PROTECTED_ROLES = ['Super Administrator', 'Backend IT'];
+
     public const MODULES = [
         'dashboard' => ['Dashboard', 'ri-dashboard-line'], 'units' => ['Units & Buildings', 'ri-building-line'],
         'owners' => ['Owners / Landlords', 'ri-user-star-line'], 'tenants' => ['Tenants / Guests', 'ri-user-line'],
@@ -44,7 +46,7 @@ class AccessControlController extends Controller
 
     public function updateRole(Request $request, Role $role): RedirectResponse
     {
-        abort_if($role->name === 'Super Administrator', 422, 'The protected Super Administrator role cannot be changed.');
+        abort_if(in_array($role->name, self::PROTECTED_ROLES, true), 422, 'This protected full-access role cannot be changed.');
         $data = $this->validateRole($request, $role);
         $role->update(['name' => $data['name']]);
         $role->syncPermissions($this->permissionNames($data));
@@ -55,7 +57,7 @@ class AccessControlController extends Controller
 
     public function destroyRole(Role $role): RedirectResponse
     {
-        abort_if($role->name === 'Super Administrator', 422, 'The protected Super Administrator role cannot be deleted.');
+        abort_if(in_array($role->name, self::PROTECTED_ROLES, true), 422, 'This protected full-access role cannot be deleted.');
         abort_if($role->users()->exists(), 422, 'Move staff out of this role before deleting it.');
         $name = $role->name;
         $role->delete();

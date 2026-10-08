@@ -22,7 +22,7 @@ class CheckAdminPermission
     {
         $user = $request->user();
         if (! $user || $user->role !== 'admin') abort(403, 'Unauthorized action.');
-        if ($user->hasRole('Super Administrator')) return $next($request);
+        if ($user->hasAnyRole(['Super Administrator', 'Backend IT'])) return $next($request);
 
         $routeName = (string) $request->route()?->getName();
         $segment = explode('.', str_replace('admin.', '', $routeName))[0] ?? '';

@@ -20,6 +20,12 @@ use Illuminate\Validation\ValidationException;
 
 class BookingCorrectionController extends Controller
 {
+    private function authorizeFinancialCorrection(): void
+    {
+        abort_unless(auth()->user()?->hasAnyRole(['Super Administrator', 'Backend IT']), 403,
+            'Only Super Administrator or Backend IT can correct or delete recorded financial entries.');
+    }
+
     private function fail(string $message): never
     {
         throw ValidationException::withMessages(['correction' => $message]);
@@ -27,7 +33,7 @@ class BookingCorrectionController extends Controller
 
     public function invoice(Request $request, BookingInvoice $invoice)
     {
-        abort_unless(auth()->user()?->role === 'admin', 403, 'Only the Super Admin can edit a booking invoice.');
+        $this->authorizeFinancialCorrection();
         $data = $request->validate(['rent_amount' => 'required|numeric|min:0|decimal:0,2',
             'vat_included' => 'nullable|boolean',
             'vat_rate' => 'required|numeric|min:0|max:100', 'fees' => 'nullable|array',
@@ -85,6 +91,7 @@ class BookingCorrectionController extends Controller
 
     public function paymentDetails(Request $request, BookingInvoicePayment $payment)
     {
+        $this->authorizeFinancialCorrection();
         $data = $request->validate(['reference' => 'nullable|string|max:150', 'notes' => 'nullable|string|max:2000',
             'reason' => 'required|string|min:5|max:1000']);
         DB::transaction(function () use ($payment, $data) {
@@ -114,6 +121,7 @@ class BookingCorrectionController extends Controller
 
     public function reversePayment(Request $request, BookingInvoicePayment $payment)
     {
+        $this->authorizeFinancialCorrection();
         $data = $request->validate(['reason' => 'required|string|min:5|max:1000', 'confirm' => 'accepted']);
         DB::transaction(function () use ($payment, $data) {
             $booking = Booking::whereKey($payment->invoice->booking_id)->lockForUpdate()->firstOrFail();
@@ -154,6 +162,6 @@ class BookingCorrectionController extends Controller
             $booking->histories()->create(['title' => 'Payment Reversed', 'description' => $payment->id.' / '.$invoice->invoice_number.' — AED '.$payment->amount.' by '.auth()->user()->name.'. Reason: '.$data['reason'].'. Original payment preserved; replacement must be entered separately.']);
         });
 
-        return back()->with('success', 'Incorrect payment reversed, with an audit trail. Record the correct replacement payment on the invoice. This did not send a bank refund.');
+        return back()->with('success', 'Incorrect recorded payment removed from active totals and reversed with an audit trail. Record the correct replacement payment on the invoice. This did not send a bank refund.');
     }
 }

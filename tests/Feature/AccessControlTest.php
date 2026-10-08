@@ -93,4 +93,21 @@ class AccessControlTest extends TestCase
 
         $this->assertNotSoftDeleted('users', ['id' => $admin->id]);
     }
+
+    public function test_backend_it_is_a_protected_full_access_role(): void
+    {
+        $backendRole = Role::findByName('Backend IT');
+        $this->assertTrue($backendRole->hasPermissionTo('bookings.manage'));
+        $this->assertTrue($backendRole->hasPermissionTo('accounting.manage'));
+        $this->assertTrue($backendRole->hasPermissionTo('administration.manage'));
+
+        $backend = User::factory()->create(['role' => 'admin']);
+        $backend->syncRoles([$backendRole]);
+        $this->actingAs($backend)->get(route('admin.accounting.dashboard'))->assertOk();
+        $this->get(route('admin.access-control.index'))->assertOk();
+
+        $this->put(route('admin.access-control.roles.update', $backendRole), ['name' => 'Changed'])
+            ->assertStatus(422);
+        $this->delete(route('admin.access-control.roles.destroy', $backendRole))->assertStatus(422);
+    }
 }
