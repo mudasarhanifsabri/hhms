@@ -18,6 +18,7 @@ class CheckAdminPermission
         'access-control' => 'administration', 'document-ocr' => 'administration',
         'smartlocks' => 'administration',
         'financial-approvals' => 'accounting',
+        'activity-logs' => 'administration',
     ];
 
     public function handle(Request $request, Closure $next): Response

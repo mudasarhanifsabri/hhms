@@ -15,6 +15,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'role' => \App\Http\Middleware\CheckRole::class,
             'admin.permission' => \App\Http\Middleware\CheckAdminPermission::class,
+            'activity.log' => \App\Http\Middleware\LogUserActivity::class,
         ]);
 
         $middleware->validateCsrfTokens(except: [

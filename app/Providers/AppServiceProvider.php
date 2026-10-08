@@ -10,6 +10,11 @@ use App\Models\User;
 use App\Services\SmsService;                   // (you had this imported)
 use App\Support\AppSettings;
 use Illuminate\Validation\Rules\Password;
+use Illuminate\Support\Facades\Event;
+use Illuminate\Auth\Events\Login;
+use Illuminate\Auth\Events\Failed;
+use Illuminate\Auth\Events\Logout;
+use App\Support\ActivityLogger;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -38,5 +43,8 @@ class AppServiceProvider extends ServiceProvider
         AppSettings::apply();
         Password::defaults(fn () => Password::min(8)->mixedCase()->numbers()->symbols());
         Paginator::useBootstrap();
+        Event::listen(Login::class, fn (Login $event) => ActivityLogger::write('login_success', $event->user, ['description' => 'Successful login']));
+        Event::listen(Failed::class, fn (Failed $event) => ActivityLogger::write('login_failed', $event->user, ['user_email' => $event->credentials['email'] ?? null, 'description' => 'Failed login attempt']));
+        Event::listen(Logout::class, fn (Logout $event) => ActivityLogger::write('logout', $event->user, ['description' => 'User logged out']));
     }
 }

@@ -181,6 +181,7 @@
                         @endif
                         <li class="sub-nav-item"><a class="sub-nav-link" href="{{ route('admin.settings.edit') }}">Settings</a></li>
                         <li class="sub-nav-item"><a class="sub-nav-link" href="{{ route('admin.company-documents.index') }}">Company Documents</a></li>
+                        @if(auth()->user()?->hasAnyRole(['Super Administrator','Backend IT','Admin']))<li class="sub-nav-item"><a class="sub-nav-link" href="{{ route('admin.activity-logs.index') }}">User Activity Logs</a></li>@endif
                         @if(auth()->user()?->hasRole('Super Administrator') || auth()->user()?->can('administration.view'))<li class="sub-nav-item"><a class="sub-nav-link" href="{{ route('admin.smartlocks.index') }}">Smart Locks</a></li>@endif
                         <li class="sub-nav-item"><a class="sub-nav-link" href="{{ route('admin.software-update.index') }}">Update Software</a></li>
                     </ul>
