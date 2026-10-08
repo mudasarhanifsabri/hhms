@@ -15,7 +15,7 @@ use Spatie\Permission\PermissionRegistrar;
 
 class AccessControlController extends Controller
 {
-    private const PROTECTED_ROLES = ['Super Administrator', 'Backend IT', 'Manager'];
+    private const PROTECTED_ROLES = ['Super Administrator', 'Backend IT'];
 
     public const MODULES = [
         'dashboard' => ['Dashboard', 'ri-dashboard-line'], 'units' => ['Units & Buildings', 'ri-building-line'],
