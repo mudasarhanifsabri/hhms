@@ -166,19 +166,20 @@ class BookingCorrectionController extends Controller
             if ($booking->owner_posting_basis !== 'receipts') {
                 $this->fail('Legacy owner postings require reconciliation before reversing money. You can correct the reference and notes now.');
             }
-            if (BookingDepositEntry::where('booking_invoice_payment_id', $payment->id)->exists()) {
-                $this->fail('This payment is linked to a deposit wallet. Deposit-linked amounts are locked to protect refunds and carry-forward.');
-            }
+            $depositAmount = (float) BookingDepositEntry::where('booking_invoice_payment_id', $payment->id)->where('kind', 'received')->sum('amount');
             $source = AccountingEntry::whereKey($payment->accounting_entry_id)->lockForUpdate()->first();
-            if (! $source || $source->booking_id !== $booking->id || DepositWallet::cents($source->credit) !== DepositWallet::cents($payment->amount) || (float) $source->debit !== 0.0 || ! in_array($source->approval_status, ['posted', 'approved', 'paid'])) {
+            if (! $source || $source->booking_id !== $booking->id || DepositWallet::cents((float)$source->credit + $depositAmount) !== DepositWallet::cents($payment->amount) || (float) $source->debit !== 0.0 || ! in_array($source->approval_status, ['posted', 'approved', 'paid'])) {
                 $this->fail('The original ledger does not match this payment. Reconcile it before reversal.');
             }
-            $reversal = $source->replicate();
-            $reversal->fill(['entry_no' => 'REV-'.Str::upper(Str::random(16)), 'entry_date' => today(),
-                'credit' => 0, 'debit' => $payment->amount, 'net_amount' => -(float) $source->net_amount,
-                'gross_amount' => -(float) $source->gross_amount, 'vat_amount' => -(float) $source->vat_amount,
-                'description' => 'Correction reversal of '.$source->entry_no.': '.$data['reason'], 'created_by' => auth()->id()]);
-            $reversal->save();
+            if (DepositWallet::cents($source->credit) > 0) {
+                $reversal = $source->replicate();
+                $reversal->fill(['entry_no' => 'REV-'.Str::upper(Str::random(16)), 'entry_date' => today(),
+                    'credit' => 0, 'debit' => $source->credit, 'net_amount' => -(float) $source->net_amount,
+                    'gross_amount' => -(float) $source->gross_amount, 'vat_amount' => -(float) $source->vat_amount,
+                    'description' => 'Correction reversal of '.$source->entry_no.': '.$data['reason'], 'created_by' => auth()->id()]);
+                $reversal->save();
+            }
+            DepositWallet::reversePaymentAllocation($payment, $data['reason']);
             $payment->update(['reversed_at' => now()]);
             OwnerReceiptPosting::reverse($payment, $data['reason']);
             \App\Support\InvoiceSettlement::reverse($payment, $data['reason']);

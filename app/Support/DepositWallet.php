@@ -85,6 +85,34 @@ class DepositWallet
         });
     }
 
+    /** Reverse only the deposit allocation belonging to an incorrectly recorded receipt. */
+    public static function reversePaymentAllocation(BookingInvoicePayment $payment, string $reason): float
+    {
+        $entries = BookingDepositEntry::where('booking_invoice_payment_id', $payment->id)
+            ->where('kind', 'received')->lockForUpdate()->get();
+        if ($entries->isEmpty()) return 0;
+
+        $booking = $payment->invoice->booking;
+        if (BookingDepositEntry::where('booking_id', $booking->id)->whereIn('kind', ['deducted', 'refunded', 'carry_out', 'carry_in'])->exists()
+            || BookingDepositRefund::where('booking_id', $booking->id)->whereIn('status', ['pending', 'approved', 'settled'])->exists()) {
+            self::fail('This deposit has later deductions, refunds or carry-forward activity. Reverse those later movements first.');
+        }
+
+        foreach ($entries as $deposit) {
+            $source = AccountingEntry::whereKey($deposit->accounting_entry_id)->lockForUpdate()->firstOrFail();
+            $reversal = $source->replicate();
+            $reversal->fill([
+                'entry_no' => 'REV-'.Str::upper(Str::random(16)), 'entry_date' => today(),
+                'debit' => $source->credit, 'credit' => $source->debit,
+                'net_amount' => -(float)$source->net_amount, 'gross_amount' => -(float)$source->gross_amount,
+                'description' => 'Deposit allocation reversal '.$source->entry_no.': '.$reason, 'created_by' => auth()->id(),
+            ])->save();
+            $deposit->update(['kind' => 'reversed', 'notes' => trim(($deposit->notes ? $deposit->notes.' ' : '').'Reversed: '.$reason)]);
+        }
+
+        return round((float)$entries->sum('amount'), 2);
+    }
+
     public static function requestRefund(Booking $booking, array $data): BookingDepositRefund
     {
         return DB::transaction(function () use ($booking, $data) {

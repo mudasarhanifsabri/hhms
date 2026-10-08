@@ -1,7 +1,7 @@
 @php($canFinancialCorrection = auth()->user()?->hasAnyRole(['Super Administrator', 'Backend IT']))
 <div class="card">
     <div class="card-header"><h4 class="mb-0">Invoices & Payment Corrections</h4></div>
-    <div class="card-body"><p class="text-muted mb-0">History is preserved. Payment detail edits and deletion requests require approval by a different Admin or Accounting user. The original payment stays active and unchanged while approval is pending. A reversal is a bookkeeping correction, not a bank refund. Deposit-linked amounts are locked.</p>
+    <div class="card-body"><p class="text-muted mb-0">History is preserved. Payment detail edits and deletion requests require approval by a different Admin or Accounting user. The original payment stays active while approval is pending. Deposit allocations are reversed safely unless a later refund, deduction or carry-forward already used them.</p>
         @if($booking->owner_posting_basis !== 'receipts')<div class="alert alert-warning mt-3 mb-0">Legacy booking: owner postings require reconciliation before payment amounts can be reversed. Reference and notes remain editable.</div>@endif
     </div>
     <div class="table-responsive"><table class="table align-middle"><thead><tr><th>Invoice</th><th>Total</th><th>Paid</th><th>Status</th><th>Actions</th></tr></thead><tbody>

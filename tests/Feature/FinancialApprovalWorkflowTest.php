@@ -14,7 +14,7 @@ class FinancialApprovalWorkflowTest extends TestCase
 {
     use RefreshDatabase;
 
-    private function context(): array
+    private function context(float $deposit = 0): array
     {
         $maker = User::factory()->create(['role' => 'admin']);
         $maker->syncRoles(['Accounting']);
@@ -25,7 +25,7 @@ class FinancialApprovalWorkflowTest extends TestCase
         $this->actingAs($maker)->post(route('admin.booking.store'), [
             'property_id' => $unit->id, 'guest_name' => 'Approval Guest', 'guest_email' => 'guest@example.com',
             'guest_phone' => '0500000000', 'guest_passport_id_no' => 'APP-1', 'check_in' => '2026-10-10',
-            'check_out' => '2026-11-09', 'reservation_date' => '2026-10-08', 'rent_amount' => 1000,
+            'check_out' => '2026-11-09', 'reservation_date' => '2026-10-08', 'rent_amount' => 1000, 'security_deposit' => $deposit,
         ])->assertSessionHasNoErrors();
         $booking = Booking::firstOrFail();
         $bank = BankAccount::create(['name' => 'ADCB', 'type' => 'bank', 'opening_balance' => 0, 'current_balance' => 0, 'currency' => 'AED', 'is_active' => true]);
@@ -106,5 +106,30 @@ class FinancialApprovalWorkflowTest extends TestCase
         $this->assertNotNull($payment->fresh()->reversed_at);
         $this->assertSame('unpaid', $invoice->fresh()->status);
         $this->assertEquals(0, $bank->fresh()->current_balance);
+    }
+
+    public function test_approved_deletion_safely_reverses_a_deposit_linked_payment(): void
+    {
+        [$maker, $reviewer, $booking, $invoice, $bank] = $this->context(500);
+        $this->actingAs($maker)->post(route('admin.booking-invoice.payment', $invoice), [
+            'payment_date' => '2026-10-08', 'amount' => $invoice->total_amount, 'payment_method' => 'Bank Transfer',
+            'bank_account_id' => $bank->id, 'reference' => 'ADCB-DEPOSIT-001',
+        ]);
+        $this->actingAs($reviewer)->post(route('admin.financial-approvals.approve', FinancialApprovalRequest::firstOrFail()))->assertSessionHasNoErrors();
+        $payment = $invoice->payments()->firstOrFail();
+        $this->assertEquals(500, \App\Support\DepositWallet::totals($booking)['held']);
+
+        $backend = User::factory()->create(['role' => 'admin']);
+        $backend->syncRoles(['Backend IT']);
+        $this->actingAs($backend)->post(route('admin.booking-payment.reverse', $payment), [
+            'reason' => 'Wrong receipt including deposit', 'confirm' => 1,
+        ])->assertSessionHasNoErrors();
+        $deletion = FinancialApprovalRequest::where('type', 'payment_reverse')->firstOrFail();
+        $this->actingAs($reviewer)->post(route('admin.financial-approvals.approve', $deletion))->assertSessionHasNoErrors();
+
+        $this->assertNotNull($payment->fresh()->reversed_at);
+        $this->assertEquals(0, \App\Support\DepositWallet::totals($booking)['held']);
+        $this->assertEquals(0, $bank->fresh()->current_balance);
+        $this->assertSame('unpaid', $invoice->fresh()->status);
     }
 }
