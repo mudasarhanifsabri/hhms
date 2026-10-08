@@ -38,7 +38,7 @@
                 </tfoot>
             </table>
         </div>
-        <div class="alert alert-warning py-2 small"><strong>Protected financial correction.</strong> Enter rent only here. Deposit and other fees are separate. Your password and a written reason are required; the invoice remains unchanged until a different Manager approves.</div>
+        <div class="alert alert-warning py-2 small"><strong>Protected financial correction.</strong> Enter rent only here. Deposit and other fees are separate. Your password and a written reason are required; the invoice remains unchanged until a different Admin or Accounting user approves.</div>
         <label class="form-label" for="invoiceReason{{ $invoice->id }}">Reason for correction</label><textarea id="invoiceReason{{ $invoice->id }}" name="reason" class="form-control" rows="2" minlength="5" maxlength="1000" placeholder="Explain the change" required></textarea>
         <label class="form-label mt-3" for="invoicePassword{{ $invoice->id }}">Your Password</label>
         <input id="invoicePassword{{ $invoice->id }}" name="current_password" type="password" class="form-control" autocomplete="current-password" placeholder="Confirm your password" required>

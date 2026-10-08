@@ -52,7 +52,7 @@ class BookingCorrectionController extends Controller
                 'booking_id' => $invoice->booking_id, 'booking_invoice_id' => $invoice->id,
             ], null, $invoice->only(['rent_amount', 'vat_rate', 'vat_included', 'vat_amount', 'fees', 'total_amount']));
             $invoice->booking->histories()->create(['title' => 'Invoice Edit Approval Requested', 'description' => 'Request '.$approval->id.' for '.$invoice->invoice_number.' submitted by '.auth()->user()->name.'. Invoice remains unchanged until approved.']);
-            return back()->with('success', 'Invoice edit submitted for Manager approval. The invoice remains unchanged.');
+            return back()->with('success', 'Invoice edit submitted for Admin/Accounting approval. The invoice remains unchanged.');
         }
         DB::transaction(function () use ($invoice, $data) {
             $booking = Booking::whereKey($invoice->booking_id)->lockForUpdate()->firstOrFail();
@@ -113,7 +113,7 @@ class BookingCorrectionController extends Controller
                 'booking_invoice_payment_id' => $payment->id,
             ], null, $payment->only(['reference', 'notes']));
             $payment->invoice->booking->histories()->create(['title' => 'Payment Edit Approval Requested', 'description' => 'Request '.$approval->id.' for payment '.$payment->id.' submitted by '.auth()->user()->name.'. Original details remain active until approved.']);
-            return back()->with('success', 'Payment edit submitted for Manager approval. The original details remain unchanged.');
+            return back()->with('success', 'Payment edit submitted for Admin/Accounting approval. The original details remain unchanged.');
         }
         DB::transaction(function () use ($payment, $data) {
             $booking = Booking::whereKey($payment->invoice->booking_id)->lockForUpdate()->firstOrFail();
@@ -151,7 +151,7 @@ class BookingCorrectionController extends Controller
                 'booking_invoice_payment_id' => $payment->id,
             ], null, $payment->only(['payment_date', 'amount', 'payment_method', 'bank_account_id', 'reference', 'notes']));
             $payment->invoice->booking->histories()->create(['title' => 'Payment Deletion Approval Requested', 'description' => 'Request '.$approval->id.' for payment '.$payment->id.' submitted by '.auth()->user()->name.'. Payment remains active until approved.']);
-            return back()->with('success', 'Payment deletion submitted for Manager approval. It remains active until approved.');
+            return back()->with('success', 'Payment deletion submitted for Admin/Accounting approval. It remains active until approved.');
         }
         DB::transaction(function () use ($payment, $data) {
             $booking = Booking::whereKey($payment->invoice->booking_id)->lockForUpdate()->firstOrFail();

@@ -1,7 +1,7 @@
 @php($canFinancialCorrection = auth()->user()?->hasAnyRole(['Super Administrator', 'Backend IT']))
 <div class="card">
     <div class="card-header"><h4 class="mb-0">Invoices & Payment Corrections</h4></div>
-    <div class="card-body"><p class="text-muted mb-0">History is preserved. Payment detail edits and deletion requests require approval by a different Manager. The original payment stays active and unchanged while approval is pending. A reversal is a bookkeeping correction, not a bank refund. Deposit-linked amounts are locked.</p>
+    <div class="card-body"><p class="text-muted mb-0">History is preserved. Payment detail edits and deletion requests require approval by a different Admin or Accounting user. The original payment stays active and unchanged while approval is pending. A reversal is a bookkeeping correction, not a bank refund. Deposit-linked amounts are locked.</p>
         @if($booking->owner_posting_basis !== 'receipts')<div class="alert alert-warning mt-3 mb-0">Legacy booking: owner postings require reconciliation before payment amounts can be reversed. Reference and notes remain editable.</div>@endif
     </div>
     <div class="table-responsive"><table class="table align-middle"><thead><tr><th>Invoice</th><th>Total</th><th>Paid</th><th>Status</th><th>Actions</th></tr></thead><tbody>
@@ -33,7 +33,7 @@
 <div class="modal fade" id="reversePayment{{ $payment->id }}" tabindex="-1" aria-label="Reverse incorrect payment" aria-hidden="true"><div class="modal-dialog modal-dialog-centered"><div class="modal-content">
     <form method="POST" action="{{ route('admin.booking-payment.reverse',$payment) }}">@csrf
         <div class="modal-header"><h5>Delete Wrong Recorded Payment</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
-        <div class="modal-body"><div class="alert alert-warning">Request removal of AED {{ number_format((float)$payment->amount,2) }} from {{ $invoice->invoice_number }}? Nothing changes until a different Manager approves. After approval RMS reverses the account and owner postings, reopens the invoice balance, and keeps an audit record. It does not send money from the bank.</div><label class="form-label">Reason for deletion</label><textarea name="reason" minlength="5" class="form-control mb-3" required></textarea><label><input type="checkbox" name="confirm" value="1" required> I confirm this was recorded incorrectly and is not an actual guest refund.</label></div>
+        <div class="modal-body"><div class="alert alert-warning">Request removal of AED {{ number_format((float)$payment->amount,2) }} from {{ $invoice->invoice_number }}? Nothing changes until a different Admin or Accounting user approves. After approval RMS reverses the account and owner postings, reopens the invoice balance, and keeps an audit record. It does not send money from the bank.</div><label class="form-label">Reason for deletion</label><textarea name="reason" minlength="5" class="form-control mb-3" required></textarea><label><input type="checkbox" name="confirm" value="1" required> I confirm this was recorded incorrectly and is not an actual guest refund.</label></div>
         <div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button><button class="btn btn-danger">Submit Deletion for Approval</button></div>
     </form>
 </div></div></div>

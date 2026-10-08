@@ -17,9 +17,9 @@ class FinancialApprovalWorkflowTest extends TestCase
     private function context(): array
     {
         $maker = User::factory()->create(['role' => 'admin']);
-        $maker->syncRoles(['Manager']);
+        $maker->syncRoles(['Accounting']);
         $manager = User::factory()->create(['role' => 'admin']);
-        $manager->syncRoles(['Manager']);
+        $manager->syncRoles(['Admin']);
         $owner = User::factory()->create(['role' => 'landlord']);
         $unit = Property::create(['landlord_id' => $owner->id, 'name' => 'Approval Unit', 'management_fee_percent' => 10]);
         $this->actingAs($maker)->post(route('admin.booking.store'), [

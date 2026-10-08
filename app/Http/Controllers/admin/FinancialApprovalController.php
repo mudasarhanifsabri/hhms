@@ -19,8 +19,8 @@ class FinancialApprovalController extends Controller
 {
     private function authorizeReviewer(): void
     {
-        abort_unless(auth()->user()?->hasAnyRole(['Manager', 'Super Administrator']), 403,
-            'Only a Manager or Super Administrator can review financial requests.');
+        abort_unless(auth()->user()?->hasAnyRole(['Admin', 'Accounting', 'Super Administrator']), 403,
+            'Only an Admin, Accounting user or Super Administrator can review financial requests.');
     }
 
     public function index(Request $request)
@@ -44,7 +44,7 @@ class FinancialApprovalController extends Controller
         $this->authorizeReviewer();
         $data = $request->validate(['review_notes' => 'nullable|string|max:2000']);
         if ((string) $approval->requested_by === (string) auth()->id()) {
-            throw ValidationException::withMessages(['approval' => 'You cannot approve your own request. A different Manager must review it.']);
+            throw ValidationException::withMessages(['approval' => 'You cannot approve your own request. A different Admin or Accounting user must review it.']);
         }
 
         DB::transaction(function () use ($approval, $data) {
@@ -57,7 +57,7 @@ class FinancialApprovalController extends Controller
             $execution->attributes->set('financial_approval_execution', true);
             $execution->attributes->set('approval_proof_path', $approval->proof_path);
             $execution->attributes->set('financial_approval_id', $approval->id);
-            // Correction authorization reads the active HTTP request; mark this Manager-reviewed execution as trusted.
+            // Correction authorization reads the active HTTP request; mark this independently reviewed execution as trusted.
             request()->attributes->set('financial_approval_execution', true);
 
             match ($approval->type) {

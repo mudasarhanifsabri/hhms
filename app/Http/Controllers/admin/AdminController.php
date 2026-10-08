@@ -74,7 +74,7 @@ class AdminController extends Controller
             ->get()
             ->filter(fn (BookingInvoice $invoice) => $invoice->balance_due > 0.009)
             ->values();
-        $pendingFinancialApprovals = auth()->user()?->hasAnyRole(['Manager', 'Super Administrator'])
+        $pendingFinancialApprovals = auth()->user()?->hasAnyRole(['Admin', 'Accounting', 'Super Administrator'])
             ? FinancialApprovalRequest::with(['booking', 'invoice', 'requester'])->where('status', 'pending')->latest('requested_at')->limit(8)->get()
             : collect();
 
