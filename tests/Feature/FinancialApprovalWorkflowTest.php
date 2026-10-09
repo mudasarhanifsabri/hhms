@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\BankAccount;
 use App\Models\Booking;
+use App\Models\Building;
 use App\Models\FinancialApprovalRequest;
 use App\Models\Property;
 use App\Models\User;
@@ -19,9 +20,10 @@ class FinancialApprovalWorkflowTest extends TestCase
         $maker = User::factory()->create(['role' => 'admin']);
         $maker->syncRoles(['Accounting']);
         $manager = User::factory()->create(['role' => 'admin']);
-        $manager->syncRoles(['Admin']);
+        $manager->syncRoles(['Manager']);
         $owner = User::factory()->create(['role' => 'landlord']);
-        $unit = Property::create(['landlord_id' => $owner->id, 'name' => 'Approval Unit', 'management_fee_percent' => 10]);
+        $building = Building::create(['building_name' => 'Approval Tower', 'address' => 'Dubai']);
+        $unit = Property::create(['landlord_id' => $owner->id, 'building_id' => $building->id, 'name' => 'Approval Unit', 'management_fee_percent' => 10]);
         $this->actingAs($maker)->post(route('admin.booking.store'), [
             'property_id' => $unit->id, 'guest_name' => 'Approval Guest', 'guest_email' => 'guest@example.com',
             'guest_phone' => '0500000000', 'guest_passport_id_no' => 'APP-1', 'check_in' => '2026-10-10',
@@ -48,7 +50,7 @@ class FinancialApprovalWorkflowTest extends TestCase
         $this->assertSame(0, $invoice->payments()->count());
         $this->assertEquals(0, $bank->fresh()->current_balance);
 
-        $this->actingAs($maker)->post(route('admin.financial-approvals.approve', $approval))->assertRedirect()->assertSessionHasErrors('approval');
+        $this->actingAs($maker)->post(route('admin.financial-approvals.approve', $approval))->assertForbidden();
         $this->actingAs($manager)->post(route('admin.financial-approvals.approve', $approval), ['review_notes' => 'Bank proof and reference verified'])
             ->assertSessionHasNoErrors()->assertSessionHas('success');
 
@@ -57,6 +59,25 @@ class FinancialApprovalWorkflowTest extends TestCase
         $this->assertSame(1, $invoice->payments()->count());
         $this->assertEquals((float)$invoice->total_amount, (float)$bank->fresh()->current_balance);
         $this->assertSame('ADCB-APPROVAL-001', $invoice->payments()->first()->reference);
+    }
+
+    public function test_admin_can_view_details_but_only_manager_can_decide(): void
+    {
+        [$maker, $manager, $booking, $invoice, $bank] = $this->context();
+        $this->actingAs($maker)->post(route('admin.booking-invoice.payment', $invoice), [
+            'payment_date' => '2026-10-08', 'amount' => $invoice->total_amount, 'payment_method' => 'Bank Transfer',
+            'bank_account_id' => $bank->id, 'reference' => 'ADCB-MANAGER-ONLY-001',
+        ]);
+        $approval = FinancialApprovalRequest::firstOrFail();
+        $admin = User::factory()->create(['role' => 'admin']);
+        $admin->syncRoles(['Admin']);
+
+        $this->actingAs($admin)->get(route('admin.financial-approvals.index'))->assertOk()
+            ->assertSee($booking->property->name)->assertSee('Approval Tower')->assertSee('Invoice Period')
+            ->assertSee('10 Oct 2026')->assertSee('09 Nov 2026')->assertSee('View more');
+        $this->post(route('admin.financial-approvals.approve', $approval))->assertForbidden();
+        $this->actingAs($manager)->post(route('admin.financial-approvals.approve', $approval))->assertSessionHasNoErrors();
+        $this->assertSame('approved', $approval->fresh()->status);
     }
 
     public function test_rejection_keeps_invoice_and_bank_unchanged(): void

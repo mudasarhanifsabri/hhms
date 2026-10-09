@@ -23,11 +23,17 @@ class FinancialApprovalController extends Controller
             'Only a Manager, Admin, Accounting user or Super Administrator can review financial requests.');
     }
 
+    private function authorizeManager(): void
+    {
+        abort_unless(auth()->user()?->hasRole('Manager'), 403,
+            'Only a Manager can approve or reject financial requests.');
+    }
+
     public function index(Request $request)
     {
         $this->authorizeReviewer();
         $status = $request->validate(['status' => 'nullable|in:pending,approved,rejected'])['status'] ?? 'pending';
-        $requests = FinancialApprovalRequest::with(['booking.property', 'invoice', 'payment', 'requester', 'reviewer'])
+        $requests = FinancialApprovalRequest::with(['booking.property.building', 'invoice', 'payment', 'requester', 'reviewer'])
             ->where('status', $status)->latest('requested_at')->paginate(30)->withQueryString();
         return view('admin.financial-approvals.index', compact('requests', 'status'));
     }
@@ -41,10 +47,10 @@ class FinancialApprovalController extends Controller
 
     public function approve(Request $request, FinancialApprovalRequest $approval)
     {
-        $this->authorizeReviewer();
+        $this->authorizeManager();
         $data = $request->validate(['review_notes' => 'nullable|string|max:2000']);
         if ((string) $approval->requested_by === (string) auth()->id()) {
-            throw ValidationException::withMessages(['approval' => 'You cannot approve your own request. A different Manager, Admin or Accounting user must review it.']);
+            throw ValidationException::withMessages(['approval' => 'You cannot approve your own request. A different Manager must review it.']);
         }
 
         DB::transaction(function () use ($approval, $data) {
@@ -77,7 +83,7 @@ class FinancialApprovalController extends Controller
 
     public function reject(Request $request, FinancialApprovalRequest $approval)
     {
-        $this->authorizeReviewer();
+        $this->authorizeManager();
         $data = $request->validate(['review_notes' => 'required|string|min:5|max:2000']);
         if ((string) $approval->requested_by === (string) auth()->id()) {
             throw ValidationException::withMessages(['approval' => 'You cannot review your own request.']);
