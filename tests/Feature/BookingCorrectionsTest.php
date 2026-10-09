@@ -58,6 +58,19 @@ class BookingCorrectionsTest extends TestCase
         $this->assertSame(0, AccountingEntry::count());
     }
 
+    public function test_booking_history_formats_before_and_after_json_as_readable_changes(): void
+    {
+        [$booking] = $this->setupInvoice();
+        $history = $booking->histories()->create([
+            'title' => 'Invoice Corrected',
+            'description' => 'INV-TEST by Admin. Reason: VAT correction | Before: {"rent_amount":"4200.00","vat_included":false,"vat_amount":"210.00"} | After: {"rent_amount":"4000.00","vat_included":true,"vat_amount":"200.00"}',
+        ]);
+
+        $this->assertStringContainsString('VAT Included: No → Yes', $history->display_description);
+        $this->assertStringContainsString('Rent Amount: AED 4,200.00 → AED 4,000.00', $history->display_description);
+        $this->assertStringNotContainsString('{"rent_amount"', $history->display_description);
+    }
+
     public function test_new_booking_taxes_rent_cleaning_and_agency_but_not_dtcm_or_deposit(): void
     {
         $this->actingAs(User::factory()->create(['role'=>'admin']));

@@ -461,6 +461,18 @@ class _NativeFieldAppState extends State<NativeFieldApp> {
     }
   });
 
+  Future<void> _callTenant() async {
+    final phone = (_task['guest_phone'] ?? '').toString().trim();
+    if (phone.isEmpty) return;
+    final uri = Uri(
+      scheme: 'tel',
+      path: phone.replaceAll(RegExp(r'[^0-9+]'), ''),
+    );
+    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+      throw Exception('Could not open the phone dialler.');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final title = _titles[_page] ?? 'HHMS Field';
@@ -782,6 +794,13 @@ class _NativeFieldAppState extends State<NativeFieldApp> {
       _taskHero(),
       const SizedBox(height: 14),
       _taskFacts(),
+      if ((_task['guest_phone'] ?? '').toString().trim().isNotEmpty)
+        _actionCard(
+          'Call ${(_task['guest_name'] ?? 'tenant').toString()}',
+          (_task['guest_phone'] ?? '').toString(),
+          Icons.phone_outlined,
+          () => _run(_callTenant),
+        ),
       if ((_task['description'] ?? '').toString().isNotEmpty) ...[
         _heading('Instructions'),
         _card(

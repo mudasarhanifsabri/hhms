@@ -143,6 +143,8 @@ class FieldDataController extends Controller
             'due_date' => $task->due_date?->toDateString(),
             'property' => $property?->name,
             'building' => $property?->building?->building_name,
+            'guest_name' => $task->booking?->guest_name,
+            'guest_phone' => $task->booking?->guest_phone,
             'inspection_id' => $task->inspection?->id,
             'pdf_url' => $task->inspection ? $this->inspectionPdfUrl($task->inspection) : null,
         ];
