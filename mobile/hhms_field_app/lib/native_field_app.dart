@@ -23,7 +23,7 @@ const _teal = Color(0xFF12A99A);
 const _muted = Color(0xFF748895);
 const _paper = Color(0xFFF4F7F5);
 const _mint = Color(0xFFE5F5F1);
-const _origin = 'https://rms.dt-server.com';
+const _origin = 'https://rms.pattern.ae';
 
 class NativeFieldApp extends StatefulWidget {
   const NativeFieldApp({
@@ -275,22 +275,65 @@ class _NativeFieldAppState extends State<NativeFieldApp> {
       ),
     );
     if (source == null) return;
-    final file = await _picker.pickImage(
-      source: source,
-      imageQuality: 72,
-      maxWidth: 1600,
-    );
-    if (file == null) return;
-    await widget.upload('/maintainer/tasks/$_taskId/inspection/photo', {
-      'upload_id': const Uuid().v4(),
-      'item_id': itemId,
-    }, file);
-    final response = await widget.request(
-      'GET',
-      '/field/api/tasks/$_taskId/inspection',
-    );
-    if (mounted) {
-      setState(() => _inspection = _map(response['inspection']));
+    final item = _items.firstWhere((row) => row['id'].toString() == itemId);
+    final remaining = 5 - ((item['photos'] as List?)?.length ?? 0);
+    if (remaining <= 0) throw Exception('Maximum 5 photos per item.');
+
+    final List<XFile> files;
+    if (source == ImageSource.gallery) {
+      files = await _picker.pickMultiImage(
+        imageQuality: 72,
+        maxWidth: 1600,
+        maxHeight: 1600,
+        limit: remaining,
+        requestFullMetadata: false,
+      );
+    } else {
+      final file = await _picker.pickImage(
+        source: ImageSource.camera,
+        imageQuality: 72,
+        maxWidth: 1600,
+        maxHeight: 1600,
+        requestFullMetadata: false,
+      );
+      files = file == null ? [] : [file];
+    }
+    if (files.isEmpty) return;
+    if (files.length > remaining) {
+      throw Exception(
+        'You can add only $remaining more photo(s) to this item.',
+      );
+    }
+
+    final uploaded = <String>[];
+    for (final file in files) {
+      final uploadId = const Uuid().v4();
+      Map<String, dynamic>? response;
+      for (var attempt = 0; attempt < 2; attempt++) {
+        try {
+          response = await widget.upload(
+            '/maintainer/tasks/$_taskId/inspection/photo',
+            {'upload_id': uploadId, 'item_id': itemId},
+            file,
+          );
+          break;
+        } catch (_) {
+          if (attempt == 1) rethrow;
+          await Future<void>.delayed(const Duration(milliseconds: 500));
+        }
+      }
+      final url = response?['url']?.toString();
+      if (url != null && url.isNotEmpty) uploaded.add(url);
+    }
+    if (mounted && uploaded.isNotEmpty) {
+      setState(() {
+        final photos = List<String>.from(
+          (item['photos'] as List? ?? const []).map(
+            (value) => value.toString(),
+          ),
+        );
+        item['photos'] = [...photos, ...uploaded];
+      });
     }
   });
 
@@ -324,19 +367,17 @@ class _NativeFieldAppState extends State<NativeFieldApp> {
         'comment': _comments[id] ?? '',
       };
     }
-    await widget.request('POST', '/maintainer/tasks/$_taskId/inspection', {
-      'draft_revision': _inspection['revision'],
-      'items': items,
-      'inventory': inventory,
-      'notes': _notes.text,
-    });
-    final refreshed = await widget.request(
-      'GET',
-      '/field/api/tasks/$_taskId/inspection',
-    );
+    final response = await widget
+        .request('POST', '/maintainer/tasks/$_taskId/inspection', {
+          'draft_revision': _inspection['revision'],
+          'items': items,
+          'inventory': inventory,
+          'notes': _notes.text,
+        });
     if (mounted) {
       setState(() {
-        _inspection = _map(refreshed['inspection']);
+        final submitted = _map(response['inspection']);
+        if (submitted.isNotEmpty) _inspection = submitted;
         _page = 'success';
       });
     }

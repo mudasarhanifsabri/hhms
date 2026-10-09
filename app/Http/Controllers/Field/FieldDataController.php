@@ -58,7 +58,11 @@ class FieldDataController extends Controller
     {
         abort_unless((string) $task->assigned_to === (string) $request->user()->id, 403);
         abort_unless($task->isInspectionTask(), 404);
-        app(MaintainerController::class)->inspectionForm($task);
+        // Only create a missing draft through the existing maintainer workflow.
+        // Completed inspections must remain readable by the app after submit.
+        if (! $task->inspection()->exists()) {
+            app(MaintainerController::class)->inspectionForm($task);
+        }
         $inspection = $task->inspection()->with('items')->firstOrFail();
         $draft = json_decode($inspection->draft_payload ?? '{}', true) ?: [];
 

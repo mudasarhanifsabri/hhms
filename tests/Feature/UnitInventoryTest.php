@@ -92,6 +92,8 @@ class UnitInventoryTest extends TestCase
         $payload['pictures'] = [$photoItem->id => [\Illuminate\Http\UploadedFile::fake()->image('front.jpg'), \Illuminate\Http\UploadedFile::fake()->image('side.jpg')]];
         $this->post(route('maintainer.task.inspection.submit', $task), $payload)->assertSessionHasNoErrors();
         $this->assertCount(2,$photoItem->fresh()->pictures);
+        $this->getJson('/field/api/tasks/'.$task->id.'/inspection')->assertOk()
+            ->assertJsonPath('inspection.status', 'submitted');
         $this->get(route('maintainer.task.show',$task))->assertOk()->assertSee('Task history')->assertSee('View submitted inspection')->assertDontSee('Add Cost')->assertDontSee('Add Remark')->assertDontSee('Start Inspection');
         $this->assertSame(6, $item->fresh()->present);
         $this->post(route('maintainer.task.inspection.submit', $task), $payload)->assertStatus(422);

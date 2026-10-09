@@ -8,7 +8,7 @@ import 'package:webview_flutter/webview_flutter.dart';
 import 'package:webview_flutter_android/webview_flutter_android.dart';
 import 'native_field_app.dart';
 
-const _baseUrl = 'https://rms.dt-server.com';
+const _baseUrl = 'https://rms.pattern.ae';
 const _navy = Color(0xFF143248);
 const _teal = Color(0xFF12A99A);
 
@@ -432,7 +432,24 @@ class _LiveFieldScreenState extends State<LiveFieldScreen> {
     );
     if (source == null) return [];
     try {
-      final file = await _picker.pickImage(source: source);
+      if (source == ImageSource.gallery &&
+          params.mode == FileSelectorMode.openMultiple) {
+        final files = await _picker.pickMultiImage(
+          imageQuality: 72,
+          maxWidth: 1600,
+          maxHeight: 1600,
+          limit: 5,
+          requestFullMetadata: false,
+        );
+        return files.map((file) => Uri.file(file.path).toString()).toList();
+      }
+      final file = await _picker.pickImage(
+        source: source,
+        imageQuality: 72,
+        maxWidth: 1600,
+        maxHeight: 1600,
+        requestFullMetadata: false,
+      );
       return file == null ? [] : [Uri.file(file.path).toString()];
     } catch (_) {
       if (mounted) {

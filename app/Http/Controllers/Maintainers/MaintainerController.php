@@ -287,6 +287,18 @@ class MaintainerController extends Controller
         ]);
         $this->recordActivity($task, 'Inspection Submitted', $task->completion_notes, $request);
 
+        if ($request->expectsJson()) {
+            return response()->json([
+                'message' => 'Inspection submitted and task completed.',
+                'inspection' => [
+                    'id' => $inspection->id,
+                    'number' => $inspection->inspection_number,
+                    'status' => $inspection->status,
+                ],
+                'task' => ['id' => $task->id, 'status' => $task->status],
+            ]);
+        }
+
         return redirect()->route('maintainer.task.index')->with('success', 'Inspection submitted and task completed.');
         });
     }
