@@ -6,6 +6,8 @@
     $startDate = $document->sent_at ? $document->sent_at->format('d/m/Y') : now()->format('d/m/Y');
     $endDate = $document->expires_at ? $document->expires_at->format('d/m/Y') : now()->addYear()->format('d/m/Y');
     $money = fn ($value) => number_format((float) $value, 2) . ' AED';
+    $companyPhone = \App\Support\AppSettings::get('company_phone', '0527687168');
+    $companyEmail = \App\Support\AppSettings::get('company_email', 'customerservice@pattern.ae');
 
     $assetData = function (string $path, string $mime = 'image/png') {
         return file_exists($path) ? 'data:' . $mime . ';base64,' . base64_encode(file_get_contents($path)) : null;
@@ -254,7 +256,7 @@
     </div>
 
     <div class="footer">
-        Phone : +971 50 334 4887 - Email : customerservice@pattern.ae - www.pattern.ae<br>
+        Phone : {{ $companyPhone }} - Email : {{ $companyEmail }} - www.pattern.ae<br>
         Office 413, P.O. Box 1327, Al Attar Business Centre, Al-Barsha, Dubai, UAE
     </div>
 </div>
@@ -283,7 +285,7 @@
         @endforeach
 
         <div class="footer">
-            Phone : +971 50 334 4887 - Email : customerservice@pattern.ae - www.pattern.ae<br>
+            Phone : {{ $companyPhone }} - Email : {{ $companyEmail }} - www.pattern.ae<br>
             Office 413, P.O. Box 1327, Al Attar Business Centre, Al-Barsha, Dubai, UAE
         </div>
     </div>

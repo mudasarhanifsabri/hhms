@@ -10,6 +10,7 @@ use App\Models\Property;
 use App\Models\User;
 use App\Notifications\LandlordCreated;
 use App\Support\OwnerStatementPdf;
+use App\Support\AppSettings;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -17,6 +18,22 @@ use Tests\TestCase;
 class OwnerPwaTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_owner_statement_uses_company_contact_details_from_settings(): void
+    {
+        AppSettings::setMany([
+            'company_phone' => '0527687168',
+            'company_email' => 'customerservice@pattern.ae',
+        ]);
+        $owner = User::factory()->create(['role' => 'landlord']);
+
+        $html = view('admin.landlords.pdf.account-statement', OwnerStatementPdf::data($owner))->render();
+
+        $this->assertStringContainsString('0527687168', $html);
+        $this->assertStringContainsString('customerservice@pattern.ae', $html);
+        $this->assertStringNotContainsString('+971 50 334 4887', $html);
+        $this->assertStringNotContainsString('patterncustomerservice@gmail.com', $html);
+    }
 
     public function test_owner_can_open_mobile_pwa_with_owned_property(): void
     {
