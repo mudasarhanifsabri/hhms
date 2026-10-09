@@ -10,16 +10,17 @@
 @endif
 <h1>Units &amp; Owner Statement Balances</h1>
 <div class="meta">
+Statement month: <strong>{{ $periodLabel }}</strong> ({{ $periodStart->format('d M Y') }} – {{ $periodEnd->format('d M Y') }}) ·
 Generated {{ now()->timezone('Asia/Dubai')->format('d M Y, h:i A') }} GST
 @if($status) · Status: {{ str($status)->headline() }} @endif
 @if($search) · Search: {{ $search }} @endif
 </div></div>
-<table><thead><tr><th>Unit</th><th>Building</th><th>Owner</th><th>Type</th><th>Location</th><th class="right">Rent (AED)</th><th>Status</th><th class="right">Statement Balance (AED)</th><th>Position</th></tr></thead><tbody>
+<table><thead><tr><th>Unit</th><th>Building</th><th>Owner</th><th>Status</th><th class="right">Opening</th><th class="right">Credits</th><th class="right">Debits</th><th class="right">Month Net</th><th class="right">Closing</th><th>Position</th></tr></thead><tbody>
 @forelse($properties as $property)
 @php
     $balance = (float) $property->statement_balance;
 @endphp
-<tr><td><strong>{{ $property->name }}</strong></td><td>{{ $property->building?->building_name ?? 'No building' }}</td><td>{{ $property->landlord?->name ?? 'Not assigned' }}</td><td>{{ $property->unit_type_label }}</td><td>{{ $property->community ?: ($property->building?->address ?? '-') }}</td><td class="right">{{ number_format((float)($property->rent ?? 0),2) }}</td><td>{{ $property->status_label }}</td><td class="right {{ $balance>0?'positive':($balance<0?'negative':'') }}">{{ number_format($balance,2) }}</td><td>{{ $balance>0.009?'Due to Owner':($balance < -0.009?'Due from Owner':'Settled') }}</td></tr>@empty<tr><td colspan="9" style="text-align:center">No units match the selected filters.</td></tr>@endforelse
-@if($properties->isNotEmpty())<tr class="total"><td colspan="7">Combined statement balance</td><td class="right">AED {{ number_format($totalBalance,2) }}</td><td>{{ $totalBalance>0.009?'Due to Owners':($totalBalance < -0.009?'Due from Owners':'Settled') }}</td></tr>@endif
+<tr><td><strong>{{ $property->name }}</strong></td><td>{{ $property->building?->building_name ?? 'No building' }}</td><td>{{ $property->landlord?->name ?? 'Not assigned' }}</td><td>{{ $property->status_label }}</td><td class="right">{{ number_format((float)$property->opening_balance,2) }}</td><td class="right positive">{{ number_format((float)$property->period_credits,2) }}</td><td class="right negative">{{ number_format((float)$property->period_debits,2) }}</td><td class="right">{{ number_format((float)$property->period_net,2) }}</td><td class="right {{ $balance>0?'positive':($balance<0?'negative':'') }}">{{ number_format($balance,2) }}</td><td>{{ $balance>0.009?'Due to Owner':($balance < -0.009?'Due from Owner':'Settled') }}</td></tr>@empty<tr><td colspan="10" style="text-align:center">No units match the selected filters.</td></tr>@endforelse
+@if($properties->isNotEmpty())<tr class="total"><td colspan="8">Combined closing balance</td><td class="right">AED {{ number_format($totalBalance,2) }}</td><td>{{ $totalBalance>0.009?'Due to Owners':($totalBalance < -0.009?'Due from Owners':'Settled') }}</td></tr>@endif
 </tbody></table><div class="footer">Statement balance uses the same owner-visible ledger entries and RMS statement cutoff rules as Owner Statements.</div>
 </body></html>

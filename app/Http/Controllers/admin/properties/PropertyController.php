@@ -14,6 +14,7 @@ use App\Support\PdfRenderer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use Carbon\Carbon;
 
 class PropertyController extends Controller
 {
@@ -48,15 +49,17 @@ class PropertyController extends Controller
 
     public function exportExcel(Request $request)
     {
-        $rows = $this->unitExportRows($request->input('status'), trim((string) $request->input('q')));
+        [$periodStart, $periodEnd, $periodLabel] = $this->exportPeriod($request);
+        $rows = $this->unitExportRows($request->input('status'), trim((string) $request->input('q')), $periodStart, $periodEnd);
 
-        return response()->streamDownload(function () use ($rows) {
+        return response()->streamDownload(function () use ($rows, $periodLabel) {
             $output = fopen('php://output', 'wb');
             fwrite($output, "\xEF\xBB\xBF");
             fputcsv($output, ['Units & Owner Statement Balances']);
+            fputcsv($output, ['Statement month', $periodLabel]);
             fputcsv($output, ['Generated at', now()->timezone('Asia/Dubai')->format('d M Y H:i').' GST']);
             fputcsv($output, []);
-            fputcsv($output, ['Unit', 'Building', 'Owner', 'Owner Email', 'Type', 'Community / Location', 'Rent (AED)', 'Unit Status', 'Statement Balance (AED)', 'Balance Position']);
+            fputcsv($output, ['Unit', 'Building', 'Owner', 'Owner Email', 'Type', 'Community / Location', 'Unit Status', 'Opening Balance (AED)', 'Month Credits (AED)', 'Month Debits (AED)', 'Month Net (AED)', 'Closing Balance (AED)', 'Closing Position']);
             foreach ($rows as $property) {
                 $balance = (float) $property->statement_balance;
                 $values = [
@@ -66,28 +69,32 @@ class PropertyController extends Controller
                     $property->landlord?->email ?? '',
                     $property->unit_type_label,
                     $property->community ?: ($property->building?->address ?? ''),
-                    (float) ($property->rent ?? 0),
                     $property->status_label,
+                    (float) $property->opening_balance,
+                    (float) $property->period_credits,
+                    (float) $property->period_debits,
+                    (float) $property->period_net,
                     $balance,
                     $this->statementBalancePosition($balance),
                 ];
                 fputcsv($output, array_map(fn ($value) => is_string($value) && preg_match('/^[\s]*[=+@-]/u', $value) ? "'".$value : $value, $values));
             }
             fclose($output);
-        }, 'units-statement-balances-'.now()->format('Y-m-d').'.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
+        }, 'units-statement-balances-'.$periodStart->format('Y-m').'.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
     }
 
     public function exportPdf(Request $request)
     {
         $status = $request->input('status');
         $search = trim((string) $request->input('q'));
-        $properties = $this->unitExportRows($status, $search);
+        [$periodStart, $periodEnd, $periodLabel] = $this->exportPeriod($request);
+        $properties = $this->unitExportRows($status, $search, $periodStart, $periodEnd);
         $totalBalance = (float) $properties->sum('statement_balance');
 
         return PdfRenderer::downloadView(
             'admin.properties.pdf.units-statement-balances',
-            compact('properties', 'status', 'search', 'totalBalance'),
-            'units-statement-balances-'.now()->format('Y-m-d').'.pdf',
+            compact('properties', 'status', 'search', 'totalBalance', 'periodStart', 'periodEnd', 'periodLabel'),
+            'units-statement-balances-'.$periodStart->format('Y-m').'.pdf',
             ['format' => 'A4-L']
         );
     }
@@ -239,19 +246,44 @@ class PropertyController extends Controller
             });
     }
 
-    private function unitExportRows(?string $status, ?string $search)
+    private function unitExportRows(?string $status, ?string $search, Carbon $periodStart, Carbon $periodEnd)
     {
+        $properties = $this->unitListQuery($status, $search)
+            ->orderBy('name')
+            ->get();
+        $statementDate = LandlordAccountEntry::statementDateSql();
         $balances = LandlordAccountEntry::query()
             ->visibleOnOwnerStatement()
-            ->whereNotNull('property_id')
-            ->selectRaw("property_id, SUM(CASE WHEN direction = 'credit' THEN amount ELSE -amount END) as statement_balance")
+            ->whereIn('property_id', $properties->pluck('id'))
+            ->whereRaw("{$statementDate} <= ?", [$periodEnd->toDateString()])
+            ->selectRaw("property_id,
+                COALESCE(SUM(CASE WHEN {$statementDate} < ? THEN CASE WHEN direction = 'credit' THEN amount ELSE -amount END ELSE 0 END), 0) as opening_balance,
+                COALESCE(SUM(CASE WHEN {$statementDate} BETWEEN ? AND ? AND direction = 'credit' THEN amount ELSE 0 END), 0) as period_credits,
+                COALESCE(SUM(CASE WHEN {$statementDate} BETWEEN ? AND ? AND direction = 'debit' THEN amount ELSE 0 END), 0) as period_debits,
+                COALESCE(SUM(CASE WHEN direction = 'credit' THEN amount ELSE -amount END), 0) as statement_balance",
+                [$periodStart->toDateString(), $periodStart->toDateString(), $periodEnd->toDateString(), $periodStart->toDateString(), $periodEnd->toDateString()])
             ->groupBy('property_id')
-            ->pluck('statement_balance', 'property_id');
-
-        return $this->unitListQuery($status, $search)
-            ->orderBy('name')
             ->get()
-            ->each(fn (Property $property) => $property->setAttribute('statement_balance', (float) ($balances[$property->id] ?? 0)));
+            ->keyBy('property_id');
+
+        return $properties->each(function (Property $property) use ($balances) {
+            $row = $balances->get($property->id);
+            $credits = (float) ($row?->period_credits ?? 0);
+            $debits = (float) ($row?->period_debits ?? 0);
+            $property->setAttribute('opening_balance', (float) ($row?->opening_balance ?? 0));
+            $property->setAttribute('period_credits', $credits);
+            $property->setAttribute('period_debits', $debits);
+            $property->setAttribute('period_net', $credits - $debits);
+            $property->setAttribute('statement_balance', (float) ($row?->statement_balance ?? 0));
+        });
+    }
+
+    private function exportPeriod(Request $request): array
+    {
+        $validated = $request->validate(['month' => ['required', 'date_format:Y-m']]);
+        $start = Carbon::createFromFormat('!Y-m-d', $validated['month'].'-01')->startOfMonth();
+
+        return [$start, $start->copy()->endOfMonth(), $start->format('F Y')];
     }
 
     private function statementBalancePosition(float $balance): string

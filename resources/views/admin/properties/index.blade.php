@@ -91,8 +91,8 @@
                     <h4 class="card-title mb-0">All Units List</h4>
                 </div>
                 <div class="d-flex gap-2">
-                    <a href="{{ route('admin.property.export.excel', ['q' => $search, 'status' => $status]) }}" class="btn btn-sm btn-outline-success"><i class="ri-file-excel-2-line me-1"></i>Export Excel</a>
-                    <a href="{{ route('admin.property.export.pdf', ['q' => $search, 'status' => $status]) }}" class="btn btn-sm btn-outline-danger"><i class="ri-file-pdf-2-line me-1"></i>Export PDF</a>
+                    <button type="button" class="btn btn-sm btn-outline-success" data-bs-toggle="modal" data-bs-target="#unitBalanceExportModal" data-export-format="excel"><i class="ri-file-excel-2-line me-1"></i>Export Excel</button>
+                    <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#unitBalanceExportModal" data-export-format="pdf"><i class="ri-file-pdf-2-line me-1"></i>Export PDF</button>
                     <a href="{{ route('admin.property.create') }}" class="btn btn-sm btn-primary">+ Add New Unit</a>
                 </div>
             </div>
@@ -237,4 +237,44 @@
         </div>
     </div>
 </div>
+
+<div class="modal fade" id="unitBalanceExportModal" tabindex="-1" aria-labelledby="unitBalanceExportLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form method="GET" id="unitBalanceExportForm" action="{{ route('admin.property.export.pdf') }}">
+                <div class="modal-header">
+                    <div>
+                        <h5 class="modal-title" id="unitBalanceExportLabel">Export Monthly Unit Balances</h5>
+                        <p class="text-muted mb-0 mt-1">Choose the statement month for the balance sheet.</p>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <label for="exportMonth" class="form-label">Statement month</label>
+                    <input type="month" class="form-control form-control-lg" id="exportMonth" name="month" value="{{ now()->timezone('Asia/Dubai')->format('Y-m') }}" required>
+                    <input type="hidden" name="q" value="{{ $search }}">
+                    <input type="hidden" name="status" value="{{ $status }}">
+                    <div class="alert alert-light border mt-3 mb-0">
+                        The report includes opening balance, selected-month credits and debits, net movement, and closing balance for every matching unit.
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="unitBalanceExportSubmit">Download PDF</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+document.getElementById('unitBalanceExportModal')?.addEventListener('show.bs.modal', function (event) {
+    const format = event.relatedTarget?.getAttribute('data-export-format') || 'pdf';
+    const form = document.getElementById('unitBalanceExportForm');
+    const button = document.getElementById('unitBalanceExportSubmit');
+    form.action = format === 'excel' ? @json(route('admin.property.export.excel')) : @json(route('admin.property.export.pdf'));
+    button.textContent = format === 'excel' ? 'Download Excel' : 'Download PDF';
+    button.className = format === 'excel' ? 'btn btn-success' : 'btn btn-danger';
+});
+</script>
 @endsection

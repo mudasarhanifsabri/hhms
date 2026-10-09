@@ -23,18 +23,22 @@ class UnitListExportTest extends TestCase
 
         LandlordAccountEntry::create(['landlord_id' => $owner->id, 'property_id' => $property->id, 'entry_date' => '2026-10-01', 'type' => 'adjustment_credit', 'direction' => 'credit', 'amount' => 5000, 'description' => 'Opening owner credit']);
         LandlordAccountEntry::create(['landlord_id' => $owner->id, 'property_id' => $property->id, 'entry_date' => '2026-10-02', 'type' => 'maintenance', 'direction' => 'debit', 'amount' => 750, 'description' => 'Repair charge']);
+        LandlordAccountEntry::create(['landlord_id' => $owner->id, 'property_id' => $property->id, 'entry_date' => '2026-09-20', 'type' => 'adjustment_credit', 'direction' => 'credit', 'amount' => 1000, 'description' => 'Earlier owner credit']);
 
-        $excel = $this->actingAs($admin)->get(route('admin.property.export.excel', ['status' => 'available']));
+        $this->actingAs($admin)->get(route('admin.property.export.excel', ['status' => 'available']))->assertSessionHasErrors('month');
+        $excel = $this->get(route('admin.property.export.excel', ['status' => 'available', 'month' => '2026-10']));
         $excel->assertOk()->assertHeader('Content-Type', 'text/csv; charset=UTF-8');
         $content = $excel->streamedContent();
         $this->assertStringContainsString('Unit 1201', $content);
         $this->assertStringContainsString('4250', $content);
+        $this->assertStringContainsString('1000', $content);
+        $this->assertStringContainsString('5250', $content);
         $this->assertStringContainsString('Due to Owner', $content);
         $this->assertStringNotContainsString('Hidden Unit', $content);
 
-        $this->actingAs($admin)->get(route('admin.property.export.pdf', ['status' => 'available']))
+        $this->actingAs($admin)->get(route('admin.property.export.pdf', ['status' => 'available', 'month' => '2026-10']))
             ->assertOk()
             ->assertHeader('Content-Type', 'application/pdf')
-            ->assertHeader('Content-Disposition', 'attachment; filename="units-statement-balances-'.now()->format('Y-m-d').'.pdf"');
+            ->assertHeader('Content-Disposition', 'attachment; filename="units-statement-balances-2026-10.pdf"');
     }
 }
