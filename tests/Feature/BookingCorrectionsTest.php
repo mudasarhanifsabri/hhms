@@ -65,6 +65,7 @@ class BookingCorrectionsTest extends TestCase
         $unit=Property::create(['landlord_id'=>$owner->id,'name'=>'VAT Unit']);
         $this->post(route('admin.booking.store'),[
             'property_id'=>$unit->id,'guest_name'=>'VAT Guest','guest_email'=>'vat@example.com','guest_phone'=>'0500000000','guest_passport_id_no'=>'VAT-1',
+            'reservation_date'=>'2026-09-25',
             'check_in'=>'2026-10-01','check_out'=>'2026-10-10','rent_amount'=>1000,'cleaning_fee'=>100,'agency_fee'=>200,'dtcm_fee'=>30,'security_deposit'=>500,
         ])->assertSessionHasNoErrors();
         $booking=Booking::firstOrFail();
@@ -74,6 +75,10 @@ class BookingCorrectionsTest extends TestCase
         $this->assertEquals(1895,$invoice->total_amount);
         $this->assertEquals(65,$booking->vat_amount);
         $this->assertEquals(1895,$booking->total_amount);
+        $this->get(route('admin.booking.show',$booking))->assertOk()
+            ->assertSeeInOrder(['Charge', 'Base', 'VAT Amount', 'Total'])
+            ->assertSee('AED 50.00')->assertSee('AED 5.00')->assertSee('AED 10.00')
+            ->assertSee('No VAT');
         $this->get(route('admin.accounting.booking-invoices.pdf',$invoice))->assertOk()->assertHeader('content-type','application/pdf');
     }
 

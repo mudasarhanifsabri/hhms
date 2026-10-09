@@ -457,21 +457,34 @@
 @include('admin.bookings.partials.invoice-edit-modal')
 <div class="modal fade" id="invoiceDetails{{ $invoice->id }}" tabindex="-1" aria-hidden="true"><div class="modal-dialog"><div class="modal-content">
     <div class="modal-header"><h5>{{ $invoice->type_label }} — {{ $invoice->invoice_number }}</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-    <div class="modal-body"><table class="table"><tbody>
-        <tr><td>Rent</td><td class="text-end">AED {{ number_format((float)$invoice->rent_amount,2) }}</td></tr>
-        <tr><td>VAT recorded ({{ $invoice->vat_rate }}%) — {{ $invoice->vat_scope === 'rent_cleaning_agency' ? 'Rent, Cleaning and Agency Fee' : 'Rent only (legacy invoice)' }}</td><td class="text-end">AED {{ number_format((float)$invoice->vat_amount,2) }}</td></tr>
-        @foreach($invoice->fees ?? [] as $label => $amount)
-            @if($label !== 'Security Deposit')
-                <tr><td>{{ $label }}</td><td class="text-end">AED {{ number_format((float)$amount,2) }}</td></tr>
-            @endif
+    @php
+        $invoiceFees = collect($invoice->fees ?? []);
+        $refundableDeposit = (float) $invoiceFees->get('Security Deposit', 0);
+        $chargeFees = $invoiceFees->except('Security Deposit');
+        $taxableFeeLabels = $invoice->vat_scope === 'rent_cleaning_agency' ? ['Cleaning Fee', 'Agency Fee'] : [];
+        $feeVatAmounts = $chargeFees->mapWithKeys(fn ($amount, $label) => [
+            $label => in_array($label, $taxableFeeLabels, true)
+                ? round((float) $amount * (float) $invoice->vat_rate / 100, 2)
+                : 0.0,
+        ]);
+        $rentVatAmount = max(0, round((float) $invoice->vat_amount - (float) $feeVatAmounts->sum(), 2));
+        $baseCharges = (float) $invoice->rent_amount + (float) $chargeFees->sum();
+    @endphp
+    <div class="modal-body"><div class="table-responsive"><table class="table table-sm align-middle">
+        <thead class="table-light"><tr><th>Charge</th><th class="text-end">Base</th><th class="text-center">VAT</th><th class="text-end">VAT Amount</th><th class="text-end">Total</th></tr></thead>
+        <tbody>
+        <tr><td>Rent</td><td class="text-end">AED {{ number_format((float)$invoice->rent_amount,2) }}</td><td class="text-center">{{ number_format((float)$invoice->vat_rate,2) }}%</td><td class="text-end">AED {{ number_format($rentVatAmount,2) }}</td><td class="text-end fw-semibold">AED {{ number_format((float)$invoice->rent_amount+$rentVatAmount,2) }}</td></tr>
+        @foreach($chargeFees as $label => $amount)
+            @php($lineVat = (float) $feeVatAmounts->get($label, 0))
+            <tr><td>{{ $label }}</td><td class="text-end">AED {{ number_format((float)$amount,2) }}</td><td class="text-center {{ $lineVat > 0 ? '' : 'text-muted' }}">{{ in_array($label, $taxableFeeLabels, true) ? number_format((float)$invoice->vat_rate,2).'%' : 'No VAT' }}</td><td class="text-end">AED {{ number_format($lineVat,2) }}</td><td class="text-end fw-semibold">AED {{ number_format((float)$amount+$lineVat,2) }}</td></tr>
         @endforeach
-        @php($refundableDeposit = (float)(($invoice->fees ?? [])['Security Deposit'] ?? 0))
-        <tr><th>Charges subtotal</th><th class="text-end">AED {{ number_format((float)$invoice->total_amount-$refundableDeposit,2) }}</th></tr>
-        <tr class="table-primary"><td>Refundable Security Deposit</td><td class="text-end">AED {{ number_format($refundableDeposit,2) }}</td></tr>
-        <tr><th>Total payable</th><th class="text-end">AED {{ number_format((float)$invoice->total_amount,2) }}</th></tr>
-        <tr><td>Paid</td><td class="text-end text-success">AED {{ number_format($invoice->paid_amount,2) }}</td></tr>
-        <tr><td>Balance</td><td class="text-end">AED {{ number_format($invoice->balance_due,2) }}</td></tr>
-    </tbody></table><p>Which document would you like?</p>
+        <tr class="table-primary"><td>Refundable Security Deposit</td><td class="text-end">AED {{ number_format($refundableDeposit,2) }}</td><td class="text-center text-muted">No VAT</td><td class="text-end">AED 0.00</td><td class="text-end fw-semibold">AED {{ number_format($refundableDeposit,2) }}</td></tr>
+        </tbody><tfoot class="table-light">
+        <tr><th>Charge totals</th><th class="text-end">AED {{ number_format($baseCharges,2) }}</th><th></th><th class="text-end">AED {{ number_format((float)$invoice->vat_amount,2) }}</th><th class="text-end">AED {{ number_format((float)$invoice->total_amount-$refundableDeposit,2) }}</th></tr>
+        <tr><th colspan="4">Total payable (including deposit)</th><th class="text-end">AED {{ number_format((float)$invoice->total_amount,2) }}</th></tr>
+        <tr><td colspan="4">Paid</td><td class="text-end text-success">AED {{ number_format($invoice->paid_amount,2) }}</td></tr>
+        <tr><td colspan="4">Balance</td><td class="text-end {{ $invoice->balance_due > 0 ? 'text-danger' : 'text-success' }}">AED {{ number_format($invoice->balance_due,2) }}</td></tr>
+    </tfoot></table></div><p>Which document would you like?</p>
     <a class="btn btn-primary" href="{{ route('admin.accounting.booking-invoices.pdf', $invoice) }}">Invoice PDF</a>
     @if(\Illuminate\Support\Facades\Route::has('admin.booking-invoice.confirmation'))
     @if($invoice->status === 'paid' && (float) $invoice->payments->sum('amount') >= (float) $invoice->total_amount)
