@@ -629,22 +629,26 @@ class AccountingController extends Controller
 
     public function destroyExpense(Expense $expense)
     {
-        abort_unless($this->canModifyApprovedExpense($expense), 403, 'Only the super admin can delete an approved expense.');
-
-        if (in_array($expense->approval_status, ['approved', 'paid'], true)) {
+        $protected = in_array($expense->approval_status, ['approved', 'paid', 'reversed'], true);
+        abort_unless(! $protected || auth()->user()?->role === 'admin', 403, 'Only the super admin can permanently delete a posted expense.');
+        if ($protected) {
             $this->confirmFinancialAction(request());
-            return $this->reverseApprovedExpense(request(), $expense);
         }
 
         $landlordId = $expense->landlord_id;
         $expenseNo = $expense->expense_no;
+        $documents = array_filter([$expense->receipt_path, $expense->invoice_path]);
 
         DB::transaction(function () use ($expense, $landlordId, $expenseNo) {
             AccountingEntry::where('expense_id', $expense->id)->delete();
 
             if ($landlordId && $expenseNo) {
                 LandlordAccountEntry::where('landlord_id', $landlordId)
-                    ->where('reference', $expenseNo)
+                    ->where(function ($query) use ($expenseNo) {
+                        $query->where('reference', $expenseNo)
+                            ->orWhere('reference', 'REV-'.$expenseNo)
+                            ->orWhere('reference', 'like', 'DRAFT-REV-'.$expenseNo.'-%');
+                    })
                     ->delete();
             }
 
@@ -657,51 +661,23 @@ class AccountingController extends Controller
             $expense->delete();
         });
 
+        foreach ($documents as $path) {
+            try {
+                if (MediaStorage::disk() === 'public' && is_file(public_path($path))) {
+                    unlink(public_path($path));
+                } else {
+                    \Illuminate\Support\Facades\Storage::disk(MediaStorage::disk())->delete(MediaStorage::path($path));
+                }
+            } catch (\Throwable $exception) {
+                report($exception);
+            }
+        }
+
         if ($landlordId) {
             LandlordAccountEntry::recalculateBalancesFor($landlordId);
         }
 
-        return back()->with('success', 'Expense deleted successfully.');
-    }
-
-    private function reverseApprovedExpense(Request $request, Expense $expense)
-    {
-        abort_if($expense->reversed_at, 422, 'This expense has already been reversed.');
-        $beforeValues = $expense->getAttributes();
-        $landlordId = $expense->landlord_id;
-
-        DB::transaction(function () use ($request, $expense, $beforeValues, $landlordId) {
-            foreach (AccountingEntry::where('expense_id', $expense->id)->get() as $source) {
-                $reversal = $source->replicate();
-                $reversal->fill([
-                    'entry_no' => $this->nextNumber('REV', AccountingEntry::class, 'entry_no'),
-                    'entry_date' => today(), 'description' => 'Reversal of '.$source->entry_no.': '.$request->input('change_reason'),
-                    'debit' => $source->credit, 'credit' => $source->debit,
-                    'transaction_reference' => 'REV-'.$expense->expense_no.'-'.$source->id,
-                    'approval_status' => 'posted', 'status' => 'posted', 'created_by' => auth()->id(),
-                ]);
-                $reversal->save();
-            }
-
-            $ownerDebit = LandlordAccountEntry::where('reference', $expense->expense_no)->where('direction', 'debit')->first();
-            if ($ownerDebit) {
-                LandlordAccountEntry::create([
-                    'landlord_id'=>$ownerDebit->landlord_id,'property_id'=>$ownerDebit->property_id,'entry_date'=>today(),
-                    'type'=>'adjustment_credit','direction'=>'credit','amount'=>$ownerDebit->amount,
-                    'reference'=>'REV-'.$expense->expense_no,'description'=>'Reversal of '.$expense->expense_no.': '.$request->input('change_reason'),
-                ]);
-            }
-
-            $expense->update(['approval_status'=>'reversed','reversed_at'=>now(),'reversed_by'=>auth()->id(),'reversal_reason'=>$request->input('change_reason')]);
-            ExpenseAudit::create([
-                'expense_id'=>$expense->id,'user_id'=>auth()->id(),'action'=>'approved_expense_reversed',
-                'reason'=>$request->input('change_reason'),'before_values'=>$beforeValues,
-                'after_values'=>$expense->fresh()->getAttributes(),'ip_address'=>$request->ip(),
-            ]);
-        });
-
-        if ($landlordId) LandlordAccountEntry::recalculateBalancesFor($landlordId);
-        return back()->with('success', 'Approved expense reversed. Original financial history has been preserved.');
+        return back()->with('success', 'Expense and all linked financial entries deleted permanently.');
     }
 
     public function utilities(Request $request)

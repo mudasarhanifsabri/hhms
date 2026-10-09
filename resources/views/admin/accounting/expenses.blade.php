@@ -69,8 +69,8 @@
                                 <button class="btn btn-sm btn-success" title="Approve and post"><i class="ri-check-line"></i></button>
                             </form>
                         @endif
-                        @if(in_array($expense->approval_status, ['approved', 'paid'], true) && auth()->user()?->role === 'admin')
-                            <button type="button" class="btn btn-sm btn-soft-danger" data-bs-toggle="modal" data-bs-target="#reverseExpense{{ $expense->id }}" title="Reverse approved expense"><i class="ri-arrow-go-back-line"></i></button>
+                        @if(in_array($expense->approval_status, ['approved', 'paid', 'reversed'], true) && auth()->user()?->role === 'admin')
+                            <button type="button" class="btn btn-sm btn-soft-danger" data-bs-toggle="modal" data-bs-target="#deleteExpense{{ $expense->id }}" title="Delete expense permanently"><i class="ri-delete-bin-line"></i></button>
                         @elseif($expense->approval_status !== 'reversed')
                         <form action="{{ url('/admin/accounting/expenses/' . $expense->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Delete this expense? Linked ledger entry and owner statement debit will also be removed.');">
                             @csrf
@@ -200,8 +200,8 @@
     </div>
 </div>
 @endif
-@if(in_array($expense->approval_status, ['approved', 'paid'], true) && auth()->user()?->role === 'admin')
-<div class="modal fade" id="reverseExpense{{ $expense->id }}" tabindex="-1" aria-hidden="true"><div class="modal-dialog modal-dialog-centered"><form class="modal-content" method="post" action="{{ route('admin.accounting.expenses.destroy',$expense) }}">@csrf @method('DELETE')<div class="modal-header"><div><h5 class="modal-title text-danger">Reverse Approved Expense</h5><small class="text-muted">{{ $expense->expense_no }} · Original history will be preserved</small></div><button class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><div class="alert alert-danger"><strong>This will not delete the record.</strong> Opposite ledger, VAT and owner-statement entries will be created for a complete audit trail.</div><label class="form-label">Super Admin Password</label><input type="password" name="current_password" class="form-control mb-3" autocomplete="current-password" required><label class="form-label">Reason for Reversal</label><textarea name="change_reason" class="form-control" rows="3" minlength="5" maxlength="1000" required></textarea></div><div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button><button class="btn btn-danger">Confirm & Reverse Expense</button></div></form></div></div>
+@if(in_array($expense->approval_status, ['approved', 'paid', 'reversed'], true) && auth()->user()?->role === 'admin')
+<div class="modal fade" id="deleteExpense{{ $expense->id }}" tabindex="-1" aria-hidden="true"><div class="modal-dialog modal-dialog-centered"><form class="modal-content" method="post" action="{{ route('admin.accounting.expenses.destroy',$expense) }}">@csrf @method('DELETE')<div class="modal-header"><div><h5 class="modal-title text-danger">Permanently Delete Expense</h5><small class="text-muted">{{ $expense->expense_no }} · This action cannot be undone</small></div><button class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><div class="alert alert-danger"><strong>The expense will be removed completely.</strong> Its ledger, VAT, owner-statement entries, audit history, receipt and invoice will also be deleted. No reversal entry will be created.</div><label class="form-label">Super Admin Password</label><input type="password" name="current_password" class="form-control mb-3" autocomplete="current-password" required><label class="form-label">Reason for Deletion</label><textarea name="change_reason" class="form-control" rows="3" minlength="5" maxlength="1000" required></textarea></div><div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button><button class="btn btn-danger">Delete Permanently</button></div></form></div></div>
 @endif
 @endforeach
 @endsection

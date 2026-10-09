@@ -146,9 +146,11 @@ class AdminPagesTest extends TestCase
         $this->delete(route('admin.accounting.expenses.destroy', $expense), [
             'current_password' => 'password', 'change_reason' => 'Supplier invoice was cancelled',
         ])->assertRedirect()->assertSessionHasNoErrors()->assertSessionHas('success');
-        $this->assertDatabaseHas('expenses', ['id' => $expense->id, 'approval_status' => 'reversed', 'reversal_reason' => 'Supplier invoice was cancelled']);
-        $this->assertDatabaseHas('expense_audits', ['expense_id' => $expense->id, 'action' => 'approved_expense_reversed']);
-        $this->assertDatabaseHas('landlord_account_entries', ['reference' => 'REV-'.$expense->expense_no, 'direction' => 'credit', 'amount' => 189]);
+        $this->assertDatabaseMissing('expenses', ['id' => $expense->id]);
+        $this->assertDatabaseMissing('expense_audits', ['expense_id' => $expense->id]);
+        $this->assertDatabaseMissing('accounting_entries', ['expense_id' => $expense->id]);
+        $this->assertDatabaseMissing('landlord_account_entries', ['reference' => $expense->expense_no]);
+        $this->assertDatabaseMissing('landlord_account_entries', ['reference' => 'REV-'.$expense->expense_no]);
     }
 
     #[DataProvider('mainAdminPageRoutes')]
