@@ -519,7 +519,7 @@
                     <div class="col-12"><label class="form-label">Notes</label><textarea name="notes" class="form-control" rows="2"></textarea></div>
                 </div>
             </div>
-            <div class="modal-footer"><span class="me-auto small text-muted">Invoice and bank balance change only after Admin/Accounting approval.</span><button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-primary" @disabled($allocationError)>Submit for Approval</button></div>
+            <div class="modal-footer"><span class="me-auto small text-muted">Invoice and bank balance change only after Manager approval.</span><button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-primary" @disabled($allocationError)>Submit for Approval</button></div>
         </form>
     </div></div>
 </div>
@@ -534,7 +534,7 @@
 <div class="row g-3"><div class="col-md-6"><label class="form-label">Transfer date</label><input class="form-control" type="date" name="payment_date" value="{{ today()->toDateString() }}" required></div><div class="col-md-6"><label class="form-label">Amount received (AED)</label><input class="form-control" type="number" name="amount" min="0.01" max="{{ $outstandingInvoices->sum(fn($item) => $item->balance_due) }}" step="0.01" required></div>
 <div class="col-md-6"><label class="form-label">Payment method</label><select class="form-select" name="payment_method" required><option>Bank Transfer</option><option>Cash Deposit</option><option>Cash</option><option>Card</option><option>Cheque</option><option>Online Payment</option></select></div><div class="col-md-6"><label class="form-label">Received into account</label><select class="form-select" name="bank_account_id" required><option value="">Select bank / cash account</option>@foreach($bankAccounts as $account)<option value="{{ $account->id }}">{{ $account->name }}</option>@endforeach</select></div>
 <div class="col-md-6"><label class="form-label">Bank transaction reference</label><input class="form-control" name="reference" required maxlength="150"></div><div class="col-md-6"><label class="form-label">Transfer proof</label><input class="form-control" type="file" name="receipt" accept=".pdf,.jpg,.jpeg,.png"></div><div class="col-12"><label class="form-label">Notes</label><textarea class="form-control" name="notes" rows="2"></textarea></div></div></div>
-<div class="modal-footer"><span class="me-auto small text-muted">Allocation occurs only after Admin/Accounting approval.</span><button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button><button class="btn btn-success">Submit for Approval</button></div></form></div></div>
+<div class="modal-footer"><span class="me-auto small text-muted">Allocation occurs only after Manager approval.</span><button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button><button class="btn btn-success">Submit for Approval</button></div></form></div></div>
 @endif
 
 <div class="modal fade" id="checkoutConfirmModal" tabindex="-1" aria-hidden="true"><div class="modal-dialog modal-dialog-centered"><div class="modal-content">

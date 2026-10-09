@@ -566,7 +566,7 @@ class BookingController extends Controller
                 'booking_id' => $invoice->booking_id, 'booking_invoice_id' => $invoice->id,
             ], $proof);
             $invoice->booking->histories()->create(['title' => 'Payment Approval Requested', 'description' => 'Request '.$approval->approval_no.' for '.$invoice->invoice_number.' — AED '.number_format((float)$data['amount'], 2).' submitted by '.auth()->user()->name.'. No financial posting has occurred.']);
-            return back()->with('success', 'Payment submitted for Admin/Accounting approval. The invoice and bank balance will remain unchanged until approved.');
+            return back()->with('success', 'Payment submitted for Manager approval. The invoice and bank balance will remain unchanged until approved.');
         }
 
         $invoice->load('payments', 'booking.property');
@@ -679,7 +679,7 @@ class BookingController extends Controller
                 'booking_id' => $booking->id,
             ], $proof);
             $booking->histories()->create(['title' => 'Combined Payment Approval Requested', 'description' => 'Request '.$approval->approval_no.' — AED '.number_format((float)$data['amount'], 2).' submitted by '.auth()->user()->name.'. No financial posting has occurred.']);
-            return back()->with('success', 'Combined payment submitted for Admin/Accounting approval. No invoice or bank balance has changed.');
+            return back()->with('success', 'Combined payment submitted for Manager approval. No invoice or bank balance has changed.');
         }
         if (DB::table('booking_payment_batches')->where('id', $data['submission_id'])->exists()) {
             return back()->with('success', 'This combined payment was already recorded.');

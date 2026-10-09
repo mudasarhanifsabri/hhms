@@ -73,11 +73,28 @@ class FinancialApprovalWorkflowTest extends TestCase
         $admin->syncRoles(['Admin']);
 
         $this->actingAs($admin)->get(route('admin.financial-approvals.index'))->assertOk()
-            ->assertSee($booking->property->name)->assertSee('Approval Tower')->assertSee('Invoice Period')
-            ->assertSee('10 Oct 2026')->assertSee('09 Nov 2026')->assertSee('View more');
+            ->assertSee($booking->property->name)->assertSee('Approval Tower')->assertSee('Period')
+            ->assertSee('10 Oct 2026')->assertSee('09 Nov 2026')->assertSee('Manager approval required');
         $this->post(route('admin.financial-approvals.approve', $approval))->assertForbidden();
         $this->actingAs($manager)->post(route('admin.financial-approvals.approve', $approval))->assertSessionHasNoErrors();
         $this->assertSame('approved', $approval->fresh()->status);
+    }
+
+    public function test_manager_can_approve_a_transaction_they_submitted_without_accounting_approval(): void
+    {
+        [, $manager, , $invoice, $bank] = $this->context();
+        $this->actingAs($manager)->post(route('admin.booking-invoice.payment', $invoice), [
+            'payment_date' => '2026-10-08', 'amount' => $invoice->total_amount, 'payment_method' => 'Bank Transfer',
+            'bank_account_id' => $bank->id, 'reference' => 'ADCB-MANAGER-DIRECT-001',
+        ])->assertSessionHasNoErrors();
+        $approval = FinancialApprovalRequest::firstOrFail();
+
+        $this->get(route('admin.financial-approvals.index'))->assertOk()->assertSee('Approve');
+        $this->post(route('admin.financial-approvals.approve', $approval))->assertSessionHasNoErrors();
+
+        $this->assertSame('approved', $approval->fresh()->status);
+        $this->assertSame('paid', $invoice->fresh()->status);
+        $this->assertSame(1, $invoice->payments()->count());
     }
 
     public function test_rejection_keeps_invoice_and_bank_unchanged(): void

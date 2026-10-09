@@ -49,10 +49,6 @@ class FinancialApprovalController extends Controller
     {
         $this->authorizeManager();
         $data = $request->validate(['review_notes' => 'nullable|string|max:2000']);
-        if ((string) $approval->requested_by === (string) auth()->id()) {
-            throw ValidationException::withMessages(['approval' => 'You cannot approve your own request. A different Manager must review it.']);
-        }
-
         DB::transaction(function () use ($approval, $data) {
             $approval = FinancialApprovalRequest::whereKey($approval->id)->lockForUpdate()->firstOrFail();
             if ($approval->status !== 'pending') throw ValidationException::withMessages(['approval' => 'This request has already been reviewed.']);
@@ -85,9 +81,6 @@ class FinancialApprovalController extends Controller
     {
         $this->authorizeManager();
         $data = $request->validate(['review_notes' => 'required|string|min:5|max:2000']);
-        if ((string) $approval->requested_by === (string) auth()->id()) {
-            throw ValidationException::withMessages(['approval' => 'You cannot review your own request.']);
-        }
         $updated = FinancialApprovalRequest::whereKey($approval->id)->where('status', 'pending')->update([
             'status' => 'rejected', 'reviewed_by' => auth()->id(), 'reviewed_at' => now(), 'review_notes' => $data['review_notes'], 'updated_at' => now(),
         ]);
