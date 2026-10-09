@@ -133,7 +133,16 @@ class LandlordController extends Controller
             ->statementOrder()
             ->paginate($perPage)
             ->withQueryString();
-        $statementBalances = LandlordAccountEntry::statementBalancesFor($landlord->id, true);
+        // The table is a filtered period/unit statement, so its running balance must
+        // be calculated from the same filtered rows. Owner-wide stored balances can
+        // include hidden entries from other units and produce unexplained jumps.
+        $runningBalance = 0;
+        $statementBalances = [];
+        $this->accountEntriesQuery($landlord->id, $filters)->statementOrder()->get()
+            ->each(function (LandlordAccountEntry $entry) use (&$runningBalance, &$statementBalances) {
+                $runningBalance += $entry->direction === 'credit' ? (float) $entry->amount : -(float) $entry->amount;
+                $statementBalances[$entry->id] = $runningBalance;
+            });
         $accountEntries->getCollection()->each(fn ($entry) => $entry->setAttribute('balance_after', $statementBalances[$entry->id]));
         $accountTotals = $this->accountTotalsFor($landlord->id, $filters);
         $unitTotals = $this->accountEntriesQuery($landlord->id, $filters)->get()

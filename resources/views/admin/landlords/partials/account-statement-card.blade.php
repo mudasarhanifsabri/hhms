@@ -93,7 +93,7 @@
             </div>
         </div>
         @if($unitTotals->isNotEmpty())
-            <div class="mb-3"><h5 class="mb-2">Unit-wise Summary</h5><div class="row g-2">@foreach($unitTotals as $unit)<div class="col-lg-4"><div class="border rounded p-2 h-100"><strong>{{ $unit['property']?->name ?? 'General Owner Account' }}</strong><div class="small text-muted">Credit AED {{ number_format($unit['credit'],2) }} · Debit AED {{ number_format($unit['debit'],2) }}</div><div class="fw-semibold {{ $unit['balance'] < 0 ? 'text-danger':'text-success' }}">Balance AED {{ number_format($unit['balance'],2) }}</div></div></div>@endforeach</div></div>
+            <div class="mb-3"><h5 class="mb-2">Unit-wise Summary</h5><div class="row g-2">@foreach($unitTotals as $unit)<div class="col-lg-4"><div class="border rounded p-2 h-100"><strong>{{ $unit['property']?->name ?? 'General Owner Account' }}</strong><div class="small text-muted">Credit AED {{ number_format($unit['credit'],2) }} · Debit AED {{ number_format($unit['debit'],2) }}</div><div class="fw-semibold {{ $unit['balance'] < 0 ? 'text-danger':'text-success' }}">Period net AED {{ number_format($unit['balance'],2) }}</div></div></div>@endforeach</div></div>
         @endif
 
         <div class="table-responsive">
