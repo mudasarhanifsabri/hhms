@@ -3,12 +3,14 @@
 namespace Tests\Feature;
 
 use App\Mail\OwnerStatementMail;
+use App\Jobs\SendOwnerStatementEmail;
 use App\Models\Expense;
 use App\Models\LandlordAccountEntry;
 use App\Models\Property;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Queue;
 use Tests\TestCase;
 
 class OwnerStatementEntryDeletionTest extends TestCase
@@ -97,6 +99,7 @@ class OwnerStatementEntryDeletionTest extends TestCase
     public function test_admin_can_email_branded_owner_statement_pdf_to_custom_recipient(): void
     {
         Mail::fake();
+        Queue::fake();
         $admin = User::factory()->create(['role' => 'admin']);
         $owner = User::factory()->create(['role' => 'landlord', 'email' => 'owner@example.com']);
         LandlordAccountEntry::create([
@@ -113,10 +116,17 @@ class OwnerStatementEntryDeletionTest extends TestCase
             'date_from' => '2026-09-01', 'date_to' => '2026-09-30',
         ])->assertRedirect()->assertSessionHasNoErrors()->assertSessionHas('success');
 
+        Queue::assertPushed(SendOwnerStatementEmail::class, function (SendOwnerStatementEmail $job) {
+            $matches = $job->recipient === 'accounts@example.com'
+                && $job->purpose === 'September owner settlement'
+                && $job->customMessage === 'Please review the attached final statement.';
+
+            $job->handle();
+
+            return $matches;
+        });
         Mail::assertSent(OwnerStatementMail::class, function (OwnerStatementMail $mail) {
             return $mail->hasTo('accounts@example.com')
-                && $mail->purpose === 'September owner settlement'
-                && $mail->customMessage === 'Please review the attached final statement.'
                 && str_starts_with($mail->pdfContent, '%PDF-')
                 && count($mail->attachments()) === 1;
         });

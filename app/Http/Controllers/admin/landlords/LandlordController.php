@@ -14,8 +14,8 @@ use App\Models\User;
 use App\Models\Property;
 use App\Models\LandlordAccountEntry;
 use App\Models\BookingInvoice;
-use App\Mail\OwnerStatementMail;
 use App\Mail\OwnerPayoutReceiptMail;
+use App\Jobs\SendOwnerStatementEmail;
 use App\Support\MediaStorage;
 use App\Support\PdfRenderer;
 use App\Support\OwnerStatementPdf;
@@ -240,34 +240,19 @@ class LandlordController extends Controller
         }
 
         $purpose = $validated['purpose'] === 'Custom' ? $validated['custom_purpose'] : $validated['purpose'];
-        $statementData = OwnerStatementPdf::data(
-            $landlord,
+        $recipient = $validated['recipient_mode'] === 'custom' ? $validated['custom_email'] : $landlord->email;
+        SendOwnerStatementEmail::dispatch(
+            $landlord->id,
+            $recipient,
+            $validated['recipient_mode'] === 'both' ? $validated['custom_email'] : null,
+            $purpose,
+            $validated['message'] ?? null,
             $validated['date_from'] ?? null,
             $validated['date_to'] ?? null,
             $validated['property_id'] ?? null,
         );
-        $filename = 'owner-statement-'.Str::slug($landlord->name).'-'.$statementData['period']['to']->format('Y-m-d').'.pdf';
-        $pdf = PdfRenderer::output(view('admin.landlords.pdf.account-statement', $statementData)->render(), ['format' => 'A4']);
-        $mail = new OwnerStatementMail($landlord, $statementData, $purpose, $validated['message'] ?? null, $pdf, $filename);
-        $recipient = $validated['recipient_mode'] === 'custom' ? $validated['custom_email'] : $landlord->email;
-        try {
-            $pendingMail = Mail::to($recipient);
-            if ($validated['recipient_mode'] === 'both') {
-                $pendingMail->cc($validated['custom_email']);
-            }
-            $pendingMail->send($mail);
-        } catch (Throwable $exception) {
-            Log::error('Owner statement email failed.', [
-                'landlord_id' => $landlord->id,
-                'recipient' => $recipient,
-                'mailer' => config('mail.default'),
-                'message' => $exception->getMessage(),
-            ]);
 
-            return back()->withErrors(['email' => 'Statement email could not be sent. Please verify SMTP host, port, security, username and password in Settings.'])->withInput();
-        }
-
-        return back()->with('success', 'Owner statement PDF emailed successfully to '.$recipient.($validated['recipient_mode'] === 'both' ? ' and '.$validated['custom_email'] : '').'.');
+        return back()->with('success', 'Owner statement email queued for '.$recipient.($validated['recipient_mode'] === 'both' ? ' and '.$validated['custom_email'] : '').'. You can continue working while it sends.');
     }
 
     public function ownedProperties($id)
