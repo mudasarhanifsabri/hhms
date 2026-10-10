@@ -80,6 +80,13 @@ class OwnerStatementMonthTest extends TestCase
 
         $septemberPdf = OwnerStatementPdf::data($owner, '2026-09-01', '2026-09-30', $unit->id);
         $this->assertSame(['INV-SEPTEMBER-RENEWAL'], $septemberPdf['reservations']->pluck('invoice_number')->all());
+
+        $septemberPage = $this->get(route('admin.landlord.account-statement', [$owner, 'month' => '2026-09', 'property_id' => $unit->id]))
+            ->assertOk()->assertSee('Opening Balance')->assertSee('Closing Balance')->assertDontSee('Owner Loan Management')
+            ->assertDontSee('Unit-wise Summary')->assertSee('INV-SEPTEMBER-RENEWAL');
+        $this->assertEquals(5850, $septemberPage->viewData('accountTotals')['opening']);
+        $this->assertEquals(7830, $septemberPage->viewData('accountTotals')['closing']);
+        $this->assertEquals(8050, $septemberPage->viewData('accountEntries')->first()->balance_after);
     }
 
     public function test_invoice_income_is_reported_in_service_month_not_payment_month(): void

@@ -133,10 +133,18 @@ class LandlordController extends Controller
             ->statementOrder()
             ->paginate($perPage)
             ->withQueryString();
-        // The table is a filtered period/unit statement, so its running balance must
-        // be calculated from the same filtered rows. Owner-wide stored balances can
-        // include hidden entries from other units and produce unexplained jumps.
-        $runningBalance = 0;
+        $openingBalance = 0;
+        if (! empty($filters['date_from'])) {
+            $openingBalance = (float) LandlordAccountEntry::where('landlord_id', $landlord->id)
+                ->visibleOnOwnerStatement()
+                ->when(! empty($filters['property_id']), fn ($query) => $query->where('property_id', $filters['property_id']))
+                ->beforeStatementDate($filters['date_from'])
+                ->selectRaw("COALESCE(SUM(CASE WHEN direction='credit' THEN amount ELSE -amount END),0) balance")
+                ->value('balance');
+        }
+        // Start each row from the selected unit's brought-forward balance so the
+        // table explains exactly how the closing balance was reached.
+        $runningBalance = $openingBalance;
         $statementBalances = [];
         $this->accountEntriesQuery($landlord->id, $filters)->statementOrder()->get()
             ->each(function (LandlordAccountEntry $entry) use (&$runningBalance, &$statementBalances) {
@@ -145,6 +153,8 @@ class LandlordController extends Controller
             });
         $accountEntries->getCollection()->each(fn ($entry) => $entry->setAttribute('balance_after', $statementBalances[$entry->id]));
         $accountTotals = $this->accountTotalsFor($landlord->id, $filters);
+        $accountTotals['opening'] = $openingBalance;
+        $accountTotals['closing'] = $openingBalance + $accountTotals['balance'];
         $unitTotals = $this->accountEntriesQuery($landlord->id, $filters)->get()
             ->groupBy(fn (LandlordAccountEntry $entry) => $entry->property_id ?: 'general')
             ->map(function ($entries) {

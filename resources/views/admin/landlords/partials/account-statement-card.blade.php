@@ -65,25 +65,36 @@
     </div>
     <div class="card-body">
         <div class="row g-3 mb-3">
-            <div class="col-lg-4">
+            <div class="col-lg-3 col-md-6">
                 <div class="border p-2 rounded h-100">
-                    <p class="text-muted mb-1">Total Credit</p>
-                    <h4 class="mb-0 text-success">{{ number_format($accountTotals['credit'], 2) }} AED</h4>
+                    <p class="text-muted mb-1">Opening Balance</p>
+                    <h4 class="mb-0 {{ $accountTotals['opening'] < 0 ? 'text-danger' : 'text-dark' }}">AED {{ number_format($accountTotals['opening'], 2) }}</h4>
+                    <small class="text-muted">Brought forward</small>
                 </div>
             </div>
-            <div class="col-lg-4">
+            <div class="col-lg-3 col-md-6">
                 <div class="border p-2 rounded h-100">
-                    <p class="text-muted mb-1">Total Debit</p>
-                    <h4 class="mb-0 text-danger">{{ number_format($accountTotals['debit'], 2) }} AED</h4>
+                    <p class="text-muted mb-1">Credits This Period</p>
+                    <h4 class="mb-0 text-success">AED {{ number_format($accountTotals['credit'], 2) }}</h4>
+                    <small class="text-muted">Rent and other credits</small>
                 </div>
             </div>
-            <div class="col-lg-4">
+            <div class="col-lg-3 col-md-6">
                 <div class="border p-2 rounded h-100">
-                    <p class="text-muted mb-1">Period Net</p>
-                    <h4 class="mb-0 {{ $accountTotals['balance'] >= 0 ? 'text-primary' : 'text-danger' }}">{{ number_format($accountTotals['balance'], 2) }} AED</h4>
+                    <p class="text-muted mb-1">Deductions This Period</p>
+                    <h4 class="mb-0 text-danger">AED {{ number_format($accountTotals['debit'], 2) }}</h4>
+                    <small class="text-muted">Fees, expenses and payouts</small>
+                </div>
+            </div>
+            <div class="col-lg-3 col-md-6">
+                <div class="border border-2 p-2 rounded h-100 {{ $accountTotals['closing'] < 0 ? 'border-danger-subtle bg-danger-subtle' : 'border-success-subtle bg-success-subtle' }}">
+                    <p class="text-muted mb-1">Closing Balance</p>
+                    <h4 class="mb-0 {{ $accountTotals['closing'] < 0 ? 'text-danger' : 'text-success' }}">AED {{ number_format(abs($accountTotals['closing']), 2) }}</h4>
+                    <small class="fw-semibold {{ $accountTotals['closing'] < 0 ? 'text-danger' : 'text-success' }}">{{ $accountTotals['closing'] < 0 ? 'Due from owner' : 'Payable to owner' }}</small>
                 </div>
             </div>
         </div>
+        @if($ownerLoanSummary['advanced'] > 0 || $ownerLoanSummary['repaid'] > 0 || $ownerLoanSummary['receivable'] > 0)
         <div class="alert alert-info d-flex flex-wrap justify-content-between gap-3 align-items-center">
             <div><strong>Owner Loan Management</strong><div class="small">Furnishing and owner advances are recovered automatically through the running owner balance as rental-income credits are posted.</div></div>
             <div class="d-flex flex-wrap gap-4">
@@ -92,7 +103,8 @@
                 <span><small class="d-block text-muted">Total Owner Receivable</small><strong class="text-danger">AED {{ number_format($ownerLoanSummary['receivable'], 2) }}</strong></span>
             </div>
         </div>
-        @if($unitTotals->isNotEmpty())
+        @endif
+        @if(empty($filters['property_id']) && $unitTotals->count() > 1)
             <div class="mb-3"><h5 class="mb-2">Unit-wise Summary</h5><div class="row g-2">@foreach($unitTotals as $unit)<div class="col-lg-4"><div class="border rounded p-2 h-100"><strong>{{ $unit['property']?->name ?? 'General Owner Account' }}</strong><div class="small text-muted">Credit AED {{ number_format($unit['credit'],2) }} · Debit AED {{ number_format($unit['debit'],2) }}</div><div class="fw-semibold {{ $unit['balance'] < 0 ? 'text-danger':'text-success' }}">Period net AED {{ number_format($unit['balance'],2) }}</div></div></div>@endforeach</div></div>
         @endif
 
@@ -133,7 +145,12 @@
                                 @endif
                             </td>
                             <td>{{ $entry->property?->name ?? 'General' }}</td>
-                            <td>{{ $entry->reference ?? '-' }}</td>
+                            <td>
+                                {{ $entry->bookingInvoice?->invoice_number ?? $entry->reference ?? '-' }}
+                                @if($entry->bookingInvoice && $entry->reference && $entry->reference !== $entry->bookingInvoice->invoice_number)
+                                    <div class="text-muted fs-12" title="Internal transaction reference">Transaction recorded</div>
+                                @endif
+                            </td>
                             <td class="text-end text-success">
                                 {{ $entry->direction === 'credit' ? number_format((float) $entry->amount, 2) : '-' }}
                             </td>
