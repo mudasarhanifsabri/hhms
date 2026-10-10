@@ -245,6 +245,26 @@ public function getStatusClassAttribute(): string
     };
 }
 
+public function getOccupancyStatusAttribute(): string
+{
+    return (bool) ($this->has_active_booking ?? false) ? 'occupied' : 'vacant';
+}
+
+public function getOccupancyLabelAttribute(): string
+{
+    return $this->occupancy_status === 'occupied' ? 'Occupied' : 'Vacant';
+}
+
+public function getOccupancyClassAttribute(): string
+{
+    return $this->occupancy_status === 'occupied' ? 'bg-primary' : 'bg-success';
+}
+
+public function getNeedsAttentionAttribute(): bool
+{
+    return in_array($this->status, ['under_cleaning', 'under_maintenance'], true);
+}
+
 public function getUnitTypeLabelAttribute(): string
 {
     if ($this->category) {

@@ -69,7 +69,7 @@ class PropertyController extends Controller
                     $property->landlord?->email ?? '',
                     $property->unit_type_label,
                     $property->community ?: ($property->building?->address ?? ''),
-                    $property->status_label,
+                    $property->occupancy_label,
                     (float) $property->opening_balance,
                     (float) $property->period_credits,
                     (float) $property->period_debits,
@@ -219,15 +219,21 @@ class PropertyController extends Controller
 
     private function unitListQuery(?string $status = null, ?string $search = null)
     {
-        return Property::with(['building', 'landlord', 'ownerShares.owner'])
-            ->when($status, function ($query) use ($status) {
-                $statuses = match ($status) {
-                    'available' => ['available', 'vacant'],
-                    'booked' => ['booked', 'rented'],
-                    default => [$status],
-                };
+        $activeBooking = fn ($query) => $query->whereIn('status', ['confirmed', 'checked_in'])
+            ->whereDate('check_in', '<=', today());
 
-                $query->whereIn('status', $statuses);
+        return Property::with(['building', 'landlord', 'ownerShares.owner'])
+            ->withExists(['bookings as has_active_booking' => $activeBooking])
+            ->when($status, function ($query) use ($status, $activeBooking) {
+                if (in_array($status, ['occupied', 'booked'], true)) {
+                    $query->whereHas('bookings', $activeBooking);
+                } elseif (in_array($status, ['vacant', 'available'], true)) {
+                    $query->whereDoesntHave('bookings', $activeBooking);
+                } elseif ($status === 'attention') {
+                    $query->whereIn('status', ['under_cleaning', 'under_maintenance']);
+                } else {
+                    $query->where('status', $status);
+                }
             })
             ->when($search, function ($query) use ($search) {
                 $query->where(function ($query) use ($search) {
@@ -296,10 +302,15 @@ class PropertyController extends Controller
 
     private function unitStats(): array
     {
+        $activeBooking = fn ($query) => $query->whereIn('status', ['confirmed', 'checked_in'])
+            ->whereDate('check_in', '<=', today());
+        $occupied = Property::whereHas('bookings', $activeBooking)->count();
+        $total = Property::count();
+
         return [
-            'total' => Property::count(),
-            'available' => Property::whereIn('status', ['available', 'vacant'])->count(),
-            'booked' => Property::whereIn('status', ['booked', 'rented'])->count(),
+            'total' => $total,
+            'vacant' => max(0, $total - $occupied),
+            'occupied' => $occupied,
             'attention' => Property::whereIn('status', ['under_cleaning', 'under_maintenance'])->count(),
         ];
     }

@@ -52,6 +52,25 @@ class AdminDashboardTest extends TestCase
             ->assertViewHas('upcomingDtcmExpiry', 0);
     }
 
+    public function test_unit_list_uses_live_occupied_and_vacant_statuses(): void
+    {
+        $this->travelTo(now()->setDate(2026, 10, 10)->startOfDay());
+        $admin = User::factory()->create(['role' => 'admin']);
+        $owner = User::factory()->create(['role' => 'landlord']);
+        $occupied = Property::create(['landlord_id' => $owner->id, 'name' => 'Live Occupied', 'status' => 'vacant']);
+        $vacant = Property::create(['landlord_id' => $owner->id, 'name' => 'Live Vacant', 'status' => 'rented']);
+
+        Booking::create(['property_id' => $occupied->id, 'booking_reference' => 'BK-LIVE', 'invoice_number' => 'INV-LIVE', 'guest_name' => 'Live Guest', 'guest_email' => 'live@example.com', 'guest_phone' => '1', 'guest_passport_id_no' => 'P1', 'check_in' => '2026-10-01', 'check_out' => '2026-10-20', 'status' => 'confirmed', 'rent_amount' => 100]);
+        Booking::create(['property_id' => $vacant->id, 'booking_reference' => 'BK-FUTURE', 'invoice_number' => 'INV-FUTURE', 'guest_name' => 'Future Guest', 'guest_email' => 'future@example.com', 'guest_phone' => '2', 'guest_passport_id_no' => 'P2', 'check_in' => '2026-11-01', 'check_out' => '2026-11-20', 'status' => 'confirmed', 'rent_amount' => 100]);
+
+        $response = $this->actingAs($admin)->get(route('admin.property.index'))->assertOk()
+            ->assertSee('Occupied')->assertSee('Vacant')->assertDontSee('Booked</span>', false);
+        $this->assertSame(['total' => 2, 'vacant' => 1, 'occupied' => 1, 'attention' => 0], $response->viewData('unitStats'));
+        $rows = $response->viewData('properties')->getCollection()->keyBy('id');
+        $this->assertSame('Occupied', $rows[$occupied->id]->occupancy_label);
+        $this->assertSame('Vacant', $rows[$vacant->id]->occupancy_label);
+    }
+
     public function test_pending_invoices_appear_three_days_before_due_and_remain_until_paid(): void
     {
         $this->travelTo(now()->setDate(2026, 10, 6)->startOfDay());

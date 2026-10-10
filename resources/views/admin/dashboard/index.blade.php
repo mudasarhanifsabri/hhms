@@ -115,10 +115,7 @@
                         <iconify-icon icon="solar:buildings-2-broken" class="fs-32 text-primary avatar-title"></iconify-icon>
                     </div>
                 </div>
-                <div class="d-flex gap-2 mt-3">
-                    <span class="badge bg-success-subtle text-success">Booked status {{ number_format($propertiesRented) }}</span>
-                    <span class="badge bg-warning-subtle text-warning">Available status {{ number_format($propertiesVacant) }}</span>
-                </div>
+                <p class="small text-muted mt-3 mb-0">Live Occupied/Vacant figures are shown in the Current Occupancy card.</p>
             </div>
         </div>
     </div>

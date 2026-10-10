@@ -19,8 +19,8 @@
         <div class="card">
             <div class="card-body d-flex align-items-center justify-content-between">
                 <div>
-                    <h4 class="card-title mb-2">Available</h4>
-                    <p class="text-muted fw-medium fs-22 mb-0">{{ $unitStats['available'] ?? 0 }}</p>
+                    <h4 class="card-title mb-2">Vacant</h4>
+                    <p class="text-muted fw-medium fs-22 mb-0">{{ $unitStats['vacant'] ?? 0 }}</p>
                 </div>
                 <div class="avatar-md bg-success bg-opacity-10 rounded">
                     <iconify-icon icon="solar:key-minimalistic-square-broken" class="fs-32 text-success avatar-title"></iconify-icon>
@@ -32,8 +32,8 @@
         <div class="card">
             <div class="card-body d-flex align-items-center justify-content-between">
                 <div>
-                    <h4 class="card-title mb-2">Booked</h4>
-                    <p class="text-muted fw-medium fs-22 mb-0">{{ $unitStats['booked'] ?? 0 }}</p>
+                    <h4 class="card-title mb-2">Occupied</h4>
+                    <p class="text-muted fw-medium fs-22 mb-0">{{ $unitStats['occupied'] ?? 0 }}</p>
                 </div>
                 <div class="avatar-md bg-primary bg-opacity-10 rounded">
                     <iconify-icon icon="solar:calendar-mark-broken" class="fs-32 text-primary avatar-title"></iconify-icon>
@@ -76,10 +76,9 @@
                 <label for="status" class="form-label">Status</label>
                 <select id="status" name="status" class="form-control">
                     <option value="">All Status</option>
-                    <option value="available" @selected($status === 'available')>Available</option>
-                    <option value="booked" @selected($status === 'booked')>Booked</option>
-                    <option value="under_cleaning" @selected($status === 'under_cleaning')>Under Cleaning</option>
-                    <option value="under_maintenance" @selected($status === 'under_maintenance')>Under Maintenance</option>
+                    <option value="vacant" @selected(in_array($status, ['vacant','available']))>Vacant</option>
+                    <option value="occupied" @selected(in_array($status, ['occupied','booked']))>Occupied</option>
+                    <option value="attention" @selected($status === 'attention')>Needs Attention</option>
                 </select>
             </div>
             <div class="col-lg-4 d-flex gap-2">
@@ -104,7 +103,8 @@
                 <div class="position-relative">
                     @if($firstPhoto)<img src="{{ $firstPhoto }}" alt="{{ $property->name }}" class="img-fluid w-100" style="height: 190px; object-fit: cover;">@else<div class="bg-primary-subtle text-primary d-flex align-items-center justify-content-center" style="height:190px"><iconify-icon icon="solar:home-bold-duotone" style="font-size:72px"></iconify-icon></div>@endif
                     <span class="position-absolute top-0 end-0 p-2">
-                        <span class="badge {{ $property->status_class }} text-white fs-13">{{ $property->status_label }}</span>
+                        <span class="badge {{ $property->occupancy_class }} text-white fs-13">{{ $property->occupancy_label }}</span>
+                        @if($property->needs_attention)<span class="badge bg-warning-subtle text-warning fs-13">{{ $property->status_label }}</span>@endif
                     </span>
                 </div>
                 <div class="card-body">
