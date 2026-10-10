@@ -181,7 +181,7 @@
                 <div class="progress mt-3" style="height: 10px;">
                     <div class="progress-bar bg-success" role="progressbar" aria-valuenow="{{ $occupancyPercent }}" aria-valuemin="0" aria-valuemax="100" style="width: {{ $occupancyPercent }}%"></div>
                 </div>
-                <p class="small text-muted mt-2 mb-0">{{ $occupiedUnits }} checked-in units / {{ $totalProperties }} total units. Future reservations excluded.</p>
+                <p class="small text-muted mt-2 mb-0">{{ $occupiedUnits }} active occupied units / {{ $totalProperties }} total units. Counted from check-in date until checkout is completed; future reservations are excluded.</p>
             </div>
         </div>
     </div>

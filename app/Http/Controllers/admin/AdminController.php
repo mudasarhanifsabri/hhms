@@ -43,7 +43,13 @@ class AdminController extends Controller
         $propertiesVacant = (int) ($propertyStats->vacant_properties ?? 0);
         $upcomingDtcmExpiry = (int) ($propertyStats->expiring_dtcm ?? 0);
         $liveBookings = Booking::query()->whereHas('property');
-        $occupiedUnits = (clone $liveBookings)->where('status', 'checked_in')->distinct()->count('property_id');
+        // A unit remains operationally occupied from its check-in date until staff
+        // explicitly complete checkout. This also covers confirmed bookings where
+        // the check-in button was missed; future reservations are not occupancy.
+        $occupiedUnits = (clone $liveBookings)
+            ->whereIn('status', ['confirmed', 'checked_in'])
+            ->whereDate('check_in', '<=', $today)
+            ->distinct()->count('property_id');
         $occupancyPercent = $totalProperties > 0 ? round($occupiedUnits / $totalProperties * 100) : 0;
         $arrivalsToday = (clone $liveBookings)->where('status', 'confirmed')->whereDate('check_in', $today)->count();
         $departuresToday = (clone $liveBookings)->where('status', 'checked_in')->whereDate('check_out', $today)->count();

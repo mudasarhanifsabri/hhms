@@ -33,12 +33,13 @@ class AdminDashboardTest extends TestCase
         $deleted->delete();
 
         $response = $this->actingAs($admin)->get(route('admin.dashboard'))->assertOk()
-            ->assertViewHas('totalProperties', 2)->assertViewHas('occupiedUnits', 1)
-            ->assertViewHas('occupancyPercent', 50)->assertViewHas('upcomingDtcmExpiry', 1)
+            ->assertViewHas('totalProperties', 2)->assertViewHas('occupiedUnits', 2)
+            ->assertViewHas('occupancyPercent', 100)->assertViewHas('upcomingDtcmExpiry', 1)
             ->assertViewHas('arrivalsToday', 1)->assertViewHas('departuresToday', 1)
             ->assertViewHas('overdueDepartures', 1)->assertViewHas('totalRegisteredUsers', 2)
             ->assertSee('05 Sep 2027')
-            ->assertSee('Checkout 1 day overdue');
+            ->assertSee('Checkout 1 day overdue')
+            ->assertSee('2 active occupied units');
         $this->assertCount(3, $response->viewData('expiringBookings'));
     }
 
