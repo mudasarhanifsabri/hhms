@@ -50,6 +50,7 @@ class AdminController extends Controller
             ->whereIn('status', ['confirmed', 'checked_in'])
             ->whereDate('check_in', '<=', $today)
             ->distinct()->count('property_id');
+        $emptyUnits = max(0, $totalProperties - $occupiedUnits);
         $occupancyPercent = $totalProperties > 0 ? round($occupiedUnits / $totalProperties * 100) : 0;
         $arrivalsToday = (clone $liveBookings)->where('status', 'confirmed')->whereDate('check_in', $today)->count();
         $departuresToday = (clone $liveBookings)->where('status', 'checked_in')->whereDate('check_out', $today)->count();
@@ -120,7 +121,7 @@ class AdminController extends Controller
             'propertiesRented',
             'propertiesVacant',
             'upcomingDtcmExpiry',
-            'recentProperties', 'occupiedUnits', 'occupancyPercent', 'arrivalsToday', 'departuresToday', 'overdueDepartures', 'otherUsers', 'expiringBookings', 'pendingInvoices', 'pendingFinancialApprovals'
+            'recentProperties', 'occupiedUnits', 'emptyUnits', 'occupancyPercent', 'arrivalsToday', 'departuresToday', 'overdueDepartures', 'otherUsers', 'expiringBookings', 'pendingInvoices', 'pendingFinancialApprovals'
         ));
     }
 }

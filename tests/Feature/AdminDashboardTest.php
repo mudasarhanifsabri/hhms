@@ -34,12 +34,12 @@ class AdminDashboardTest extends TestCase
 
         $response = $this->actingAs($admin)->get(route('admin.dashboard'))->assertOk()
             ->assertViewHas('totalProperties', 2)->assertViewHas('occupiedUnits', 2)
-            ->assertViewHas('occupancyPercent', 100)->assertViewHas('upcomingDtcmExpiry', 1)
+            ->assertViewHas('emptyUnits', 0)->assertViewHas('occupancyPercent', 100)->assertViewHas('upcomingDtcmExpiry', 1)
             ->assertViewHas('arrivalsToday', 1)->assertViewHas('departuresToday', 1)
             ->assertViewHas('overdueDepartures', 1)->assertViewHas('totalRegisteredUsers', 2)
             ->assertSee('05 Sep 2027')
             ->assertSee('Checkout 1 day overdue')
-            ->assertSee('2 active occupied units');
+            ->assertSee('Occupied 2')->assertSee('Empty 0');
         $this->assertCount(3, $response->viewData('expiringBookings'));
     }
 
@@ -48,6 +48,7 @@ class AdminDashboardTest extends TestCase
         $this->actingAs(User::factory()->create(['role' => 'admin']))
             ->get(route('admin.dashboard'))->assertOk()
             ->assertViewHas('totalProperties', 0)->assertViewHas('occupancyPercent', 0)
+            ->assertViewHas('emptyUnits', 0)
             ->assertViewHas('upcomingDtcmExpiry', 0);
     }
 
