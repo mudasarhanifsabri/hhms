@@ -27,6 +27,7 @@ use App\Http\Controllers\admin\SmartlockController;
 use App\Http\Controllers\admin\CompanyDocumentController;
 use App\Http\Controllers\admin\FinancialApprovalController;
 use App\Http\Controllers\admin\UserActivityLogController;
+use App\Http\Controllers\admin\EmailDeliveryController;
 
 
 
@@ -34,6 +35,7 @@ use App\Http\Controllers\admin\UserActivityLogController;
 Route::middleware(['auth', 'role:admin', 'admin.permission', 'activity.log'])->prefix('admin')->name('admin.')->group(function () {
 Route::get('/dashboard', [AdminController::class, 'dashboard'])->name('dashboard');
 Route::get('/activity-logs', [UserActivityLogController::class, 'index'])->name('activity-logs.index');
+Route::get('/email-deliveries', [EmailDeliveryController::class, 'index'])->name('email-deliveries.index');
 Route::get('/financial-approvals', [FinancialApprovalController::class, 'index'])->name('financial-approvals.index');
 Route::get('/financial-approvals/{approval}/proof', [FinancialApprovalController::class, 'proof'])->name('financial-approvals.proof');
 Route::post('/financial-approvals/{approval}/approve', [FinancialApprovalController::class, 'approve'])->name('financial-approvals.approve');

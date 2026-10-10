@@ -178,6 +178,7 @@
                     <ul class="nav sub-navbar-nav">
                         @if(auth()->user()?->hasRole('Super Administrator') || auth()->user()?->can('administration.view'))
                         <li class="sub-nav-item"><a class="sub-nav-link" href="{{ route('admin.access-control.index') }}">Roles &amp; Permissions</a></li>
+                        <li class="sub-nav-item"><a class="sub-nav-link" href="{{ route('admin.email-deliveries.index') }}">Email Delivery Log</a></li>
                         @endif
                         <li class="sub-nav-item"><a class="sub-nav-link" href="{{ route('admin.settings.edit') }}">Settings</a></li>
                         <li class="sub-nav-item"><a class="sub-nav-link" href="{{ route('admin.company-documents.index') }}">Company Documents</a></li>

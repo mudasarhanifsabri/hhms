@@ -169,5 +169,12 @@ class OwnerStatementEntryDeletionTest extends TestCase
             && $job->ccRecipients === ['co-owner@example.com']
             && $job->propertyId === $property->id
         );
+        $this->get(route('admin.email-deliveries.index'))
+            ->assertOk()
+            ->assertSee('Email Delivery Log')
+            ->assertSee('primary-owner@example.com')
+            ->assertSee('co-owner@example.com')
+            ->assertSee('Shared Unit 501')
+            ->assertSee('Monthly Statement');
     }
 }

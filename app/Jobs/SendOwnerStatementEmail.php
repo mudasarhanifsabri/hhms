@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Mail\OwnerStatementMail;
 use App\Models\User;
+use App\Models\EmailDelivery;
 use App\Support\OwnerStatementPdf;
 use App\Support\PdfRenderer;
 use Illuminate\Bus\Queueable;
@@ -25,6 +26,7 @@ class SendOwnerStatementEmail implements ShouldQueue
     public int $timeout = 180;
 
     public function __construct(
+        public string $deliveryId,
         public string $landlordId,
         public string $recipient,
         public array $ccRecipients,
@@ -55,10 +57,22 @@ class SendOwnerStatementEmail implements ShouldQueue
             $pdf,
             $filename,
         ));
+        EmailDelivery::whereKey($this->deliveryId)->update([
+            'status' => 'sent',
+            'subject' => 'Owner Statement - '.$this->purpose.' - '.$statementData['period']['from']->format('d M Y').' to '.$statementData['period']['to']->format('d M Y'),
+            'sent_at' => now(),
+            'failed_at' => null,
+            'failure_reason' => null,
+        ]);
     }
 
     public function failed(?Throwable $exception): void
     {
+        EmailDelivery::whereKey($this->deliveryId)->update([
+            'status' => 'failed',
+            'failed_at' => now(),
+            'failure_reason' => $exception?->getMessage(),
+        ]);
         Log::error('Queued owner statement email failed.', [
             'landlord_id' => $this->landlordId,
             'recipient' => $this->recipient,

@@ -14,6 +14,7 @@ use App\Models\User;
 use App\Models\Property;
 use App\Models\LandlordAccountEntry;
 use App\Models\BookingInvoice;
+use App\Models\EmailDelivery;
 use App\Mail\OwnerPayoutReceiptMail;
 use App\Jobs\SendOwnerStatementEmail;
 use App\Support\MediaStorage;
@@ -267,7 +268,20 @@ class LandlordController extends Controller
             ->values()
             ->all();
 
+        $delivery = EmailDelivery::create([
+            'type' => 'owner_statement',
+            'status' => 'queued',
+            'recipients' => collect([$recipient])->concat($ccRecipients)->values()->all(),
+            'subject' => 'Owner Statement - '.$purpose,
+            'purpose' => $purpose,
+            'landlord_id' => $landlord->id,
+            'property_id' => $selectedProperty?->id,
+            'created_by' => auth()->id(),
+            'queued_at' => now(),
+        ]);
+
         SendOwnerStatementEmail::dispatch(
+            $delivery->id,
             $landlord->id,
             $recipient,
             $ccRecipients,
