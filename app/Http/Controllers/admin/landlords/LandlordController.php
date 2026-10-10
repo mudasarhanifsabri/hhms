@@ -235,16 +235,42 @@ class LandlordController extends Controller
         if (in_array($validated['recipient_mode'], ['owner', 'both'], true) && ! filter_var($landlord->email, FILTER_VALIDATE_EMAIL)) {
             return back()->withErrors(['recipient_mode' => 'This owner does not have a valid email address. Choose Custom email.'])->withInput();
         }
+        $selectedProperty = null;
         if (! empty($validated['property_id']) && ! $this->ownerUnitsQuery($landlord->id)->where('id', $validated['property_id'])->exists()) {
             return back()->withErrors(['property_id' => 'Please select one of this owner units.'])->withInput();
+        }
+        if (! empty($validated['property_id'])) {
+            $selectedProperty = Property::with(['landlord', 'ownerShares.owner'])->findOrFail($validated['property_id']);
         }
 
         $purpose = $validated['purpose'] === 'Custom' ? $validated['custom_purpose'] : $validated['purpose'];
         $recipient = $validated['recipient_mode'] === 'custom' ? $validated['custom_email'] : $landlord->email;
+        $ccRecipients = collect();
+
+        // A unit-specific statement belongs to every registered owner of that unit.
+        // Do not apply this to an all-units statement because it could disclose another unit's finances.
+        if ($selectedProperty && in_array($validated['recipient_mode'], ['owner', 'both'], true)) {
+            $ccRecipients = $selectedProperty->ownerShares->pluck('owner')
+                ->filter()
+                ->prepend($selectedProperty->landlord)
+                ->filter()
+                ->pluck('email')
+                ->filter(fn ($email) => filter_var($email, FILTER_VALIDATE_EMAIL));
+        }
+        if ($validated['recipient_mode'] === 'both') {
+            $ccRecipients->push($validated['custom_email']);
+        }
+        $ccRecipients = $ccRecipients
+            ->filter(fn ($email) => strcasecmp((string) $email, (string) $recipient) !== 0)
+            ->map(fn ($email) => strtolower(trim((string) $email)))
+            ->unique()
+            ->values()
+            ->all();
+
         SendOwnerStatementEmail::dispatch(
             $landlord->id,
             $recipient,
-            $validated['recipient_mode'] === 'both' ? $validated['custom_email'] : null,
+            $ccRecipients,
             $purpose,
             $validated['message'] ?? null,
             $validated['date_from'] ?? null,
@@ -252,7 +278,9 @@ class LandlordController extends Controller
             $validated['property_id'] ?? null,
         );
 
-        return back()->with('success', 'Owner statement email queued for '.$recipient.($validated['recipient_mode'] === 'both' ? ' and '.$validated['custom_email'] : '').'. You can continue working while it sends.');
+        $recipientList = collect([$recipient])->concat($ccRecipients)->join(', ');
+
+        return back()->with('success', 'Owner statement email queued for '.$recipientList.'. You can continue working while it sends.');
     }
 
     public function ownedProperties($id)

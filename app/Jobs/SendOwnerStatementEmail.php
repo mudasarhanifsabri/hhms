@@ -27,7 +27,7 @@ class SendOwnerStatementEmail implements ShouldQueue
     public function __construct(
         public string $landlordId,
         public string $recipient,
-        public ?string $cc,
+        public array $ccRecipients,
         public string $purpose,
         public ?string $customMessage,
         public ?string $dateFrom,
@@ -43,8 +43,8 @@ class SendOwnerStatementEmail implements ShouldQueue
         $pdf = PdfRenderer::output(view('admin.landlords.pdf.account-statement', $statementData)->render(), ['format' => 'A4']);
         $pendingMail = Mail::to($this->recipient);
 
-        if ($this->cc) {
-            $pendingMail->cc($this->cc);
+        if ($this->ccRecipients !== []) {
+            $pendingMail->cc($this->ccRecipients);
         }
 
         $pendingMail->send(new OwnerStatementMail(

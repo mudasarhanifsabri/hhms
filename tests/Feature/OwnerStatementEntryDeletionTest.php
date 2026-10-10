@@ -7,6 +7,7 @@ use App\Jobs\SendOwnerStatementEmail;
 use App\Models\Expense;
 use App\Models\LandlordAccountEntry;
 use App\Models\Property;
+use App\Models\PropertyOwnerShare;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
@@ -118,6 +119,7 @@ class OwnerStatementEntryDeletionTest extends TestCase
 
         Queue::assertPushed(SendOwnerStatementEmail::class, function (SendOwnerStatementEmail $job) {
             $matches = $job->recipient === 'accounts@example.com'
+                && $job->ccRecipients === []
                 && $job->purpose === 'September owner settlement'
                 && $job->customMessage === 'Please review the attached final statement.';
 
@@ -130,5 +132,36 @@ class OwnerStatementEntryDeletionTest extends TestCase
                 && str_starts_with($mail->pdfContent, '%PDF-')
                 && count($mail->attachments()) === 1;
         });
+    }
+
+    public function test_unit_statement_is_queued_for_all_registered_unit_owners(): void
+    {
+        Queue::fake();
+        $admin = User::factory()->create(['role' => 'admin']);
+        $primary = User::factory()->create(['role' => 'landlord', 'email' => 'primary-owner@example.com']);
+        $coOwner = User::factory()->create(['role' => 'landlord', 'email' => 'co-owner@example.com']);
+        $property = Property::create(['landlord_id' => $primary->id, 'name' => 'Shared Unit 501', 'status' => 'vacant']);
+        PropertyOwnerShare::create([
+            'property_id' => $property->id,
+            'owner_id' => $coOwner->id,
+            'share_percent' => 50,
+            'is_primary' => false,
+        ]);
+
+        $this->actingAs($admin)->post(route('admin.landlord.account-statement.email', $primary), [
+            'recipient_mode' => 'owner',
+            'purpose' => 'Monthly Statement',
+            'date_from' => '2026-09-01',
+            'date_to' => '2026-09-30',
+            'property_id' => $property->id,
+        ])->assertRedirect()->assertSessionHasNoErrors()
+            ->assertSessionHas('success', fn ($message) => str_contains($message, 'primary-owner@example.com')
+                && str_contains($message, 'co-owner@example.com'));
+
+        Queue::assertPushed(SendOwnerStatementEmail::class, fn (SendOwnerStatementEmail $job) =>
+            $job->recipient === 'primary-owner@example.com'
+            && $job->ccRecipients === ['co-owner@example.com']
+            && $job->propertyId === $property->id
+        );
     }
 }
