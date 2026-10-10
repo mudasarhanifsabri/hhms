@@ -103,8 +103,8 @@
                 <div class="position-relative">
                     @if($firstPhoto)<img src="{{ $firstPhoto }}" alt="{{ $property->name }}" class="img-fluid w-100" style="height: 190px; object-fit: cover;">@else<div class="bg-primary-subtle text-primary d-flex align-items-center justify-content-center" style="height:190px"><iconify-icon icon="solar:home-bold-duotone" style="font-size:72px"></iconify-icon></div>@endif
                     <span class="position-absolute top-0 end-0 p-2">
-                        <span class="badge {{ $property->occupancy_class }} text-white fs-13">{{ $property->occupancy_label }}</span>
-                        @if($property->needs_attention)<span class="badge bg-warning-subtle text-warning fs-13">{{ $property->status_label }}</span>@endif
+                        <span class="badge {{ $property->has_active_booking ? 'bg-primary' : 'bg-success' }} text-white fs-13" data-live-status="{{ $property->has_active_booking ? 'occupied' : 'vacant' }}">{{ $property->has_active_booking ? 'Occupied' : 'Vacant' }}</span>
+                        @if(in_array($property->status, ['under_cleaning', 'under_maintenance'], true))<span class="badge bg-warning-subtle text-warning fs-13">{{ $property->status_label }}</span>@endif
                     </span>
                 </div>
                 <div class="card-body">

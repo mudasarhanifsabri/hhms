@@ -196,8 +196,8 @@
                                     @endif
                                 </td>
                                 <td>
-                                    <span class="badge {{ $property->occupancy_class }} text-white">{{ $property->occupancy_label }}</span>
-                                    @if($property->needs_attention)
+                                    <span class="badge {{ $property->has_active_booking ? 'bg-primary' : 'bg-success' }} text-white" data-live-status="{{ $property->has_active_booking ? 'occupied' : 'vacant' }}">{{ $property->has_active_booking ? 'Occupied' : 'Vacant' }}</span>
+                                    @if(in_array($property->status, ['under_cleaning', 'under_maintenance'], true))
                                         <span class="badge bg-warning-subtle text-warning d-block mt-1">{{ $property->status_label }}</span>
                                     @endif
                                 </td>

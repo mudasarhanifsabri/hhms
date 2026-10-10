@@ -64,6 +64,8 @@ class AdminDashboardTest extends TestCase
         Booking::create(['property_id' => $vacant->id, 'booking_reference' => 'BK-FUTURE', 'invoice_number' => 'INV-FUTURE', 'guest_name' => 'Future Guest', 'guest_email' => 'future@example.com', 'guest_phone' => '2', 'guest_passport_id_no' => 'P2', 'check_in' => '2026-11-01', 'check_out' => '2026-11-20', 'status' => 'confirmed', 'rent_amount' => 100]);
 
         $response = $this->actingAs($admin)->get(route('admin.property.index'))->assertOk()
+            ->assertSee('data-live-status="occupied"', false)
+            ->assertSee('data-live-status="vacant"', false)
             ->assertSee('Occupied')->assertSee('Vacant')->assertDontSee('Booked</span>', false);
         $this->assertSame(['total' => 2, 'vacant' => 1, 'occupied' => 1, 'attention' => 0], $response->viewData('unitStats'));
         $rows = $response->viewData('properties')->getCollection()->keyBy('id');

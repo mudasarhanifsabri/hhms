@@ -69,7 +69,7 @@ class PropertyController extends Controller
                     $property->landlord?->email ?? '',
                     $property->unit_type_label,
                     $property->community ?: ($property->building?->address ?? ''),
-                    $property->occupancy_label,
+                    $property->has_active_booking ? 'Occupied' : 'Vacant',
                     (float) $property->opening_balance,
                     (float) $property->period_credits,
                     (float) $property->period_debits,
