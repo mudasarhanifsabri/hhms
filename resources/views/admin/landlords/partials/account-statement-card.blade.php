@@ -201,16 +201,29 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                    <div class="alert alert-primary d-flex align-items-center gap-3"><i class="ri-mail-check-line fs-24"></i><div><strong>{{ $landlord->name }}</strong><div>{{ $landlord->email ?: 'No owner email recorded' }}</div></div></div>
+                    <div class="alert alert-primary mb-3">
+                        <div class="d-flex align-items-center gap-2 mb-2"><i class="ri-mail-check-line fs-24"></i><strong>Statement recipients</strong></div>
+                        <div id="statementRecipientPreview" class="d-flex flex-column gap-2"></div>
+                        <div class="small mt-2 opacity-75">For a selected unit, all registered owners of that unit receive the same statement.</div>
+                    </div>
                     <div class="row g-3">
-                        <div class="col-lg-6"><label class="form-label">Send To</label><select class="form-control" name="recipient_mode" id="statement_recipient_mode" required><option value="owner">Owner email</option><option value="custom">Custom email only</option><option value="both">Owner and custom email</option></select></div>
-                        <div class="col-lg-6"><label class="form-label">Custom Email</label><input type="email" class="form-control" name="custom_email" placeholder="accounts@example.com"></div>
+                        <div class="col-lg-6"><label class="form-label">Send To</label><select class="form-control" name="recipient_mode" id="statement_recipient_mode" required><option value="owner">All unit owners</option><option value="custom">Custom email only</option><option value="both">All unit owners and custom email</option></select></div>
+                        <div class="col-lg-6"><label class="form-label">Custom Email</label><input type="email" class="form-control" id="statement_custom_email" name="custom_email" placeholder="accounts@example.com"></div>
                         <div class="col-lg-6"><label class="form-label">Purpose</label><select class="form-control" name="purpose" id="statement_purpose" required><option>Monthly Statement</option><option>Payout Summary</option><option>Account Reconciliation</option><option>Custom</option></select></div>
                         <div class="col-lg-6"><label class="form-label">Custom Purpose</label><input type="text" class="form-control" name="custom_purpose" maxlength="120" placeholder="Example: August final settlement"></div>
                         <input type="hidden" name="date_from" value="{{ $filters['date_from'] ?? '' }}">
                         <input type="hidden" name="date_to" value="{{ $filters['date_to'] ?? '' }}">
                         <div class="col-lg-8"><label class="form-label">Statement Period</label><div class="form-control bg-light">{{ \Carbon\Carbon::parse($filters['date_from'])->format('d M Y') }} – {{ \Carbon\Carbon::parse($filters['date_to'])->format('d M Y') }}</div></div>
-                        <div class="col-lg-4"><label class="form-label">Unit</label><select class="form-control" name="property_id"><option value="">All units</option>@foreach($relatedProperties as $property)<option value="{{ $property->id }}" @selected(($filters['property_id'] ?? '')===$property->id)>{{ $property->name }} - {{ $property->building?->building_name ?? 'No building' }}</option>@endforeach</select></div>
+                        <div class="col-lg-4"><label class="form-label">Unit</label><select class="form-control" id="statement_property_id" name="property_id">
+                            <option value="" data-owner-recipients="{{ e(collect([['name' => $landlord->name, 'email' => $landlord->email]])->toJson()) }}">All units</option>
+                            @foreach($relatedProperties as $property)
+                                @php
+                                    $unitOwners = $property->ownerShares->pluck('owner')->filter()->prepend($property->landlord)->filter()->unique('id')->values()
+                                        ->map(fn ($owner) => ['name' => $owner->name, 'email' => $owner->email]);
+                                @endphp
+                                <option value="{{ $property->id }}" data-owner-recipients="{{ e($unitOwners->toJson()) }}" @selected(($filters['property_id'] ?? '')===$property->id)>{{ $property->name }} - {{ $property->building?->building_name ?? 'No building' }}</option>
+                            @endforeach
+                        </select></div>
                         <div class="col-12"><label class="form-label">Message to Owner</label><textarea class="form-control" name="message" rows="4" maxlength="2000" placeholder="Optional personal message shown inside the email"></textarea></div>
                     </div>
                 </div>
@@ -219,6 +232,41 @@
         </div>
     </div>
 </div>
+
+<script>
+(() => {
+    const unit = document.getElementById('statement_property_id');
+    const mode = document.getElementById('statement_recipient_mode');
+    const custom = document.getElementById('statement_custom_email');
+    const preview = document.getElementById('statementRecipientPreview');
+    if (!unit || !mode || !custom || !preview) return;
+
+    const renderRecipients = () => {
+        let recipients = [];
+        if (mode.value !== 'custom') {
+            try { recipients = JSON.parse(unit.selectedOptions[0]?.dataset.ownerRecipients || '[]'); } catch (error) { recipients = []; }
+        }
+        if (mode.value !== 'owner' && custom.value.trim()) {
+            recipients.push({name: 'Custom recipient', email: custom.value.trim()});
+        }
+        const seen = new Set();
+        recipients = recipients.filter(recipient => {
+            const email = String(recipient.email || '').trim().toLowerCase();
+            if (!email || seen.has(email)) return false;
+            seen.add(email);
+            return true;
+        });
+        preview.innerHTML = recipients.length
+            ? recipients.map(recipient => `<div class="d-flex justify-content-between gap-3 bg-white bg-opacity-75 rounded px-3 py-2"><strong>${escapeHtml(recipient.name || 'Owner')}</strong><span class="text-break">${escapeHtml(recipient.email)}</span></div>`).join('')
+            : '<div class="bg-white bg-opacity-75 rounded px-3 py-2">Enter a valid custom email address.</div>';
+    };
+    const escapeHtml = value => String(value).replace(/[&<>'"]/g, character => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#039;','"':'&quot;'}[character]));
+    unit.addEventListener('change', renderRecipients);
+    mode.addEventListener('change', renderRecipients);
+    custom.addEventListener('input', renderRecipients);
+    renderRecipients();
+})();
+</script>
 
 @foreach ($accountEntries as $entry)
     @php

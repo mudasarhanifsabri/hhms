@@ -148,6 +148,12 @@ class OwnerStatementEntryDeletionTest extends TestCase
             'is_primary' => false,
         ]);
 
+        $this->actingAs($admin)->get(route('admin.landlord.account-statement', [$primary, 'property_id' => $property->id]))
+            ->assertOk()
+            ->assertSee('Statement recipients')
+            ->assertSee('primary-owner@example.com')
+            ->assertSee('co-owner@example.com');
+
         $this->actingAs($admin)->post(route('admin.landlord.account-statement.email', $primary), [
             'recipient_mode' => 'owner',
             'purpose' => 'Monthly Statement',
