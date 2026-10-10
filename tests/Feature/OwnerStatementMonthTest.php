@@ -43,6 +43,17 @@ class OwnerStatementMonthTest extends TestCase
         ]);
         OwnerReceiptPosting::post($payment->fresh('invoice.booking.property'));
 
+        $septemberRenewal = BookingInvoice::create([
+            'booking_id' => $booking->id, 'invoice_number' => 'INV-SEPTEMBER-RENEWAL', 'invoice_type' => 'renewal',
+            'issue_date' => '2026-09-08', 'period_from' => '2026-09-08', 'period_to' => '2026-09-24',
+            'rent_amount' => 2200, 'total_amount' => 2200, 'status' => 'paid', 'legacy_owner_settled' => false,
+        ]);
+        $renewalPayment = BookingInvoicePayment::create([
+            'booking_invoice_id' => $septemberRenewal->id, 'payment_date' => '2026-09-08', 'amount' => 2200,
+            'rent_amount' => 2200, 'payment_method' => 'Bank Transfer',
+        ]);
+        OwnerReceiptPosting::post($renewalPayment->fresh('invoice.booking.property'));
+
         $legacy = BookingInvoice::create([
             'booking_id' => $booking->id, 'invoice_number' => 'INV-OLD-LEGACY', 'invoice_type' => 'original',
             'issue_date' => '2026-08-01', 'period_from' => '2026-08-01', 'period_to' => '2026-08-08',
@@ -64,7 +75,11 @@ class OwnerStatementMonthTest extends TestCase
         $pdfData = OwnerStatementPdf::data($owner, '2026-08-01', '2026-08-31', $unit->id);
         $this->assertEquals(6500, $pdfData['summary']['rent']);
         $this->assertEquals(650, $pdfData['summary']['management']);
+        $this->assertSame(['INV-HISTORICAL-AUG'], $pdfData['reservations']->pluck('invoice_number')->all());
         $this->assertFalse($pdfData['entries']->contains('booking_invoice_id', $legacy->id));
+
+        $septemberPdf = OwnerStatementPdf::data($owner, '2026-09-01', '2026-09-30', $unit->id);
+        $this->assertSame(['INV-SEPTEMBER-RENEWAL'], $septemberPdf['reservations']->pluck('invoice_number')->all());
     }
 
     public function test_invoice_income_is_reported_in_service_month_not_payment_month(): void

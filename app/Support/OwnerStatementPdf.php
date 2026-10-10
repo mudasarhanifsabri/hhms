@@ -50,7 +50,10 @@ class OwnerStatementPdf
             ->flatMap(function (Booking $booking) use ($period) {
                 return $booking->invoices->sortBy('period_from')
                     ->when(RmsStatementCutoff::applies(), fn ($invoices) => $invoices->filter(fn ($invoice) => RmsStatementCutoff::includesInvoice($invoice)))
-                    ->filter(fn ($invoice) => $invoice->period_from?->lte($period['to']) && $invoice->period_to?->gte($period['from']))
+                    // Each paid invoice belongs to the statement month in which its
+                    // service period starts. Do not repeat an August invoice in the
+                    // September reservation summary merely because it overlaps it.
+                    ->filter(fn ($invoice) => $invoice->period_from?->betweenIncluded($period['from'], $period['to']))
                     ->filter(fn ($invoice) => (float) $invoice->payments->sum('amount') + 0.01 >= (float) $invoice->total_amount)
                     ->map(function ($invoice) use ($booking) {
                         $receivedRent = (float) $invoice->payments->sum('rent_amount');
