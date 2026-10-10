@@ -10,12 +10,62 @@ use App\Models\Property;
 use App\Models\User;
 use App\Support\OwnerStatementPdf;
 use App\Support\OwnerReceiptPosting;
+use App\Support\RmsStatementCutoff;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 class OwnerStatementMonthTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_new_historical_august_booking_is_included_while_legacy_august_data_stays_hidden(): void
+    {
+        config(['app.url' => 'https://rms.pattern.ae']);
+
+        $admin = User::factory()->create(['role' => 'admin']);
+        $owner = User::factory()->create(['role' => 'landlord']);
+        $unit = Property::create(['landlord_id' => $owner->id, 'name' => '913']);
+        $booking = Booking::create([
+            'property_id' => $unit->id, 'booking_reference' => 'BK-HISTORICAL-AUG', 'invoice_number' => 'INV-HISTORICAL-AUG',
+            'guest_name' => 'Historical Guest', 'guest_email' => 'guest@example.com', 'guest_phone' => '123',
+            'guest_passport_id_no' => 'P-AUG', 'check_in' => '2026-08-09', 'check_out' => '2026-09-08',
+            'rent_amount' => 6500, 'management_fee_percent' => 10, 'owner_posting_basis' => 'receipts',
+            'status' => 'confirmed', 'invoice_status' => 'paid',
+        ]);
+        $historical = BookingInvoice::create([
+            'booking_id' => $booking->id, 'invoice_number' => 'INV-HISTORICAL-AUG', 'invoice_type' => 'original',
+            'issue_date' => '2026-10-10', 'period_from' => '2026-08-09', 'period_to' => '2026-09-08',
+            'rent_amount' => 6500, 'total_amount' => 6500, 'status' => 'paid', 'legacy_owner_settled' => false,
+        ]);
+        $payment = BookingInvoicePayment::create([
+            'booking_invoice_id' => $historical->id, 'payment_date' => '2026-10-10', 'amount' => 6500,
+            'rent_amount' => 6500, 'payment_method' => 'Bank Transfer',
+        ]);
+        OwnerReceiptPosting::post($payment->fresh('invoice.booking.property'));
+
+        $legacy = BookingInvoice::create([
+            'booking_id' => $booking->id, 'invoice_number' => 'INV-OLD-LEGACY', 'invoice_type' => 'original',
+            'issue_date' => '2026-08-01', 'period_from' => '2026-08-01', 'period_to' => '2026-08-08',
+            'rent_amount' => 1000, 'total_amount' => 1000, 'status' => 'paid', 'legacy_owner_settled' => true,
+        ]);
+        LandlordAccountEntry::create([
+            'landlord_id' => $owner->id, 'property_id' => $unit->id, 'booking_invoice_id' => $legacy->id,
+            'entry_date' => '2026-08-01', 'type' => 'rent_income', 'direction' => 'credit', 'amount' => 1000,
+            'reference' => $legacy->invoice_number, 'description' => 'Legacy August rent',
+        ]);
+
+        $this->assertTrue(RmsStatementCutoff::includesInvoice($historical));
+        $this->assertFalse(RmsStatementCutoff::includesInvoice($legacy));
+
+        $response = $this->actingAs($admin)->get(route('admin.landlord.account-statement', [$owner, 'month' => '2026-08']))
+            ->assertOk()->assertSee('August 2026')->assertSee('INV-HISTORICAL-AUG')->assertDontSee('Legacy August rent');
+        $this->assertCount(2, $response->viewData('accountEntries'));
+
+        $pdfData = OwnerStatementPdf::data($owner, '2026-08-01', '2026-08-31', $unit->id);
+        $this->assertEquals(6500, $pdfData['summary']['rent']);
+        $this->assertEquals(650, $pdfData['summary']['management']);
+        $this->assertFalse($pdfData['entries']->contains('booking_invoice_id', $legacy->id));
+    }
 
     public function test_invoice_income_is_reported_in_service_month_not_payment_month(): void
     {

@@ -49,7 +49,7 @@ class OwnerStatementPdf
             ->orderBy('check_in')->get()
             ->flatMap(function (Booking $booking) use ($period) {
                 return $booking->invoices->sortBy('period_from')
-                    ->when(RmsStatementCutoff::applies(), fn ($invoices) => $invoices->filter(fn ($invoice) => $invoice->period_from?->gte(RmsStatementCutoff::DATE)))
+                    ->when(RmsStatementCutoff::applies(), fn ($invoices) => $invoices->filter(fn ($invoice) => RmsStatementCutoff::includesInvoice($invoice)))
                     ->filter(fn ($invoice) => $invoice->period_from?->lte($period['to']) && $invoice->period_to?->gte($period['from']))
                     ->filter(fn ($invoice) => (float) $invoice->payments->sum('amount') + 0.01 >= (float) $invoice->total_amount)
                     ->map(function ($invoice) use ($booking) {

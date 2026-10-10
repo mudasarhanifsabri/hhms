@@ -27,7 +27,23 @@ class RmsStatementCutoff
 
     public static function invoices(Builder $query): Builder
     {
-        return $query->when(self::applies(), fn (Builder $query) => $query->whereDate('period_from', '>=', self::DATE));
+        return $query->when(self::applies(), fn (Builder $query) => $query->where(function (Builder $invoice) {
+            $invoice->whereDate('period_from', '>=', self::DATE)
+                ->orWhere(function (Builder $historical) {
+                    $historical->whereDate('issue_date', '>=', self::DATE)
+                        ->where('legacy_owner_settled', false);
+                });
+        }));
+    }
+
+    public static function includesInvoice(BookingInvoice $invoice): bool
+    {
+        if (! self::applies()) {
+            return true;
+        }
+
+        return $invoice->period_from?->gte(self::DATE)
+            || ($invoice->issue_date?->gte(self::DATE) && ! $invoice->legacy_owner_settled);
     }
 
     public static function ownerEntries(Builder $query): Builder
@@ -38,6 +54,10 @@ class RmsStatementCutoff
 
         $legacyInvoices = BookingInvoice::query()
             ->whereDate('period_from', '<', self::DATE)
+            ->where(function (Builder $invoice) {
+                $invoice->where('legacy_owner_settled', true)
+                    ->orWhereDate('issue_date', '<', self::DATE);
+            })
             ->get(['id', 'invoice_number']);
         $legacyInvoiceIds = $legacyInvoices->pluck('id');
         $legacyReferences = $legacyInvoices->pluck('invoice_number')
