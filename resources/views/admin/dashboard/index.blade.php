@@ -30,21 +30,22 @@
                 <tbody>
                 @forelse($expiringBookings as $booking)
                     @php
-                        $daysLeft = today()->diffInDays($booking->check_out, false);
+                        $followUpCheckout = $booking->follow_up_checkout ?? $booking->check_out;
+                        $daysLeft = today()->diffInDays($followUpCheckout, false);
                         $phone = preg_replace('/\D+/', '', (string) $booking->guest_phone);
                         $unit = $booking->property?->name ?? 'Unit';
                         $building = $booking->property?->building?->building_name ?? $booking->property?->building?->name;
                         $stayName = trim($unit.($building ? ' - '.$building : ''));
-                        $extensionMessage = rawurlencode("Hello {$booking->guest_name}, this is PATTERN Vacation Homes. Your booking {$booking->booking_reference} for {$stayName} is scheduled to end on {$booking->check_out?->format('d M Y')}. Would you like to extend your stay? Please reply so we can confirm availability and prepare the extension invoice.");
-                        $checkoutMessage = rawurlencode("Hello {$booking->guest_name}, this is PATTERN Vacation Homes. Please confirm your scheduled checkout for booking {$booking->booking_reference} at {$stayName} on {$booking->check_out?->format('d M Y')}. Kindly reply with your expected checkout time.");
+                        $extensionMessage = rawurlencode("Hello {$booking->guest_name}, this is PATTERN Vacation Homes. Your booking {$booking->booking_reference} for {$stayName} is scheduled to end on {$followUpCheckout?->format('d M Y')}. Would you like to extend your stay? Please reply so we can confirm availability and prepare the extension invoice.");
+                        $checkoutMessage = rawurlencode("Hello {$booking->guest_name}, this is PATTERN Vacation Homes. Please confirm your scheduled checkout for booking {$booking->booking_reference} at {$stayName} on {$followUpCheckout?->format('d M Y')}. Kindly reply with your expected checkout time.");
                     @endphp
                     <tr>
-                        <td><strong>{{ $booking->check_out?->format('d M Y') }}</strong><small class="d-block text-muted">{{ $booking->check_out_time ? \Carbon\Carbon::parse($booking->check_out_time)->format('H:i') : '11:00' }}</small></td>
+                        <td><strong>{{ $followUpCheckout?->format('d M Y') }}</strong><small class="d-block text-muted">{{ $booking->check_out_time ? \Carbon\Carbon::parse($booking->check_out_time)->format('H:i') : '11:00' }}</small></td>
                         <td><span class="fw-semibold">{{ $booking->guest_name }}</span><small class="d-block text-muted">{{ $booking->guest_phone }}</small></td>
                         <td>{{ $unit }}<small class="d-block text-muted">{{ $building ?: 'No building' }}</small></td>
                         <td><a href="{{ route('admin.booking.show', $booking) }}">{{ $booking->booking_reference }}</a></td>
                         <td>
-                            <span class="badge {{ $daysLeft <= 0 ? 'bg-danger-subtle text-danger' : 'bg-warning-subtle text-warning' }}">{{ $daysLeft < 0 ? abs($daysLeft).' '.Str::plural('day', abs($daysLeft)).' overdue' : ($daysLeft === 0 ? 'Due today' : $daysLeft.' '.Str::plural('day', $daysLeft).' left') }}</span>
+                            <span class="badge {{ $daysLeft <= 0 ? 'bg-danger-subtle text-danger' : 'bg-warning-subtle text-warning' }}">{{ $daysLeft < 0 ? 'Checkout '.abs($daysLeft).' '.Str::plural('day', abs($daysLeft)).' overdue' : ($daysLeft === 0 ? 'Checkout due today' : 'Checkout in '.$daysLeft.' '.Str::plural('day', $daysLeft)) }}</span>
                             <small class="d-block text-muted mt-1">{{ str($booking->status)->replace('_', ' ')->headline() }}</small>
                         </td>
                         <td class="text-end text-nowrap">

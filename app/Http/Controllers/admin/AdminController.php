@@ -49,16 +49,27 @@ class AdminController extends Controller
         $departuresToday = (clone $liveBookings)->where('status', 'checked_in')->whereDate('check_out', $today)->count();
         $overdueDepartures = (clone $liveBookings)->where('status', 'checked_in')->whereDate('check_out', '<', $today)->count();
         $expiringBookings = Booking::query()
-            ->with(['property.building'])
+            ->with(['property.building', 'invoices.payments'])
             ->whereHas('property')
             ->whereNotIn('status', ['checked_out', 'cancelled'])
             ->whereDoesntHave('renewals', fn ($query) => $query->whereNotIn('status', ['cancelled', 'checked_out']))
-            // Keep unresolved departures visible after their due date. They disappear only
-            // after checkout/cancellation or when an active renewal replaces the stay.
-            ->whereDate('check_out', '<=', $today->copy()->addDays(3)->toDateString())
-            ->orderBy('check_out')
-            ->orderBy('check_out_time')
-            ->get();
+            ->get()
+            ->each(function (Booking $booking) {
+                // Imported/legacy extensions may have a correct paid invoice period while
+                // the booking still carries its original checkout date. Use the latest
+                // fully-paid stay period so an old checkout warning is not shown.
+                $paidExtendedCheckout = $booking->invoices
+                    ->whereIn('invoice_type', ['extension', 'renewal'])
+                    ->filter(fn (BookingInvoice $invoice) => $invoice->legacy_owner_settled
+                        || $invoice->status === 'paid'
+                        || (float) $invoice->payments->sum('amount') + 0.01 >= (float) $invoice->total_amount)
+                    ->pluck('period_to')->filter()->sortDesc()->first();
+                $effectiveCheckout = collect([$booking->check_out, $paidExtendedCheckout])->filter()->sortDesc()->first();
+                $booking->setAttribute('follow_up_checkout', $effectiveCheckout);
+            })
+            ->filter(fn (Booking $booking) => $booking->follow_up_checkout?->lte($today->copy()->addDays(3)))
+            ->sortBy(fn (Booking $booking) => $booking->follow_up_checkout?->format('Y-m-d').' '.($booking->check_out_time ?: '11:00'))
+            ->values();
         $pendingInvoices = BookingInvoice::query()
             ->with(['booking.property.building'])
             ->withSum('payments', 'amount')

@@ -38,7 +38,7 @@ class AdminDashboardTest extends TestCase
             ->assertViewHas('arrivalsToday', 1)->assertViewHas('departuresToday', 1)
             ->assertViewHas('overdueDepartures', 1)->assertViewHas('totalRegisteredUsers', 2)
             ->assertSee('05 Sep 2027')
-            ->assertSee('1 day overdue');
+            ->assertSee('Checkout 1 day overdue');
         $this->assertCount(3, $response->viewData('expiringBookings'));
     }
 
@@ -71,5 +71,35 @@ class AdminDashboardTest extends TestCase
 
         $this->assertCount(1, $response->viewData('pendingInvoices'));
         $this->assertSame($soon->id, $response->viewData('pendingInvoices')->first()->id);
+    }
+
+    public function test_paid_extension_replaces_old_checkout_date_in_follow_up(): void
+    {
+        $this->travelTo(now()->setDate(2026, 10, 10)->startOfDay());
+        $admin = User::factory()->create(['role' => 'admin']);
+        $owner = User::factory()->create(['role' => 'landlord']);
+        $property = Property::create(['landlord_id' => $owner->id, 'name' => 'Unit 719']);
+        $booking = Booking::create([
+            'property_id' => $property->id, 'booking_reference' => 'BK-PAID-EXTENSION',
+            'invoice_number' => 'INV-ORIGINAL', 'guest_name' => 'Extended Guest',
+            'guest_email' => 'extended@example.com', 'guest_phone' => '12345',
+            'guest_passport_id_no' => 'P-EXT', 'check_in' => '2026-09-01',
+            'check_out' => '2026-10-02', 'status' => 'checked_in', 'rent_amount' => 100,
+        ]);
+        $extension = BookingInvoice::create([
+            'booking_id' => $booking->id, 'invoice_number' => 'INV-EXT-PAID',
+            'invoice_type' => 'extension', 'issue_date' => '2026-10-01',
+            'period_from' => '2026-10-03', 'period_to' => '2026-11-02',
+            'total_amount' => 1000, 'status' => 'paid',
+        ]);
+        BookingInvoicePayment::create([
+            'booking_invoice_id' => $extension->id, 'amount' => 1000,
+            'payment_date' => '2026-10-01', 'payment_method' => 'Bank Transfer',
+        ]);
+
+        $response = $this->actingAs($admin)->get(route('admin.dashboard'))->assertOk();
+
+        $this->assertFalse($response->viewData('expiringBookings')->contains('id', $booking->id));
+        $response->assertDontSee('BK-PAID-EXTENSION');
     }
 }
