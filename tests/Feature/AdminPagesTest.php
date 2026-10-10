@@ -306,8 +306,9 @@ class AdminPagesTest extends TestCase
 
     public function test_admin_can_record_landlord_account_entries(): void
     {
+        Mail::fake();
         $admin = User::factory()->create(['role' => 'admin']);
-        $landlord = User::factory()->create(['role' => 'landlord']);
+        $landlord = User::factory()->create(['role' => 'landlord', 'email' => 'owner-payout@example.com']);
         $building = Building::create([
             'building_name' => 'Ledger Test Building',
             'address' => 'Test Address',
@@ -353,6 +354,12 @@ class AdminPagesTest extends TestCase
         ]);
 
         $this->assertSame(3000.0, (float) LandlordAccountEntry::where('landlord_id', $landlord->id)->latest('entry_date')->first()->balance_after);
+        Mail::assertSent(\App\Mail\OwnerPayoutReceiptMail::class, function ($mail) {
+            return $mail->hasTo('owner-payout@example.com')
+                && $mail->entry->reference === 'TRF-TEST'
+                && str_contains($mail->render(), 'AED 5,000.00')
+                && str_contains($mail->render(), 'Ledger Test Property');
+        });
     }
 
     public function test_admin_can_generate_and_owner_can_sign_property_documents(): void

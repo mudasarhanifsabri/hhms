@@ -15,6 +15,7 @@ use App\Models\Property;
 use App\Models\LandlordAccountEntry;
 use App\Models\BookingInvoice;
 use App\Mail\OwnerStatementMail;
+use App\Mail\OwnerPayoutReceiptMail;
 use App\Support\MediaStorage;
 use App\Support\PdfRenderer;
 use App\Support\OwnerStatementPdf;
@@ -638,7 +639,7 @@ public function storeAccountEntry(Request $request, $id)
         'amount' => 'required|numeric|min:0.01',
         'property_id' => 'nullable|exists:properties,id',
         'booking_invoice_id' => 'nullable|exists:booking_invoices,id',
-        'reference' => 'nullable|string|max:255',
+        'reference' => 'nullable|required_if:type,payout|string|max:255',
         'description' => 'nullable|string|max:1000',
         'invoice_attachment' => 'nullable|file|mimes:pdf,jpg,jpeg,png,webp|max:10240',
         'receipt_attachment' => 'nullable|file|mimes:pdf,jpg,jpeg,png,webp|max:10240',
@@ -675,7 +676,7 @@ public function storeAccountEntry(Request $request, $id)
         return back()->withErrors(['type' => 'Please select a valid statement category.'])->withInput();
     }
 
-    LandlordAccountEntry::create([
+    $entry = LandlordAccountEntry::create([
         'landlord_id' => $landlord->id,
         'property_id' => $propertyId,
         'booking_invoice_id' => $bookingInvoice?->id,
@@ -693,6 +694,27 @@ public function storeAccountEntry(Request $request, $id)
 
     LandlordAccountEntry::recalculateBalancesFor($landlord->id);
 
+    $mailStatus = null;
+    if ($entry->type === 'payout') {
+        if (filled($landlord->email)) {
+            try {
+                $entry->load(['landlord', 'property.building', 'bookingInvoice.booking']);
+                Mail::to($landlord->email)->send(new OwnerPayoutReceiptMail($entry));
+                $mailStatus = ' A payout receipt was emailed to '.$landlord->email.'.';
+            } catch (Throwable $exception) {
+                Log::error('Owner payout receipt email failed.', [
+                    'entry_id' => $entry->id,
+                    'landlord_id' => $landlord->id,
+                    'recipient' => $landlord->email,
+                    'message' => $exception->getMessage(),
+                ]);
+                $mailStatus = ' The payout was saved, but its email receipt could not be sent.';
+            }
+        } else {
+            $mailStatus = ' The payout was saved, but this owner has no email address.';
+        }
+    }
+
     $redirectTo = $validatedData['redirect_to'] ?? null;
     $fallbackUrl = route('admin.landlord.show', $landlord->id);
 
@@ -701,7 +723,7 @@ public function storeAccountEntry(Request $request, $id)
     }
 
     return redirect()->to($redirectTo)
-        ->with('success', 'Owner account statement entry added successfully.');
+        ->with('success', 'Owner account statement entry added successfully.'.($mailStatus ?? ''));
 }
 
 private function accountTotalsFor(string $landlordId, array $filters = []): array
