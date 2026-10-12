@@ -144,7 +144,7 @@
             <div class="card-body p-0">
                 <div class="table-responsive">
                     <table class="table table-hover align-middle mb-0 invoice-table">
-                        <thead><tr><th>Type / Invoice</th><th>Period</th><th>Total</th><th>Paid</th><th>Balance</th><th>Status</th><th>Actions</th></tr></thead>
+                        <thead><tr><th>Type / Invoice</th><th>Period</th><th>VAT</th><th>Total</th><th>Paid</th><th>Balance</th><th>Status</th><th>Actions</th></tr></thead>
                         <tbody>
                         @forelse($booking->invoices->sortBy('created_at') as $invoice)
                             <tr>
@@ -157,6 +157,7 @@
                                         <div class="border-top pt-2 mt-2"><span>Total</span><strong>AED {{ number_format((float)$invoice->total_amount,2) }}</strong></div>
                                     </div></div></td>
                                 <td>{{ $invoice->period_from?->format('d M Y') }}<br><span class="small text-muted">to {{ $invoice->period_to?->format('d M Y') }}</span>@if($invoice->due_date)<small class="d-block text-primary">Due {{ $invoice->due_date->format('d M Y') }}</small>@endif</td>
+                                <td><span class="badge {{ $invoice->vat_included ? 'bg-primary-subtle text-primary' : 'bg-info-subtle text-info' }}">{{ $invoice->vat_included ? 'Included' : 'Excluded' }}</span><small class="d-block mt-1">AED {{ number_format((float) $invoice->vat_amount, 2) }}</small></td>
                                 <td>AED {{ number_format((float) $invoice->total_amount, 2) }}</td>
                                 <td class="text-success">AED {{ number_format($invoice->paid_amount, 2) }}</td>
                                 <td class="{{ $invoice->balance_due > 0 ? 'text-danger' : 'text-success' }}">AED {{ number_format($invoice->balance_due, 2) }}</td>
@@ -198,7 +199,7 @@
                                 </div></td>
                             </tr>
                             @if($invoice->payments->isNotEmpty())
-                                <tr class="table-light"><td colspan="7" class="small">
+                                <tr class="table-light"><td colspan="8" class="small">
                                     <strong>Payments:</strong>
                                     @foreach($invoice->payments as $payment)
                                         <span class="ms-2">{{ $payment->payment_date?->format('d M Y') }} · AED {{ number_format((float) $payment->amount, 2) }} · {{ $payment->payment_method }}{{ $payment->reference ? ' · '.$payment->reference : '' }}</span>
