@@ -78,6 +78,7 @@ class OwnerStatementPdf
         $managementFees = (float) $entries->where('type', 'management_fee')->where('direction', 'debit')->sum('amount');
         $ownerExpenses = (float) $ownerExpenseEntries->sum('amount');
         $payouts = (float) $entries->where('type', 'payout')->where('direction', 'debit')->sum('amount');
+        $entries = LandlordAccountEntry::consolidateInvoiceRows($entries);
 
         return [
             'landlord' => $owner,

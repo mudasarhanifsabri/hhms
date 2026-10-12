@@ -168,7 +168,7 @@ class OwnerPwaTest extends TestCase
 
         $this->actingAs($owner)->get(route('landlord.app'))->assertOk()
             ->assertSee('Original Booking')->assertSee('Extension')
-            ->assertSee('Upcoming payout')->assertSee('Awaiting guest payment')
+            ->assertSee('Ready for payout')->assertSee('Awaiting guest payment')
             ->assertSee('AED 1,000.00')->assertSee('- AED 100.00')->assertSee('AED 900.00')
             ->assertSee('AED 400.00')->assertSee('- AED 40.00')->assertSee('AED 360.00')
             ->assertDontSee('AED 1,680.00')->assertDontSee('AED 525.00');
@@ -296,7 +296,7 @@ class OwnerPwaTest extends TestCase
         $statement = OwnerStatementPdf::data($owner, '2026-08-01', '2026-10-31');
 
         $this->assertCount(1, $statement['entries']);
-        $this->assertSame('SEPTEMBER EXTENSION RENT', $statement['entries']->first()->description);
+        $this->assertSame('Fully paid invoice — rent received, management fee deducted, owner net AED 1,000.00', $statement['entries']->first()->description);
         $this->assertCount(1, $statement['reservations']);
         $this->assertSame('INV-SEPTEMBER-EXT', $statement['reservations']->first()->invoice_number);
     }

@@ -154,6 +154,7 @@ class LandlordController extends Controller
                 $statementBalances[$entry->id] = $runningBalance;
             });
         $accountEntries->getCollection()->each(fn ($entry) => $entry->setAttribute('balance_after', $statementBalances[$entry->id]));
+        $accountEntries->setCollection(LandlordAccountEntry::consolidateInvoiceRows($accountEntries->getCollection()));
         $accountTotals = $this->accountTotalsFor($landlord->id, $filters);
         $accountTotals['opening'] = $openingBalance;
         $accountTotals['closing'] = $openingBalance + $accountTotals['balance'];

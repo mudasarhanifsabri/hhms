@@ -138,7 +138,7 @@
                             </td>
                             <td>
                                 <span class="badge {{ $entry->direction === 'credit' ? 'bg-success-subtle text-success' : 'bg-danger-subtle text-danger' }}">
-                                    {{ $entry->type_label }}
+                                    {{ $entry->invoice_summary ? 'Fully Paid Invoice' : $entry->type_label }}
                                 </span>
                                 @if ($entry->description)
                                     <p class="text-muted fs-12 mb-0">{{ $entry->description }}</p>
@@ -152,10 +152,10 @@
                                 @endif
                             </td>
                             <td class="text-end text-success">
-                                {{ $entry->direction === 'credit' ? number_format((float) $entry->amount, 2) : '-' }}
+                                {{ ($entry->statement_credit ?? 0) > 0 ? number_format((float) $entry->statement_credit, 2) : '-' }}
                             </td>
                             <td class="text-end text-danger">
-                                {{ $entry->direction === 'debit' ? number_format((float) $entry->amount, 2) : '-' }}
+                                {{ ($entry->statement_debit ?? 0) > 0 ? number_format((float) $entry->statement_debit, 2) : '-' }}
                             </td>
                             <td class="text-end fw-semibold">{{ number_format((float) $entry->balance_after, 2) }}</td>
                             <td class="text-end">
@@ -163,11 +163,11 @@
                                     <button type="button" class="btn btn-sm {{ $hasAttachments ? 'btn-soft-primary' : 'btn-light' }}" data-bs-toggle="modal" data-bs-target="#statementAttachments{{ $entry->id }}">
                                         <i class="ri-eye-line me-1"></i>View
                                     </button>
-                                    <form method="POST" action="{{ url('/admin/accounting/owner-statements/entries/'.$entry->id) }}" onsubmit="return confirm('Delete this owner statement entry? The owner balance will be recalculated.');">
+                                    @if(!$entry->invoice_summary)<form method="POST" action="{{ url('/admin/accounting/owner-statements/entries/'.$entry->id) }}" onsubmit="return confirm('Delete this owner statement entry? The owner balance will be recalculated.');">
                                         @csrf
                                         @method('DELETE')
                                         <button type="submit" class="btn btn-sm btn-soft-danger" title="Delete statement entry"><i class="ri-delete-bin-line"></i></button>
-                                    </form>
+                                    </form>@endif
                                 </div>
                             </td>
                         </tr>

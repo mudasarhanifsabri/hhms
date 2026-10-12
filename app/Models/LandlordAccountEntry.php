@@ -6,6 +6,7 @@ use App\Support\RmsStatementCutoff;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Collection;
 
 class LandlordAccountEntry extends BaseModel
 {
@@ -96,6 +97,36 @@ class LandlordAccountEntry extends BaseModel
         return self::CREDIT_TYPES + self::DEBIT_TYPES;
     }
 
+    public static function consolidateInvoiceRows(Collection $entries): Collection
+    {
+        return $entries->groupBy(function (self $entry) {
+            return $entry->booking_invoice_id && in_array($entry->type, ['rent_income', 'management_fee'], true)
+                ? 'invoice:'.$entry->booking_invoice_id
+                : 'entry:'.$entry->id;
+        })->map(function (Collection $rows, string $groupKey) {
+            /** @var self $entry */
+            $entry = clone $rows->first();
+            if (! str_starts_with($groupKey, 'invoice:')) {
+                $entry->setAttribute('statement_credit', $entry->direction === 'credit' ? (float) $entry->amount : 0.0);
+                $entry->setAttribute('statement_debit', $entry->direction === 'debit' ? (float) $entry->amount : 0.0);
+
+                return $entry;
+            }
+
+            $credit = (float) $rows->where('direction', 'credit')->sum('amount');
+            $debit = (float) $rows->where('direction', 'debit')->sum('amount');
+            $entry->setAttribute('statement_credit', $credit);
+            $entry->setAttribute('statement_debit', $debit);
+            $entry->setAttribute('invoice_summary', true);
+            $entry->setAttribute('entry_date', $rows->max('entry_date'));
+            $entry->setAttribute('description', 'Fully paid invoice — rent received, management fee deducted, owner net AED '.number_format($credit - $debit, 2));
+            $entry->setAttribute('balance_after', $rows->last()->balance_after);
+            $entry->setAttribute('statement_balance', $rows->last()->statement_balance);
+
+            return $entry;
+        })->values();
+    }
+
     public static function directionForType(string $type): string
     {
         return array_key_exists($type, self::CREDIT_TYPES) ? 'credit' : 'debit';
@@ -129,7 +160,8 @@ class LandlordAccountEntry extends BaseModel
         $eligibleInvoiceIds = $invoices->filter(
             fn (BookingInvoice $invoice) => (float) ($paidTotals[$invoice->id] ?? 0) + 0.01 >= (float) $invoice->total_amount
         )->pluck('id');
-        $payments = BookingInvoicePayment::query()->whereNull('reversed_at')->get(['id', 'booking_invoice_id']);
+        $allPayments = BookingInvoicePayment::query()->get(['id', 'booking_invoice_id', 'reversed_at']);
+        $payments = $allPayments->whereNull('reversed_at');
         $invoiceIdsWithPayments = $payments->pluck('booking_invoice_id')->unique();
         // A settled invoice with real payment rows must use PAY-* owner postings only.
         // Keeping its older invoice-reference posting visible would double both rent and management fee.
@@ -142,13 +174,19 @@ class LandlordAccountEntry extends BaseModel
                 && $bookingInvoices->every(fn ($invoice) => ! $invoiceIdsWithPayments->contains($invoice->id)))
             ->keys();
         $eligibleReferences = $eligibleReferences->concat($bookings->whereIn('id', $eligibleBookingIds)->pluck('booking_reference'));
-        $automaticReferences = $automaticReferences->concat($payments->pluck('id')->map(fn ($id) => 'PAY-'.$id))->unique()->values();
+        // Every PAY-* row is system generated, including postings for a payment
+        // that was later reversed. Only active eligible payments are added back
+        // below. This keeps corrections and their REV-* audit rows out of the
+        // clean statement shared with an owner.
+        $automaticReferences = $automaticReferences->concat($allPayments->pluck('id')->map(fn ($id) => 'PAY-'.$id))->unique()->values();
         $eligibleReferences = $eligibleReferences->concat(
             $payments->whereIn('booking_invoice_id', $eligibleInvoiceIds)->pluck('id')->map(fn ($id) => 'PAY-'.$id)
         )->unique()->values();
 
         return RmsStatementCutoff::ownerEntries($query
-            ->where(fn ($statement) => $statement->whereNull('reference')->orWhere('reference', 'not like', 'RECON-%'))
+            ->where(fn ($statement) => $statement->whereNull('reference')
+                ->orWhere(fn ($reference) => $reference->where('reference', 'not like', 'RECON-%')
+                    ->where('reference', 'not like', 'REV-%')))
             ->where(function ($statement) use ($automaticReferences, $eligibleReferences) {
                 $statement->whereNotIn('type', ['rent_income', 'management_fee'])
                     ->orWhereNull('reference')

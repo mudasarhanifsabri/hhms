@@ -12,11 +12,23 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
 class OwnerStatementEntryDeletionTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_email_delivery_page_stays_available_before_its_migration_is_applied(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        Schema::drop('email_deliveries');
+
+        $this->actingAs($admin)->get(route('admin.email-deliveries.index'))
+            ->assertOk()
+            ->assertSee('Email delivery history is not available yet')
+            ->assertSee('php artisan migrate --force');
+    }
 
     public function test_admin_can_delete_entry_and_owner_balances_are_recalculated(): void
     {
@@ -92,7 +104,7 @@ class OwnerStatementEntryDeletionTest extends TestCase
         LandlordAccountEntry::create(['landlord_id' => $owner->id, 'property_id' => $unitTwo->id, 'entry_date' => '2026-08-02', 'type' => 'maintenance', 'direction' => 'debit', 'amount' => 700, 'description' => 'Unit 202 repair']);
 
         $this->actingAs($admin)->get(route('admin.landlord.account-statement', [$owner->id, 'property_id' => $unitOne->id]))
-            ->assertOk()->assertSee('Unit-wise Summary')->assertSee('Unit Wise 101')->assertSee('Unit 101 rent')->assertDontSee('Unit 202 repair');
+            ->assertOk()->assertDontSee('Unit-wise Summary')->assertSee('Unit Wise 101')->assertSee('Unit 101 rent')->assertDontSee('Unit 202 repair');
         $this->actingAs($admin)->get(route('admin.landlord.account-statement.pdf', [$owner->id, 'property_id' => $unitOne->id]))
             ->assertOk()->assertDownload('owner-statement-'.str($owner->name)->slug().'.pdf');
     }

@@ -18,6 +18,45 @@ class OwnerStatementMonthTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_reversed_payment_audit_rows_are_hidden_from_shared_owner_statements(): void
+    {
+        $owner = User::factory()->create(['role' => 'landlord']);
+        $unit = Property::create(['landlord_id' => $owner->id, 'name' => 'Clean Statement Unit']);
+        $booking = Booking::create([
+            'property_id' => $unit->id, 'booking_reference' => 'BK-CLEAN', 'invoice_number' => 'INV-CLEAN',
+            'guest_name' => 'Guest', 'guest_email' => 'guest@example.com', 'guest_phone' => '123',
+            'guest_passport_id_no' => 'P-CLEAN', 'check_in' => '2026-10-01', 'check_out' => '2026-10-31',
+            'rent_amount' => 4200, 'management_fee_percent' => 10, 'owner_posting_basis' => 'receipts',
+            'status' => 'confirmed', 'invoice_status' => 'paid',
+        ]);
+        $invoice = BookingInvoice::create([
+            'booking_id' => $booking->id, 'invoice_number' => 'INV-CLEAN', 'invoice_type' => 'original',
+            'issue_date' => '2026-10-01', 'period_from' => '2026-10-01', 'period_to' => '2026-10-31',
+            'rent_amount' => 4200, 'total_amount' => 4200, 'status' => 'paid',
+        ]);
+        $wrongPayment = BookingInvoicePayment::create([
+            'booking_invoice_id' => $invoice->id, 'payment_date' => '2026-10-09', 'amount' => 4200,
+            'rent_amount' => 4200, 'payment_method' => 'Bank Transfer',
+        ]);
+        OwnerReceiptPosting::post($wrongPayment->fresh('invoice.booking.property'));
+        $wrongPayment->update(['reversed_at' => now()]);
+        OwnerReceiptPosting::reverse($wrongPayment->fresh('invoice.booking.property'), 'Wrong entry');
+
+        $this->assertCount(4, LandlordAccountEntry::where('landlord_id', $owner->id)->get());
+        $this->assertCount(0, LandlordAccountEntry::where('landlord_id', $owner->id)->visibleOnOwnerStatement()->get());
+
+        $replacement = BookingInvoicePayment::create([
+            'booking_invoice_id' => $invoice->id, 'payment_date' => '2026-10-10', 'amount' => 4200,
+            'rent_amount' => 4200, 'payment_method' => 'Bank Transfer',
+        ]);
+        OwnerReceiptPosting::post($replacement->fresh('invoice.booking.property'));
+
+        $visible = LandlordAccountEntry::where('landlord_id', $owner->id)->visibleOnOwnerStatement()->get();
+        $this->assertCount(2, $visible);
+        $this->assertFalse($visible->contains(fn ($entry) => str_starts_with((string) $entry->reference, 'REV-')));
+        $this->assertEquals(3780, $visible->sum(fn ($entry) => $entry->direction === 'credit' ? $entry->amount : -$entry->amount));
+    }
+
     public function test_new_historical_august_booking_is_included_while_legacy_august_data_stays_hidden(): void
     {
         config(['app.url' => 'https://rms.pattern.ae']);
@@ -70,7 +109,10 @@ class OwnerStatementMonthTest extends TestCase
 
         $response = $this->actingAs($admin)->get(route('admin.landlord.account-statement', [$owner, 'month' => '2026-08']))
             ->assertOk()->assertSee('August 2026')->assertSee('INV-HISTORICAL-AUG')->assertDontSee('Legacy August rent');
-        $this->assertCount(2, $response->viewData('accountEntries'));
+        $this->assertCount(1, $response->viewData('accountEntries'));
+        $this->assertEquals(6500, $response->viewData('accountEntries')->first()->statement_credit);
+        $this->assertEquals(650, $response->viewData('accountEntries')->first()->statement_debit);
+        $response->assertSee('Fully Paid Invoice')->assertSee('owner net AED 5,850.00');
 
         $pdfData = OwnerStatementPdf::data($owner, '2026-08-01', '2026-08-31', $unit->id);
         $this->assertEquals(6500, $pdfData['summary']['rent']);
@@ -86,7 +128,7 @@ class OwnerStatementMonthTest extends TestCase
             ->assertDontSee('Unit-wise Summary')->assertSee('INV-SEPTEMBER-RENEWAL');
         $this->assertEquals(5850, $septemberPage->viewData('accountTotals')['opening']);
         $this->assertEquals(7830, $septemberPage->viewData('accountTotals')['closing']);
-        $this->assertEquals(8050, $septemberPage->viewData('accountEntries')->first()->balance_after);
+        $this->assertEquals(7830, $septemberPage->viewData('accountEntries')->first()->balance_after);
     }
 
     public function test_invoice_income_is_reported_in_service_month_not_payment_month(): void
@@ -134,7 +176,7 @@ class OwnerStatementMonthTest extends TestCase
             ->assertOk()->assertSee('September repair')->assertDontSee('October rent received');
 
         $response = $this->get(route('admin.landlord.account-statement', [$owner, 'month' => '2026-10']))
-            ->assertOk()->assertSee('October 2026')->assertSee('October rent received')->assertSee('Paid 24 Sep 2026')
+            ->assertOk()->assertSee('October 2026')->assertSee('Fully Paid Invoice')->assertSee('owner net AED 12,600.00')->assertSee('Paid 24 Sep 2026')
             ->assertDontSee('September repair');
         $this->assertSame([$rent->id], $response->viewData('accountEntries')->where('type', 'rent_income')->pluck('id')->all());
 
@@ -148,7 +190,7 @@ class OwnerStatementMonthTest extends TestCase
         $this->assertEquals(12350, $pdfData['accountTotals']['balance']);
 
         $this->get(route('admin.landlord.account-statement', [$owner, 'year' => '2026']))
-            ->assertOk()->assertSee('September repair')->assertSee('October rent received');
+            ->assertOk()->assertSee('September repair')->assertSee('Fully Paid Invoice');
     }
 
     public function test_new_receipt_postings_store_the_invoice_link(): void
