@@ -138,7 +138,7 @@
                             </td>
                             <td>
                                 <span class="badge {{ $entry->direction === 'credit' ? 'bg-success-subtle text-success' : 'bg-danger-subtle text-danger' }}">
-                                    {{ $entry->invoice_summary ? 'Fully Paid Invoice' : $entry->type_label }}
+                                    {{ $entry->invoice_summary ? ($entry->type === 'rent_income' ? 'Rent Collected' : 'Management Fee') : $entry->type_label }}
                                 </span>
                                 @if ($entry->description)
                                     <p class="text-muted fs-12 mb-0">{{ $entry->description }}</p>

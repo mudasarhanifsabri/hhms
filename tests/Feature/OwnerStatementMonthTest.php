@@ -109,10 +109,10 @@ class OwnerStatementMonthTest extends TestCase
 
         $response = $this->actingAs($admin)->get(route('admin.landlord.account-statement', [$owner, 'month' => '2026-08']))
             ->assertOk()->assertSee('August 2026')->assertSee('INV-HISTORICAL-AUG')->assertDontSee('Legacy August rent');
-        $this->assertCount(1, $response->viewData('accountEntries'));
+        $this->assertCount(2, $response->viewData('accountEntries'));
         $this->assertEquals(6500, $response->viewData('accountEntries')->first()->statement_credit);
-        $this->assertEquals(650, $response->viewData('accountEntries')->first()->statement_debit);
-        $response->assertSee('Fully Paid Invoice')->assertSee('owner net AED 5,850.00');
+        $this->assertEquals(650, $response->viewData('accountEntries')->last()->statement_debit);
+        $response->assertSee('Rent Collected')->assertSee('Management Fee');
 
         $pdfData = OwnerStatementPdf::data($owner, '2026-08-01', '2026-08-31', $unit->id);
         $this->assertEquals(6500, $pdfData['summary']['rent']);
@@ -128,7 +128,7 @@ class OwnerStatementMonthTest extends TestCase
             ->assertDontSee('Unit-wise Summary')->assertSee('INV-SEPTEMBER-RENEWAL');
         $this->assertEquals(5850, $septemberPage->viewData('accountTotals')['opening']);
         $this->assertEquals(7830, $septemberPage->viewData('accountTotals')['closing']);
-        $this->assertEquals(7830, $septemberPage->viewData('accountEntries')->first()->balance_after);
+        $this->assertEquals(8050, $septemberPage->viewData('accountEntries')->first()->balance_after);
     }
 
     public function test_invoice_income_is_reported_in_service_month_not_payment_month(): void
@@ -176,7 +176,7 @@ class OwnerStatementMonthTest extends TestCase
             ->assertOk()->assertSee('September repair')->assertDontSee('October rent received');
 
         $response = $this->get(route('admin.landlord.account-statement', [$owner, 'month' => '2026-10']))
-            ->assertOk()->assertSee('October 2026')->assertSee('Fully Paid Invoice')->assertSee('owner net AED 12,600.00')->assertSee('Paid 24 Sep 2026')
+            ->assertOk()->assertSee('October 2026')->assertSee('Rent Collected')->assertSee('Management Fee')->assertSee('Paid 24 Sep 2026')
             ->assertDontSee('September repair');
         $this->assertSame([$rent->id], $response->viewData('accountEntries')->where('type', 'rent_income')->pluck('id')->all());
 
@@ -190,7 +190,7 @@ class OwnerStatementMonthTest extends TestCase
         $this->assertEquals(12350, $pdfData['accountTotals']['balance']);
 
         $this->get(route('admin.landlord.account-statement', [$owner, 'year' => '2026']))
-            ->assertOk()->assertSee('September repair')->assertSee('Fully Paid Invoice');
+            ->assertOk()->assertSee('September repair')->assertSee('Rent Collected')->assertSee('Management Fee');
     }
 
     public function test_new_receipt_postings_store_the_invoice_link(): void

@@ -101,7 +101,7 @@ class LandlordAccountEntry extends BaseModel
     {
         return $entries->groupBy(function (self $entry) {
             return $entry->booking_invoice_id && in_array($entry->type, ['rent_income', 'management_fee'], true)
-                ? 'invoice:'.$entry->booking_invoice_id
+                ? 'invoice:'.$entry->booking_invoice_id.':'.$entry->type
                 : 'entry:'.$entry->id;
         })->map(function (Collection $rows, string $groupKey) {
             /** @var self $entry */
@@ -119,7 +119,9 @@ class LandlordAccountEntry extends BaseModel
             $entry->setAttribute('statement_debit', $debit);
             $entry->setAttribute('invoice_summary', true);
             $entry->setAttribute('entry_date', $rows->max('entry_date'));
-            $entry->setAttribute('description', 'Fully paid invoice — rent received, management fee deducted, owner net AED '.number_format($credit - $debit, 2));
+            $entry->setAttribute('description', $entry->type === 'rent_income'
+                ? 'Total rent collected for the fully paid invoice'
+                : 'Total management fee for the fully paid invoice');
             $entry->setAttribute('balance_after', $rows->last()->balance_after);
             $entry->setAttribute('statement_balance', $rows->last()->statement_balance);
 

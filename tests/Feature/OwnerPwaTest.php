@@ -296,7 +296,7 @@ class OwnerPwaTest extends TestCase
         $statement = OwnerStatementPdf::data($owner, '2026-08-01', '2026-10-31');
 
         $this->assertCount(1, $statement['entries']);
-        $this->assertSame('Fully paid invoice — rent received, management fee deducted, owner net AED 1,000.00', $statement['entries']->first()->description);
+        $this->assertSame('Total rent collected for the fully paid invoice', $statement['entries']->first()->description);
         $this->assertCount(1, $statement['reservations']);
         $this->assertSame('INV-SEPTEMBER-EXT', $statement['reservations']->first()->invoice_number);
     }
