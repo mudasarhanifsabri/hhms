@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
@@ -36,6 +37,9 @@ class LiveFieldScreen extends StatefulWidget {
 }
 
 class _LiveFieldScreenState extends State<LiveFieldScreen> {
+  static const _notificationChannel = MethodChannel(
+    'ae.pattern.hhms/notifications',
+  );
   late final WebViewController _web;
   final _picker = ImagePicker();
   bool _loading = true;
@@ -64,6 +68,9 @@ class _LiveFieldScreenState extends State<LiveFieldScreen> {
   @override
   void initState() {
     super.initState();
+    unawaited(
+      _notificationChannel.invokeMethod<void>('requestNotificationPermission'),
+    );
     _web = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setBackgroundColor(Colors.white)
@@ -406,6 +413,22 @@ class _LiveFieldScreenState extends State<LiveFieldScreen> {
     }
   }
 
+  Future<void> _showNewTaskAlarm(Map<String, dynamic> task) async {
+    try {
+      await _notificationChannel.invokeMethod<void>('showTaskAlarm', {
+        'id': task['id']?.toString() ?? '',
+        'number': task['number']?.toString() ?? 'New task',
+        'title': task['title']?.toString() ?? 'A new task was assigned to you',
+        'location': [
+          task['building']?.toString(),
+          task['property']?.toString(),
+        ].whereType<String>().where((value) => value.isNotEmpty).join(' · '),
+      });
+    } catch (_) {
+      // Task refresh remains usable if native notifications are unavailable.
+    }
+  }
+
   Future<List<String>> _selectPhoto(FileSelectorParams params) async {
     if (!mounted) return [];
     final source = await showModalBottomSheet<ImageSource>(
@@ -488,7 +511,11 @@ class _LiveFieldScreenState extends State<LiveFieldScreen> {
                 user: _user!,
                 request: _api,
                 upload: _upload,
+                onNewTask: _showNewTaskAlarm,
                 signOut: () async {
+                  await _notificationChannel.invokeMethod<void>(
+                    'stopTaskAlarm',
+                  );
                   await _api('POST', '/logout');
                   await _web.loadRequest(Uri.parse('$_baseUrl/login'));
                   if (mounted) {

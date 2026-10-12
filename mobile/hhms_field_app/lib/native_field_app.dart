@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -31,11 +33,13 @@ class NativeFieldApp extends StatefulWidget {
     required this.user,
     required this.request,
     required this.upload,
+    this.onNewTask,
     required this.signOut,
   });
   final Map<String, dynamic> user;
   final FieldRequest request;
   final FieldUpload upload;
+  final Future<void> Function(Map<String, dynamic> task)? onNewTask;
   final Future<void> Function() signOut;
 
   @override
@@ -70,6 +74,9 @@ class _NativeFieldAppState extends State<NativeFieldApp> {
   int _roomIndex = 0;
   XFile? _expenseInvoice;
   XFile? _expenseReceipt;
+  Timer? _taskPoller;
+  final Set<String> _knownTaskIds = {};
+  bool _taskPollInProgress = false;
 
   Future<void> _pickExpenseFile(bool receipt) async {
     final selection = await FilePicker.pickFile(
@@ -101,11 +108,18 @@ class _NativeFieldAppState extends State<NativeFieldApp> {
   @override
   void initState() {
     super.initState();
-    _refresh();
+    unawaited(_refresh());
+    if (!_admin) {
+      _taskPoller = Timer.periodic(
+        const Duration(seconds: 8),
+        (_) => unawaited(_pollForNewTasks()),
+      );
+    }
   }
 
   @override
   void dispose() {
+    _taskPoller?.cancel();
     _notes.dispose();
     _text.dispose();
     _amount.dispose();
@@ -172,9 +186,46 @@ class _NativeFieldAppState extends State<NativeFieldApp> {
         _inspections = _maps(response['inspections']);
       } else {
         _tasks = _maps(response['tasks']);
+        _knownTaskIds.addAll(
+          _tasks
+              .map((task) => task['id']?.toString() ?? '')
+              .where((id) => id.isNotEmpty),
+        );
       }
     });
   });
+
+  Future<void> _pollForNewTasks() async {
+    if (_taskPollInProgress || !mounted || _admin) return;
+    _taskPollInProgress = true;
+
+    try {
+      final response = await widget.request('GET', '/field/api/tasks');
+      final latestTasks = _maps(response['tasks']);
+      final newTasks = latestTasks.where((task) {
+        final id = task['id']?.toString() ?? '';
+        final status = task['status']?.toString() ?? '';
+        return id.isNotEmpty &&
+            !_knownTaskIds.contains(id) &&
+            const ['new', 'open', 'assigned'].contains(status);
+      }).toList();
+
+      _knownTaskIds.addAll(
+        latestTasks
+            .map((task) => task['id']?.toString() ?? '')
+            .where((id) => id.isNotEmpty),
+      );
+
+      if (mounted) setState(() => _tasks = latestTasks);
+      for (final task in newTasks) {
+        await widget.onNewTask?.call(task);
+      }
+    } catch (_) {
+      // A temporary network failure is retried on the next poll.
+    } finally {
+      _taskPollInProgress = false;
+    }
+  }
 
   Future<void> _openTask(Map<String, dynamic> task) => _run(() async {
     final response = await widget.request(
