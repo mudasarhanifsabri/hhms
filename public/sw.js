@@ -1,4 +1,4 @@
-const CACHE_NAME = 'hhms-maintainer-v17';
+const CACHE_NAME = 'hhms-maintainer-v18';
 const APP_SHELL = [
   '/',
   '/maintainer/tasks',
@@ -55,5 +55,24 @@ self.addEventListener('fetch', (event) => {
         return response;
       })
       .catch(() => caches.match(request).then((cached) => cached || caches.match('/maintainer/tasks')))
+  );
+});
+
+self.addEventListener('notificationclick', (event) => {
+  const targetUrl = event.notification.data && event.notification.data.url
+    ? event.notification.data.url
+    : '/maintainer/tasks';
+
+  event.notification.close();
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      for (const client of clientList) {
+        if ('navigate' in client && 'focus' in client) {
+          return client.navigate(targetUrl).then(() => client.focus());
+        }
+      }
+
+      return self.clients.openWindow(targetUrl);
+    })
   );
 });

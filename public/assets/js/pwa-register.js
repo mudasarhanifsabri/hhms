@@ -4,6 +4,9 @@
   var liveTaskSeen = {};
   var liveTaskInitialized = false;
   var bellAudioReady = false;
+  var taskAlarmTimers = [];
+  var taskAlarmStopTimer = null;
+  var activeBellContexts = [];
 
   if (!('serviceWorker' in navigator)) {
     // Menu and notification permission still work without a service worker.
@@ -34,6 +37,16 @@
     var closeButton = event.target.closest('[data-pwa-menu-close]');
     var installButton = event.target.closest('[data-install-pwa]');
     var notificationButton = event.target.closest('[data-enable-notifications]');
+    var liveTaskDismiss = event.target.closest('[data-live-task-dismiss]');
+    var liveTaskOpen = event.target.closest('[data-live-task-open]');
+
+    if (liveTaskDismiss || liveTaskOpen) {
+      stopTaskAlarm();
+      var liveTaskPopup = document.querySelector('[data-live-task-popup]');
+      if (liveTaskPopup) {
+        liveTaskPopup.classList.remove('show');
+      }
+    }
 
     if (openButton) {
       document.body.classList.add('pwa-menu-open');
@@ -371,11 +384,8 @@
 
   function showLiveTaskPopup(task) {
     ensureLiveTaskPopup();
-    playBellTone();
-
-    if ('vibrate' in navigator) {
-      navigator.vibrate([220, 90, 220, 90, 320]);
-    }
+    startTaskAlarm();
+    showTaskSystemNotification(task);
 
     var popup = document.querySelector('[data-live-task-popup]');
     popup.querySelector('[data-live-task-number]').textContent = task.number;
@@ -383,11 +393,6 @@
     popup.querySelector('[data-live-task-meta]').textContent = task.property + ' • ' + task.unit;
     popup.querySelector('[data-live-task-open]').setAttribute('href', task.url);
     popup.classList.add('show');
-
-    window.clearTimeout(popup._hideTimer);
-    popup._hideTimer = window.setTimeout(function () {
-      popup.classList.remove('show');
-    }, 14000);
   }
 
   function ensureLiveTaskPopup() {
@@ -400,8 +405,77 @@
     popup.setAttribute('data-live-task-popup', '');
     popup.innerHTML = '<div class="pwa-live-task-bell"><i class="ri-notification-3-line"></i></div>' +
       '<div class="pwa-live-task-copy"><span data-live-task-number></span><strong>Task Received</strong><p data-live-task-title></p><small data-live-task-meta></small></div>' +
-      '<a data-live-task-open href="#" class="pwa-live-task-open">Open</a>';
+      '<div class="pwa-live-task-actions"><button type="button" data-live-task-dismiss class="pwa-live-task-dismiss">Stop</button><a data-live-task-open href="#" class="pwa-live-task-open">Open Task</a></div>';
     document.body.appendChild(popup);
+  }
+
+  function startTaskAlarm() {
+    stopTaskAlarm();
+
+    [0, 5200, 10400, 15600, 20800].forEach(function (delay) {
+      taskAlarmTimers.push(window.setTimeout(playBellTone, delay));
+    });
+
+    if ('vibrate' in navigator) {
+      navigator.vibrate([
+        650, 180, 650, 180, 900, 350,
+        650, 180, 650, 180, 900, 350,
+        650, 180, 650, 180, 900
+      ]);
+    }
+
+    taskAlarmStopTimer = window.setTimeout(stopTaskAlarm, 26500);
+  }
+
+  function stopTaskAlarm() {
+    taskAlarmTimers.forEach(function (timer) {
+      window.clearTimeout(timer);
+    });
+    taskAlarmTimers = [];
+
+    window.clearTimeout(taskAlarmStopTimer);
+    taskAlarmStopTimer = null;
+
+    activeBellContexts.slice().forEach(function (context) {
+      try {
+        context.close();
+      } catch (error) {
+        // The audio context may already be closed by its normal cleanup.
+      }
+    });
+    activeBellContexts = [];
+
+    if ('vibrate' in navigator) {
+      navigator.vibrate(0);
+    }
+  }
+
+  function showTaskSystemNotification(task) {
+    if (!('Notification' in window) || !window.isSecureContext || Notification.permission !== 'granted') {
+      return;
+    }
+
+    var options = {
+      body: task.title + '\n' + task.property + ' • ' + task.unit,
+      icon: '/assets/images/pwa-icon-192.png',
+      badge: '/assets/images/logo-sm.png',
+      tag: 'maintainer-task-' + task.id,
+      renotify: true,
+      requireInteraction: true,
+      vibrate: [650, 180, 650, 180, 900],
+      data: { url: task.url }
+    };
+
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.ready.then(function (registration) {
+        return registration.showNotification('New Task • ' + task.number, options);
+      }).catch(function () {
+        new Notification('New Task • ' + task.number, options);
+      });
+      return;
+    }
+
+    new Notification('New Task • ' + task.number, options);
   }
 
   function prependLiveTaskCard(task) {
@@ -434,6 +508,7 @@
 
     var AudioContextClass = window.AudioContext || window.webkitAudioContext;
     var context = new AudioContextClass();
+    activeBellContexts.push(context);
     var masterGain = context.createGain();
     var compressor = context.createDynamicsCompressor();
 
@@ -471,7 +546,13 @@
     });
 
     window.setTimeout(function () {
-      context.close();
+      var contextIndex = activeBellContexts.indexOf(context);
+      if (contextIndex !== -1) {
+        activeBellContexts.splice(contextIndex, 1);
+      }
+      if (context.state !== 'closed') {
+        context.close();
+      }
     }, 5600);
   }
 

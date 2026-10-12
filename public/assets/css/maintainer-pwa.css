@@ -939,7 +939,7 @@ body.maintainer-pwa-shell [class*="wrapper"] {
     box-shadow: 0 18px 46px rgba(16, 24, 40, 0.24);
     display: grid;
     gap: 12px;
-    grid-template-columns: 52px 1fr auto;
+    grid-template-columns: 52px 1fr;
     left: 14px;
     opacity: 0;
     padding: 14px;
@@ -971,7 +971,7 @@ body.maintainer-pwa-shell [class*="wrapper"] {
   }
 
   .pwa-live-task-popup.show .pwa-live-task-bell {
-    animation: pwa-bell-ring 1.05s ease-in-out 5;
+    animation: pwa-bell-ring 1.05s ease-in-out infinite;
   }
 
   .pwa-live-task-copy {
@@ -1016,6 +1016,20 @@ body.maintainer-pwa-shell [class*="wrapper"] {
     white-space: nowrap;
   }
 
+  .pwa-live-task-actions {
+    display: flex;
+    gap: 8px;
+    grid-column: 1 / -1;
+  }
+
+  .pwa-live-task-open,
+  .pwa-live-task-dismiss {
+    border: 0;
+    cursor: pointer;
+    flex: 1;
+    text-align: center;
+  }
+
   .pwa-live-task-open {
     background: #6844db;
     border-radius: 999px;
@@ -1024,6 +1038,15 @@ body.maintainer-pwa-shell [class*="wrapper"] {
     font-weight: 800;
     padding: 10px 14px;
     text-decoration: none;
+  }
+
+  .pwa-live-task-dismiss {
+    background: #f2f4f7;
+    border-radius: 999px;
+    color: #344054;
+    font-size: 12px;
+    font-weight: 800;
+    padding: 10px 14px;
   }
 
   .pwa-task-card.is-new-live {
