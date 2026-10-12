@@ -158,6 +158,23 @@ class _NativeFieldAppState extends State<NativeFieldApp> {
     return raw.isEmpty ? 'Something went wrong. Please try again.' : raw;
   }
 
+  String _expectedCompletionDate() {
+    if (!_isInspectionTask && _secondary.text.trim().isNotEmpty) {
+      return _secondary.text.trim();
+    }
+
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final dueDate = DateTime.tryParse(_task['due_date']?.toString() ?? '');
+    final selected = dueDate != null && !dueDate.isBefore(today)
+        ? dueDate
+        : today;
+
+    return '${selected.year.toString().padLeft(4, '0')}-'
+        '${selected.month.toString().padLeft(2, '0')}-'
+        '${selected.day.toString().padLeft(2, '0')}';
+  }
+
   Future<void> _run(Future<void> Function() action) async {
     if (_busy) return;
     setState(() {
@@ -953,8 +970,7 @@ class _NativeFieldAppState extends State<NativeFieldApp> {
       () async {
         await _run(() async {
           await widget.request('POST', '/maintainer/tasks/$_taskId/accept', {
-            'expected_completion_date':
-                _task['due_date']?.toString() ?? _secondary.text,
+            'expected_completion_date': _expectedCompletionDate(),
             'initial_remark': _text.text,
           });
         });
