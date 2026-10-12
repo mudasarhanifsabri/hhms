@@ -8,6 +8,7 @@ use App\Models\BookingInspection;
 use App\Models\BookingTask;
 use App\Models\BookingTaskCostItem;
 use App\Support\MediaStorage;
+use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -124,18 +125,28 @@ class MaintainerController extends Controller
     {
         $this->authorizeAssignedTask($task);
         $validatedData = $request->validate([
-            'expected_completion_date' => 'required|date|after_or_equal:today',
+            'expected_completion_date' => 'required|date',
             'initial_remark' => 'nullable|string|max:2000',
             'pictures.*' => 'nullable|file|mimes:jpg,jpeg,png,webp|max:5120',
             'gps_latitude' => 'nullable|numeric',
             'gps_longitude' => 'nullable|numeric',
         ]);
 
+        $todayInDubai = CarbonImmutable::now('Asia/Dubai')->startOfDay();
+        $expectedCompletionDate = CarbonImmutable::parse(
+            $validatedData['expected_completion_date'],
+            'Asia/Dubai'
+        )->startOfDay();
+
+        if ($expectedCompletionDate->isBefore($todayInDubai)) {
+            $expectedCompletionDate = $todayInDubai;
+        }
+
         $task->update([
             'status' => 'accepted',
             'progress' => 25,
             'accepted_at' => now(),
-            'expected_completion_date' => $validatedData['expected_completion_date'],
+            'expected_completion_date' => $expectedCompletionDate->toDateString(),
         ]);
 
         if (! empty($validatedData['initial_remark']) || $request->hasFile('pictures')) {

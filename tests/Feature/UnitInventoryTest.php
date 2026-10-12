@@ -48,6 +48,26 @@ class UnitInventoryTest extends TestCase
         $this->getJson('/field/api/options')->assertOk()->assertJsonStructure(['properties', 'maintainers', 'bookings']);
     }
 
+    public function test_maintainer_can_accept_an_overdue_task_from_an_older_app_build(): void
+    {
+        extract($this->setupInventory());
+
+        $this->actingAs($employee)
+            ->post(route('maintainer.task.accept', $task), [
+                'expected_completion_date' => now('Asia/Dubai')->subDays(3)->toDateString(),
+                'initial_remark' => 'Starting now',
+            ])
+            ->assertSessionHasNoErrors()
+            ->assertRedirect(route('maintainer.task.show', $task));
+
+        $task->refresh();
+        $this->assertSame('accepted', $task->status);
+        $this->assertSame(
+            now('Asia/Dubai')->toDateString(),
+            $task->expected_completion_date?->toDateString()
+        );
+    }
+
     public function test_inspection_draft_resumes_and_photos_are_idempotent(): void
     {
         extract($this->setupInventory());
