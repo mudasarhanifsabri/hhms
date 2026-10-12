@@ -61,6 +61,29 @@ class FinancialApprovalWorkflowTest extends TestCase
         $this->assertSame('ADCB-APPROVAL-001', $invoice->payments()->first()->reference);
     }
 
+    public function test_card_payment_records_gross_invoice_payment_processor_fee_and_net_bank_deposit(): void
+    {
+        [$maker, $manager, , $invoice, $bank] = $this->context();
+
+        $this->actingAs($maker)->post(route('admin.booking-invoice.payment', $invoice), [
+            'payment_date' => '2026-10-08', 'amount' => $invoice->total_amount, 'payment_method' => 'Card',
+            'card_processing_fee' => 10.84, 'bank_account_id' => $bank->id, 'reference' => 'CARD-NET-001',
+        ])->assertSessionHasNoErrors();
+
+        $this->actingAs($manager)->post(route('admin.financial-approvals.approve', FinancialApprovalRequest::firstOrFail()))
+            ->assertSessionHasNoErrors();
+
+        $payment = $invoice->payments()->firstOrFail();
+        $this->assertEquals((float) $invoice->total_amount, (float) $payment->amount);
+        $this->assertEquals(10.84, (float) data_get($payment->allocation, 'card_processing_fee'));
+        $this->assertEquals(round((float) $invoice->total_amount - 10.84, 2), (float) data_get($payment->allocation, 'bank_net_amount'));
+        $this->assertEquals(round((float) $invoice->total_amount - 10.84, 2), (float) $bank->fresh()->current_balance);
+        $this->assertDatabaseHas('accounting_entries', [
+            'booking_id' => $invoice->booking_id, 'category' => 'card_processing_fee',
+            'paid_from_account_id' => $bank->id, 'debit' => 10.84, 'credit' => 0,
+        ]);
+    }
+
     public function test_admin_can_view_details_but_only_manager_can_decide(): void
     {
         [$maker, $manager, $booking, $invoice, $bank] = $this->context();

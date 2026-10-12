@@ -10,7 +10,7 @@
         <input id="rentInput{{ $invoice->id }}" name="rent_amount" type="number" min="0" step="0.01" value="{{ number_format((float)$invoice->rent_amount + ($invoice->vat_included ? max(0,(float)$invoice->vat_amount-$taxableFeesVat) : 0),2,'.','') }}" class="form-control mb-3" required>
         <div class="btn-group w-100 mb-2" role="group" aria-label="VAT treatment">
             <input type="radio" class="btn-check" name="vat_included" value="1" id="vatIn{{ $invoice->id }}" @checked($invoice->vat_included)><label class="btn btn-outline-primary" for="vatIn{{ $invoice->id }}">VAT Included</label>
-            <input type="radio" class="btn-check" name="vat_included" value="0" id="vatAdd{{ $invoice->id }}" @checked(!$invoice->vat_included)><label class="btn btn-outline-primary" for="vatAdd{{ $invoice->id }}">Add VAT</label>
+            <input type="radio" class="btn-check" name="vat_included" value="0" id="vatAdd{{ $invoice->id }}" @checked(!$invoice->vat_included)><label class="btn btn-outline-primary" for="vatAdd{{ $invoice->id }}">VAT Excluded (add VAT)</label>
         </div>
         <input type="hidden" name="vat_rate" value="{{ $invoice->vat_rate }}">
         <small class="text-muted">VAT rate: {{ number_format((float)$invoice->vat_rate,2) }}%</small>

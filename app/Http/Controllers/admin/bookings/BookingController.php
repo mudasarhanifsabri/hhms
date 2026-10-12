@@ -553,6 +553,7 @@ class BookingController extends Controller
             'amount' => 'required|numeric|decimal:0,2|min:0.01',
             'deposit_submission_id' => 'nullable|uuid',
             'payment_method' => 'required|string|max:100',
+            'card_processing_fee' => 'nullable|required_if:payment_method,Card|numeric|decimal:0,2|min:0|max:999999.99',
             'bank_account_id' => 'required|exists:bank_accounts,id,is_active,1',
             'reference' => 'required|string|max:150',
             'receipt' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:10240',
@@ -578,6 +579,10 @@ class BookingController extends Controller
                 throw ValidationException::withMessages(['amount' => 'Payment cannot exceed the outstanding invoice balance of AED '.number_format($invoice->balance_due, 2).'.']);
             }
             $allocation = \App\Support\InvoiceSettlement::allocation($invoice, (float) $data['amount']);
+            $cardFee = $data['payment_method'] === 'Card' ? round((float) ($data['card_processing_fee'] ?? 0), 2) : 0;
+            if ($cardFee > (float) $data['amount']) {
+                throw ValidationException::withMessages(['card_processing_fee' => 'The card processing fee cannot exceed the amount charged to the guest.']);
+            }
             $data['rent_amount'] = $allocation['rent'];
             $data['deposit_amount'] = $allocation['deposit'];
             $entry = AccountingEntry::create([
@@ -606,7 +611,7 @@ class BookingController extends Controller
                 'receipt_path' => $request->attributes->get('approval_proof_path') ?: $this->uploadFile($request, 'receipt', 'booking_payment_proofs'),
                 'notes' => $data['notes'] ?? null, 'accounting_entry_id' => $entry->id, 'created_by' => auth()->id(),
                 'rent_amount' => $invoice->booking->owner_posting_basis === 'receipts' ? $data['rent_amount'] : null,
-                'allocation' => $allocation,
+                'allocation' => $allocation + ['card_processing_fee' => $cardFee, 'bank_net_amount' => round((float) $data['amount'] - $cardFee, 2)],
             ]);
 
             if ((float) ($data['deposit_amount'] ?? 0) > 0) {
@@ -616,6 +621,13 @@ class BookingController extends Controller
             $paid = $paidBefore + (float) $data['amount'];
             \App\Support\OwnerReceiptPosting::post($payment);
             \App\Support\InvoiceSettlement::post($payment);
+            if ($cardFee > 0) {
+                $feeEntry = $this->recordCardProcessingFee($invoice->booking, $data, $cardFee, $invoice->invoice_number);
+                $payment->update([
+                    'allocation' => ($payment->allocation ?? []) + ['card_processing_fee' => $cardFee, 'bank_net_amount' => round((float) $data['amount'] - $cardFee, 2)],
+                    'allocation_entry_ids' => [...($payment->allocation_entry_ids ?? []), $feeEntry->id],
+                ]);
+            }
             $invoice->booking->histories()->create(['title' => 'Payment Recorded', 'description' => 'Payment '.$payment->transaction_no.' for '.$invoice->invoice_number.': AED '.number_format((float) $payment->amount, 2).'; rent portion '.($payment->rent_amount ?? 'legacy').'; recorded by '.auth()->user()->name.'.']);
             $invoice->update(['status' => $paid >= (float) $invoice->total_amount ? 'paid' : 'partial']);
             BookingPaymentSummary::sync($invoice->booking);
@@ -666,6 +678,7 @@ class BookingController extends Controller
             'payment_date' => 'required|date',
             'amount' => 'required|numeric|decimal:0,2|min:0.01',
             'payment_method' => 'required|string|max:100',
+            'card_processing_fee' => 'nullable|required_if:payment_method,Card|numeric|decimal:0,2|min:0|max:999999.99',
             'bank_account_id' => 'required|exists:bank_accounts,id,is_active,1',
             'reference' => 'required|string|max:150',
             'receipt' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:10240',
@@ -700,6 +713,10 @@ class BookingController extends Controller
             }
             if (\App\Support\DepositWallet::cents($data['amount']) > \App\Support\DepositWallet::cents($outstanding)) {
                 throw ValidationException::withMessages(['amount' => 'Payment cannot exceed the combined outstanding balance of AED '.number_format($outstanding, 2).'.']);
+            }
+            $cardFee = $data['payment_method'] === 'Card' ? round((float) ($data['card_processing_fee'] ?? 0), 2) : 0;
+            if ($cardFee > (float) $data['amount']) {
+                throw ValidationException::withMessages(['card_processing_fee' => 'The card processing fee cannot exceed the amount charged to the guest.']);
             }
 
             $batchId = $data['submission_id'];
@@ -748,6 +765,13 @@ class BookingController extends Controller
                 $summary[] = $invoice->invoice_number.' AED '.number_format($amount, 2);
                 $remaining = round($remaining - $amount, 2);
             }
+            if ($cardFee > 0 && $firstPayment = BookingInvoicePayment::where('payment_batch_id', $batchId)->oldest()->first()) {
+                $feeEntry = $this->recordCardProcessingFee($booking, $data, $cardFee, 'combined payment '.$booking->booking_reference);
+                $firstPayment->update([
+                    'allocation' => ($firstPayment->allocation ?? []) + ['card_processing_fee' => $cardFee, 'bank_net_amount' => round((float) $data['amount'] - $cardFee, 2)],
+                    'allocation_entry_ids' => [...($firstPayment->allocation_entry_ids ?? []), $feeEntry->id],
+                ]);
+            }
             BookingPaymentSummary::sync($booking);
             $booking->histories()->create(['title' => 'Combined Payment Recorded', 'description' => 'Transfer '.$data['reference'].' allocated: '.implode('; ', $summary).'.']);
             $account = BankAccount::whereKey($data['bank_account_id'])->lockForUpdate()->first();
@@ -783,6 +807,27 @@ class BookingController extends Controller
         } while (AccountingEntry::where('entry_no', $number)->exists());
 
         return $number;
+    }
+
+    private function recordCardProcessingFee(Booking $booking, array $data, float $fee, string $context): AccountingEntry
+    {
+        return AccountingEntry::create([
+            'entry_no' => $this->nextAccountingEntryNumber(),
+            'entry_date' => $data['payment_date'],
+            'type' => 'expense', 'category' => 'card_processing_fee',
+            'accounting_account_id' => AccountingAccount::where('code', '5190')->firstOrFail()->id,
+            'description' => 'Card processor fee for '.$context,
+            'property_id' => $booking->property_id,
+            'landlord_id' => $booking->property?->landlord_id,
+            'booking_id' => $booking->id,
+            'paid_from_account_id' => $data['bank_account_id'],
+            'debit' => $fee, 'credit' => 0,
+            'vat_rate' => 0, 'vat_amount' => 0,
+            'net_amount' => $fee, 'gross_amount' => $fee,
+            'payment_method' => 'Card',
+            'transaction_reference' => $data['reference'],
+            'status' => 'posted', 'approval_status' => 'posted', 'created_by' => auth()->id(),
+        ]);
     }
 
     public function checkIn(Request $request, Booking $booking)

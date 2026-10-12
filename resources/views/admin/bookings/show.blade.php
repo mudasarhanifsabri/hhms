@@ -498,7 +498,7 @@
 </div></div></div>
 <div class="modal fade" id="paymentModal{{ $invoice->id }}" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-lg"><div class="modal-content">
-        <form action="{{ route('admin.booking-invoice.payment', $invoice->id) }}" method="POST" enctype="multipart/form-data">@csrf
+        <form action="{{ route('admin.booking-invoice.payment', $invoice->id) }}" method="POST" enctype="multipart/form-data" data-card-payment-form>@csrf
             <div class="modal-header"><h5 class="modal-title">Submit Payment for Approval — {{ $invoice->invoice_number }}</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
             <div class="modal-body">
                 <div class="row g-3 mb-3">
@@ -506,9 +506,11 @@
                     <div class="col-md-4"><div class="border rounded p-3"><span class="text-muted small">Already Paid</span><h5 class="text-success">AED {{ number_format($invoice->paid_amount, 2) }}</h5></div></div>
                     <div class="col-md-4"><div class="border rounded p-3"><span class="text-muted small">Balance Due</span><h5 class="text-danger">AED {{ number_format($invoice->balance_due, 2) }}</h5></div></div>
                     <div class="col-md-6"><label class="form-label">Payment Date</label><input type="date" name="payment_date" class="form-control" value="{{ now()->format('Y-m-d') }}" required></div>
-                    <div class="col-md-6"><label class="form-label">Amount received (AED)</label><input type="number" name="amount" class="form-control" step="0.01" min="0.01" max="{{ $invoice->balance_due }}" value="{{ $invoice->balance_due }}" required><small class="text-muted">Enter the actual amount received. Partial payments remain outstanding and each receipt is kept separately.</small></div>
-                    <div class="col-md-6"><label class="form-label">Payment Method</label><select name="payment_method" class="form-select" required><option>Bank Transfer</option><option>Cash Deposit</option><option>Cash</option><option>Card</option><option>Cheque</option><option>Online Payment</option></select></div>
+                    <div class="col-md-6"><label class="form-label">Amount paid by guest (AED)</label><input type="number" name="amount" class="form-control" step="0.01" min="0.01" max="{{ $invoice->balance_due }}" value="{{ $invoice->balance_due }}" required><small class="text-muted">This is the gross amount charged to the guest and allocated to the invoice.</small></div>
+                    <div class="col-md-6"><label class="form-label">Payment Method</label><select name="payment_method" class="form-select" required data-card-method><option>Bank Transfer</option><option>Cash Deposit</option><option>Cash</option><option>Card</option><option>Cheque</option><option>Online Payment</option></select></div>
                     <div class="col-md-6"><label class="form-label">Received into account</label><select name="bank_account_id" class="form-select" required><option value="">Select bank / cash account</option>@foreach($bankAccounts as $account)<option value="{{ $account->id }}">{{ $account->name }}</option>@endforeach</select></div>
+                    <div class="col-md-6"><label class="form-label">VAT treatment</label><div class="btn-group w-100" role="group"><span class="btn {{ $invoice->vat_included ? 'btn-primary' : 'btn-outline-secondary' }}">VAT Included</span><span class="btn {{ $invoice->vat_included ? 'btn-outline-secondary' : 'btn-primary' }}">VAT Excluded (added)</span></div><small class="text-muted">Set on the invoice; payment does not change VAT.</small></div>
+                    <div class="col-12 d-none" data-card-fields><div class="alert alert-info mb-0"><div class="row g-3"><div class="col-md-6"><label class="form-label">Network / card processor fee (AED)</label><input type="number" name="card_processing_fee" class="form-control" min="0" step="0.01" value="0.00" data-card-fee><small>The amount deducted by the card network.</small></div><div class="col-md-6"><label class="form-label">Net amount deposited in bank (AED)</label><input class="form-control" value="{{ number_format((float)$invoice->balance_due, 2, '.', '') }}" readonly data-card-net><small>Calculated as guest payment minus processor fee.</small></div></div><div class="small mt-2">Any card surcharge collected from the guest must already be included as a fee on this invoice.</div></div></div>
                     <div class="col-12"><div class="border rounded p-3"><strong>Automatic invoice allocation</strong><p class="small text-muted">No charge entry needed. Amounts come from this invoice.</p>
                     @if($allocationError)<div class="alert alert-warning">{{ $allocationError }}</div>@else
                     <table class="table table-sm mb-0"><tbody>@foreach(['rent'=>'Rent (before management fee)', 'vat'=>'VAT payable', 'cleaning'=>'Cleaning income', 'agency'=>'Agency fee', 'tourism'=>'Tourism fees payable', 'other'=>'Other fees', 'deposit'=>'Company-held refundable deposit'] as $key=>$label)<tr><td>{{ $label }}</td><td class="text-end">AED {{ number_format($automaticAllocation[$key], 2) }}</td></tr>@endforeach
@@ -526,13 +528,14 @@
 @endforeach
 
 @if($outstandingInvoices->count() > 1)
-<div class="modal fade" id="combinedPaymentModal" tabindex="-1" aria-hidden="true"><div class="modal-dialog modal-lg modal-dialog-scrollable"><form class="modal-content" method="POST" enctype="multipart/form-data" action="{{ route('admin.booking.combined-payment', $booking) }}">@csrf
+<div class="modal fade" id="combinedPaymentModal" tabindex="-1" aria-hidden="true"><div class="modal-dialog modal-lg modal-dialog-scrollable"><form class="modal-content" method="POST" enctype="multipart/form-data" action="{{ route('admin.booking.combined-payment', $booking) }}" data-card-payment-form>@csrf
 <input type="hidden" name="submission_id" value="{{ (string) \Illuminate\Support\Str::uuid() }}">
 <div class="modal-header"><div><h5 class="modal-title">One Transfer Across Invoices</h5><small class="text-muted">Oldest outstanding invoice is allocated first.</small></div><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
 <div class="modal-body"><div class="alert alert-info">One bank transaction is recorded, with separate payment allocations under each invoice.</div>
 <div class="table-responsive"><table class="table table-sm"><thead><tr><th>Order</th><th>Invoice</th><th>Period</th><th class="text-end">Outstanding</th></tr></thead><tbody>@foreach($outstandingInvoices as $openInvoice)<tr><td>{{ $loop->iteration }}</td><td>{{ $openInvoice->invoice_number }}</td><td>{{ $openInvoice->period_from?->format('d M') }} – {{ $openInvoice->period_to?->format('d M Y') }}</td><td class="text-end">AED {{ number_format($openInvoice->balance_due,2) }}</td></tr>@endforeach<tr class="table-light fw-bold"><td colspan="3">Combined outstanding</td><td class="text-end">AED {{ number_format($outstandingInvoices->sum(fn($item) => $item->balance_due),2) }}</td></tr></tbody></table></div>
 <div class="row g-3"><div class="col-md-6"><label class="form-label">Transfer date</label><input class="form-control" type="date" name="payment_date" value="{{ today()->toDateString() }}" required></div><div class="col-md-6"><label class="form-label">Amount received (AED)</label><input class="form-control" type="number" name="amount" min="0.01" max="{{ $outstandingInvoices->sum(fn($item) => $item->balance_due) }}" step="0.01" required></div>
-<div class="col-md-6"><label class="form-label">Payment method</label><select class="form-select" name="payment_method" required><option>Bank Transfer</option><option>Cash Deposit</option><option>Cash</option><option>Card</option><option>Cheque</option><option>Online Payment</option></select></div><div class="col-md-6"><label class="form-label">Received into account</label><select class="form-select" name="bank_account_id" required><option value="">Select bank / cash account</option>@foreach($bankAccounts as $account)<option value="{{ $account->id }}">{{ $account->name }}</option>@endforeach</select></div>
+<div class="col-md-6"><label class="form-label">Payment method</label><select class="form-select" name="payment_method" required data-card-method><option>Bank Transfer</option><option>Cash Deposit</option><option>Cash</option><option>Card</option><option>Cheque</option><option>Online Payment</option></select></div><div class="col-md-6"><label class="form-label">Received into account</label><select class="form-select" name="bank_account_id" required><option value="">Select bank / cash account</option>@foreach($bankAccounts as $account)<option value="{{ $account->id }}">{{ $account->name }}</option>@endforeach</select></div>
+<div class="col-12 d-none" data-card-fields><div class="alert alert-info mb-0"><div class="row g-3"><div class="col-md-6"><label class="form-label">Network / card processor fee (AED)</label><input class="form-control" type="number" name="card_processing_fee" min="0" step="0.01" value="0.00" data-card-fee></div><div class="col-md-6"><label class="form-label">Net amount deposited in bank (AED)</label><input class="form-control" readonly data-card-net></div></div></div></div>
 <div class="col-md-6"><label class="form-label">Bank transaction reference</label><input class="form-control" name="reference" required maxlength="150"></div><div class="col-md-6"><label class="form-label">Transfer proof</label><input class="form-control" type="file" name="receipt" accept=".pdf,.jpg,.jpeg,.png"></div><div class="col-12"><label class="form-label">Notes</label><textarea class="form-control" name="notes" rows="2"></textarea></div></div></div>
 <div class="modal-footer"><span class="me-auto small text-muted">Allocation occurs only after Manager approval.</span><button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button><button class="btn btn-success">Submit for Approval</button></div></form></div></div>
 @endif
@@ -580,6 +583,23 @@ document.addEventListener('DOMContentLoaded', function () {
     const calculate = () => total.textContent = 'AED ' + ((parseFloat(rent?.value) || 0) * (1 + (parseFloat(vat?.value) || 0) / 100) + (parseFloat(fees?.value) || 0)).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
     document.querySelectorAll('.extension-calculation').forEach(input => input.addEventListener('input', calculate));
     calculate();
+    document.querySelectorAll('[data-card-payment-form]').forEach(function (form) {
+        const method = form.querySelector('[data-card-method]');
+        const amount = form.querySelector('[name="amount"]');
+        const fee = form.querySelector('[data-card-fee]');
+        const fields = form.querySelector('[data-card-fields]');
+        const net = form.querySelector('[data-card-net]');
+        const refresh = function () {
+            const isCard = method.value === 'Card';
+            fields.classList.toggle('d-none', !isCard);
+            fee.required = isCard;
+            net.value = (Math.max(0, (parseFloat(amount.value) || 0) - (parseFloat(fee.value) || 0))).toFixed(2);
+        };
+        method.addEventListener('change', refresh);
+        amount.addEventListener('input', refresh);
+        fee.addEventListener('input', refresh);
+        refresh();
+    });
 });
 </script>
 @endpush

@@ -76,7 +76,7 @@
                     <div class="mb-3"><label class="form-label" for="rent_amount">Rent amount entered (AED)</label><input type="number" step="0.01" min="0" id="rent_amount" name="rent_amount" value="{{ old('rent_amount', (float)$booking->rent_amount + ($booking->vat_included ? max(0, (float)$booking->vat_amount - $feeVat) : 0)) }}" class="form-control booking-money"></div>
                     <div class="btn-group w-100 mb-3" role="group" aria-label="VAT treatment">
                         <input type="radio" class="btn-check booking-money" id="vat_included" name="vat_included" value="1" @checked(old('vat_included', $booking->vat_included))><label class="btn btn-outline-primary" for="vat_included">VAT Included</label>
-                        <input type="radio" class="btn-check booking-money" id="vat_added" name="vat_included" value="0" @checked(!(old('vat_included', $booking->vat_included)))><label class="btn btn-outline-primary" for="vat_added">Add VAT</label>
+                        <input type="radio" class="btn-check booking-money" id="vat_added" name="vat_included" value="0" @checked(!(old('vat_included', $booking->vat_included)))><label class="btn btn-outline-primary" for="vat_added">VAT Excluded (add VAT)</label>
                     </div>
                     <div class="mb-3"><label class="form-label" for="base_rent">Rent excluding VAT</label><input id="base_rent" class="form-control" readonly></div>
                     <div class="mb-3"><label class="form-label" for="vat_amount">VAT 5% <small class="text-muted">Rent + Cleaning + Agency</small></label><input type="number" step="0.01" id="vat_amount" class="form-control" readonly></div>
