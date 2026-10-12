@@ -412,19 +412,16 @@
   function startTaskAlarm() {
     stopTaskAlarm();
 
-    [0, 5200, 10400, 15600, 20800].forEach(function (delay) {
-      taskAlarmTimers.push(window.setTimeout(playBellTone, delay));
+    [0, 5200, 10400, 15600, 20800, 26000, 31200, 36400, 41600].forEach(function (delay) {
+      taskAlarmTimers.push(window.setTimeout(function () {
+        playBellTone();
+        if ('vibrate' in navigator) {
+          navigator.vibrate([650, 180, 650, 180, 900, 350, 650, 180, 900]);
+        }
+      }, delay));
     });
 
-    if ('vibrate' in navigator) {
-      navigator.vibrate([
-        650, 180, 650, 180, 900, 350,
-        650, 180, 650, 180, 900, 350,
-        650, 180, 650, 180, 900
-      ]);
-    }
-
-    taskAlarmStopTimer = window.setTimeout(stopTaskAlarm, 26500);
+    taskAlarmStopTimer = window.setTimeout(stopTaskAlarm, 47000);
   }
 
   function stopTaskAlarm() {
@@ -521,8 +518,8 @@
     masterGain.connect(context.destination);
     compressor.connect(masterGain);
     masterGain.gain.setValueAtTime(0.0001, context.currentTime);
-    masterGain.gain.exponentialRampToValueAtTime(0.88, context.currentTime + 0.04);
-    masterGain.gain.setValueAtTime(0.88, context.currentTime + 4.6);
+    masterGain.gain.exponentialRampToValueAtTime(0.96, context.currentTime + 0.04);
+    masterGain.gain.setValueAtTime(0.96, context.currentTime + 4.6);
     masterGain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + 5.2);
 
     [

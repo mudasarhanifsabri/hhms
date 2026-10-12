@@ -1,4 +1,4 @@
-const CACHE_NAME = 'hhms-maintainer-v18';
+const CACHE_NAME = 'hhms-maintainer-v19';
 const APP_SHELL = [
   '/',
   '/maintainer/tasks',
