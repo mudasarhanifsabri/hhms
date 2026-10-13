@@ -11,6 +11,7 @@
 .guest-card .card-header{border-bottom:0;padding-bottom:0}.guest-avatar{width:52px;height:52px;border-radius:50%;display:grid;place-items:center;background:#eeeaff;color:#6045d9;font-size:19px;font-weight:700}.guest-name{font-size:16px;font-weight:700;color:#182238}.booking-detail-label{display:block;color:#7a8496;font-size:11px;text-transform:uppercase;letter-spacing:.035em;margin-bottom:3px}.booking-detail-value{font-size:13px;color:#24324b}.booking-side-title{font-size:15px;font-weight:700}.booking-account-note{background:#f2f7ff;border-color:#cfe0fb!important}.booking-account-note strong{color:#1552a1}.booking-workspace .invoice-table thead th{white-space:nowrap;color:#667085;font-size:11px;text-transform:uppercase;letter-spacing:.025em;border-bottom-width:1px}.booking-workspace .invoice-table tfoot td{font-weight:700;background:#fafbfc}.booking-workspace .invoice-number{font-weight:500;text-decoration:none}.booking-workspace .invoice-actions{white-space:nowrap}.booking-workspace .invoice-actions .btn{padding:6px 10px}.booking-side .card{border-radius:12px}.booking-side .alert{border-radius:9px}.status-explanation{font-size:12px;color:#748096}.document-actions .btn{flex:1 1 auto}.owner-posting-card{border:1px solid #cee0ff;border-radius:11px;background:#f5f9ff;padding:15px 18px;margin-bottom:16px;color:#32547f}
 .renew-charge-card{padding:16px;border:1px solid #e3e7ef;border-radius:12px;background:#f8f9fc;transition:border-color .18s ease,box-shadow .18s ease}.renew-charge-card:focus-within{border-color:#aa9cf4;box-shadow:0 0 0 3px #6045e512}.renew-vat-choice{display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-top:10px;padding:4px;border-radius:9px;background:#e9edf4}.renew-vat-choice .btn{border:0!important;border-radius:6px!important;padding:7px 9px;color:#5f697c;background:transparent;font-size:12px;font-weight:600;box-shadow:none!important}.renew-vat-choice .btn-check:checked+.btn{color:#fff;background:#6045df;box-shadow:0 2px 7px #6045df38!important}.renew-nontax-card{min-height:86px;padding:14px 16px;border:1px solid #e3e7ef;border-radius:12px;background:#fff;display:flex;align-items:center;justify-content:space-between;gap:18px}.renew-nontax-card .form-control{max-width:190px}.renew-summary{border:1px solid #e3e7ef;border-radius:12px;overflow:hidden;background:#fff}.renew-summary-item{padding:12px 14px}.renew-summary-item.total{background:#f0edff;color:#36247d}.renew-summary-item small{font-size:11px}.renew-summary-item strong{font-size:15px}
 .invoice-create-modal .modal-content{border:0;border-radius:16px;overflow:hidden;box-shadow:0 24px 70px #1d21402e}.invoice-create-modal .modal-header{padding:18px 24px;border-bottom:1px solid #e8ebf2}.invoice-create-modal .modal-body{padding:24px}.invoice-create-modal .modal-footer{padding:16px 24px;border-top:1px solid #e8ebf2;background:#fafbfc}.invoice-create-title{font-weight:750;color:#19233a}.invoice-create-section{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:6px 0 10px}.invoice-create-section h6{margin:0;font-weight:750;color:#25314a}.invoice-period-card{height:100%;padding:13px 15px;border:1px solid #e3e7ef;border-radius:11px;background:#fff}.invoice-period-card small{display:block;color:#7a8496;margin-bottom:3px}.invoice-safe-note{padding:12px 14px;border-radius:10px;background:#f5f7fb;color:#657086;font-size:12px}
+.booking-workspace .card,.booking-summary-card,.owner-posting-card{transition:transform .22s ease,box-shadow .22s ease,border-color .22s ease}.booking-workspace .card:hover,.booking-summary-card:hover{transform:translateY(-2px);border-color:#d9d4f3;box-shadow:0 12px 28px #34287112}.booking-workspace .btn{transition:transform .16s ease,box-shadow .16s ease,background-color .16s ease}.booking-workspace .btn:not(:disabled):active{transform:scale(.97)}.booking-workspace .btn-primary:not(:disabled):hover{box-shadow:0 7px 18px #6045df35}.booking-summary-card,.booking-page-head,.booking-workspace>.row,.booking-workspace>section,.booking-workspace>.alert{animation:bookingFadeUp .42s ease both}.booking-summary-card:nth-child(2){animation-delay:.05s}.booking-summary-card:nth-child(3){animation-delay:.1s}.booking-summary-card:nth-child(4){animation-delay:.15s}.booking-workspace .modal.fade .modal-dialog{transform:translateY(18px) scale(.985);transition:transform .22s ease-out}.booking-workspace .modal.show .modal-dialog{transform:none}.invoice-table tbody tr{transition:background-color .18s ease,transform .18s ease}.invoice-table tbody tr:not(.table-light):hover{background:#faf9ff}.ux-submit-loading{pointer-events:none;opacity:.82}.ux-submit-loading .ux-button-label{vertical-align:middle}@keyframes bookingFadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}@media(prefers-reduced-motion:reduce){.booking-workspace *,.booking-summary-card,.booking-page-head{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
 @media(max-width:1199px){.booking-summary{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:767px){.booking-page-head{display:block}.booking-head-actions{margin-top:12px}.booking-summary{grid-template-columns:1fr}.booking-page-head h3{font-size:20px}.renew-nontax-card{align-items:stretch;flex-direction:column;gap:10px}.renew-nontax-card .form-control{max-width:none}.renew-summary-item{border-right:0!important;border-bottom:1px solid #e3e7ef}.renew-summary-item:last-child{border-bottom:0}}
 </style>
 @endpush
@@ -85,7 +86,7 @@
                                 {{ $issuedAccess->revoked_at ? 'Revoked' : 'Issued until '.$issuedAccess->ends_at->copy()->timezone('Asia/Dubai')->format('d M H:i') }}
                             </span>
                             @if(!$issuedAccess->revoked_at)
-                                <form method="POST" action="{{ route('admin.smartlocks.revoke', $issuedAccess) }}" onsubmit="return confirm('Revoke this guest door code now?');">
+                                <form method="POST" action="{{ route('admin.smartlocks.revoke', $issuedAccess) }}" data-swal-confirm="This guest will immediately lose door access." data-swal-title="Revoke guest access?" data-swal-icon="warning">
                                     @csrf
                                     <button class="btn btn-link btn-sm text-danger p-0">Revoke access</button>
                                 </form>
@@ -117,10 +118,10 @@
                 </div>
             </div>
             @if(session('success'))
-                <div class="alert alert-success m-3 mb-0">{{ session('success') }}</div>
+                <div class="alert alert-success m-3 mb-0 js-flash-alert">{{ session('success') }}</div>
             @endif
             @if($errors->any())
-                <div class="alert alert-danger m-3 mb-0">{{ $errors->first() }}</div>
+                <div class="alert alert-danger m-3 mb-0 js-flash-alert">{{ $errors->first() }}</div>
             @endif
             <div class="card-body">
                 <div class="row g-4 align-items-center">
@@ -179,7 +180,7 @@
                                         <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#paymentModal{{ $invoice->id }}">Pay</button>
                                     @endif
                                     @if($invoice->status === 'paid' && $invoice->balance_due <= 0)
-                                        <form method="POST" action="{{ route('admin.booking-invoice.management-email', $invoice) }}" onsubmit="return confirm('{{ $invoice->management_notified_at ? 'Resend' : 'Send' }} the guest check-in notification and identification documents to building management and customer service?')">
+                                        <form method="POST" action="{{ route('admin.booking-invoice.management-email', $invoice) }}" data-swal-confirm="The guest notification and identification documents will be {{ $invoice->management_notified_at ? 'sent again' : 'sent' }} to management and customer service." data-swal-title="{{ $invoice->management_notified_at ? 'Resend' : 'Send' }} check-in documents?" data-swal-icon="question">
                                             @csrf
                                             <button class="btn btn-sm {{ $invoice->management_notified_at ? 'btn-outline-secondary' : 'btn-outline-success' }}" title="{{ $invoice->management_notified_at ? 'Resend management email' : 'Send management email' }}">
                                                 <iconify-icon icon="solar:letter-broken" class="align-middle"></iconify-icon> {{ $invoice->management_notified_at ? 'Resend' : 'Send' }}
@@ -197,7 +198,7 @@
                                         <a class="dropdown-item" href="{{ route('admin.accounting.booking-invoices.pdf', $invoice) }}"><iconify-icon icon="solar:bill-list-broken" class="me-2"></iconify-icon>Invoice PDF</a>
                                         @if($invoice->payments->isNotEmpty())<a class="dropdown-item" href="{{ route('admin.booking-invoice.receipt', $invoice) }}"><iconify-icon icon="solar:bill-check-broken" class="me-2"></iconify-icon>Payment receipt</a>@endif
                                         @if($invoice->status==='unpaid' && $invoice->payments->isEmpty())<button type="button" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#correctInvoice{{ $invoice->id }}"><iconify-icon icon="solar:pen-2-broken" class="me-2"></iconify-icon>Edit invoice</button>@endif
-                                        @if($invoice->invoice_type === 'extension' && $invoice->status === 'unpaid' && $invoice->allPayments->isEmpty() && $booking->invoices->sortByDesc('period_to')->first()?->id === $invoice->id)<form method="POST" action="{{ route('admin.booking-invoice.destroy', $invoice) }}" onsubmit="return confirm('Delete this extension invoice and restore the previous checkout date?')">@csrf @method('DELETE')<button class="dropdown-item text-danger"><iconify-icon icon="solar:trash-bin-trash-broken" class="me-2"></iconify-icon>Delete extension invoice</button></form>@endif
+                                        @if($invoice->invoice_type === 'extension' && $invoice->status === 'unpaid' && $invoice->allPayments->isEmpty() && $booking->invoices->sortByDesc('period_to')->first()?->id === $invoice->id)<form method="POST" action="{{ route('admin.booking-invoice.destroy', $invoice) }}" data-swal-confirm="The extension invoice will be deleted and checkout will return to the previous invoice boundary." data-swal-title="Delete extension invoice?" data-swal-icon="warning" data-swal-confirm-text="Delete extension">@csrf @method('DELETE')<button class="dropdown-item text-danger"><iconify-icon icon="solar:trash-bin-trash-broken" class="me-2"></iconify-icon>Delete extension invoice</button></form>@endif
                                     </div></div>
                                 </div></td>
                             </tr>
@@ -271,7 +272,7 @@
                         </button>
                     </div>
                     @if($booking->checked_out_at)
-                    <form action="{{ route('admin.booking.reverse-checkout', $booking) }}" method="POST" onsubmit="return confirm('Restore this booking and cancel only untouched checkout tasks?');">
+                    <form action="{{ route('admin.booking.reverse-checkout', $booking) }}" method="POST" data-swal-confirm="The booking will be restored and only untouched checkout tasks will be cancelled." data-swal-title="Reverse guest checkout?" data-swal-icon="warning">
                         @csrf
                         <label class="form-label">Reason for reversing checkout</label>
                         <input name="reason" class="form-control mb-2" minlength="5" maxlength="1000" required placeholder="Checked out by mistake">
@@ -533,6 +534,75 @@
 @push('scripts')
 <script>
 document.addEventListener('DOMContentLoaded', function () {
+    const setSubmitting = (form, submitter = null) => {
+        const button = submitter || form.querySelector('button[type="submit"],input[type="submit"]');
+        if (!button || button.classList.contains('ux-submit-loading')) return;
+        button.classList.add('ux-submit-loading');
+        button.disabled = true;
+        if (button.tagName === 'BUTTON') {
+            button.dataset.originalHtml = button.innerHTML;
+            button.innerHTML = '<span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span><span class="ux-button-label">Please wait…</span>';
+        }
+    };
+
+    document.addEventListener('submit', function (event) {
+        const form = event.target;
+        if (!(form instanceof HTMLFormElement) || !form.closest('.booking-workspace')) return;
+        const message = form.dataset.swalConfirm;
+        if (message && form.dataset.swalConfirmed !== '1') {
+            event.preventDefault();
+            if (window.Swal) {
+                Swal.fire({
+                    title: form.dataset.swalTitle || 'Please confirm',
+                    text: message,
+                    icon: form.dataset.swalIcon || 'question',
+                    showCancelButton: true,
+                    reverseButtons: true,
+                    focusCancel: true,
+                    confirmButtonText: form.dataset.swalConfirmText || 'Yes, continue',
+                    cancelButtonText: 'Cancel',
+                    confirmButtonColor: form.dataset.swalIcon === 'warning' ? '#dc3545' : '#6045df',
+                    cancelButtonColor: '#eef1f6',
+                    customClass: {cancelButton: 'text-dark'}
+                }).then(result => {
+                    if (!result.isConfirmed) return;
+                    form.dataset.swalConfirmed = '1';
+                    setSubmitting(form, event.submitter);
+                    HTMLFormElement.prototype.submit.call(form);
+                });
+            } else if (window.confirm(message)) {
+                form.dataset.swalConfirmed = '1';
+                setSubmitting(form, event.submitter);
+                HTMLFormElement.prototype.submit.call(form);
+            }
+            return;
+        }
+        setSubmitting(form, event.submitter);
+    });
+
+    const flashSuccess = @json(session('success'));
+    const flashError = @json($errors->any() ? $errors->first() : null);
+    if (window.Swal && (flashSuccess || flashError)) {
+        Swal.fire({
+            toast: true,
+            position: 'top-end',
+            icon: flashError ? 'error' : 'success',
+            title: flashError || flashSuccess,
+            showConfirmButton: false,
+            timer: flashError ? 5500 : 3500,
+            timerProgressBar: true,
+            showCloseButton: true
+        });
+        document.querySelectorAll('.js-flash-alert').forEach(alert => alert.remove());
+    }
+
+    document.querySelectorAll('.booking-workspace .modal').forEach(modal => {
+        modal.addEventListener('shown.bs.modal', () => {
+            const firstField = modal.querySelector('input:not([type="hidden"]):not([disabled]),select:not([disabled]),textarea:not([disabled])');
+            if (firstField && !firstField.matches('[type="date"],[type="time"]')) firstField.focus({preventScroll: true});
+        });
+    });
+
     const checkoutModal = document.getElementById('checkoutConfirmModal');
     let countdown, checkoutAttempt = 0;
     checkoutModal.addEventListener('show.bs.modal', async function () {
