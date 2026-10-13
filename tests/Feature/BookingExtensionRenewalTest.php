@@ -45,6 +45,7 @@ class BookingExtensionRenewalTest extends TestCase
 
         $this->assertSame('18000.00', $booking->fresh()->rent_amount);
         $invoice = BookingInvoice::where('invoice_type', 'extension')->firstOrFail();
+        $this->assertSame('2026-03-22', $invoice->period_from->toDateString());
         $this->assertSame('4500.00', $invoice->rent_amount);
         $this->assertSame('225.00', $invoice->vat_amount);
         $this->assertSame('4825.00', $invoice->total_amount);
@@ -55,7 +56,7 @@ class BookingExtensionRenewalTest extends TestCase
         ])->render();
         $this->assertStringContainsString($invoice->invoice_number, $confirmation);
         $this->assertStringContainsString('EXTENSION', $confirmation);
-        $this->assertStringContainsString('23 Mar 2026', $confirmation);
+        $this->assertStringContainsString('22 Mar 2026', $confirmation);
         $this->assertStringContainsString('27 Mar 2026', $confirmation);
         $this->assertStringContainsString('4,825.00', $confirmation);
         $this->assertStringNotContainsString('18,900.00', $confirmation);

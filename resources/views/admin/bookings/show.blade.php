@@ -10,6 +10,7 @@
 .booking-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:18px}.booking-summary-card{background:#fff;border:1px solid #e5e9f1;border-radius:12px;padding:16px;box-shadow:0 3px 12px #17244008;display:flex;align-items:center;gap:13px}.booking-summary-icon{width:42px;height:42px;border-radius:50%;display:grid;place-items:center;background:#f0edff;color:#6341df;font-size:22px;flex:0 0 auto}.booking-summary-card.success .booking-summary-icon{background:#eafaf7;color:#0aa581}.booking-summary-card.warning .booking-summary-icon{background:#fff3e8;color:#f1782f}.booking-summary-card.info .booking-summary-icon{background:#edf5ff;color:#3978dc}.booking-summary-label{font-size:12px;color:#748096;margin-bottom:2px}.booking-summary-value{font-size:19px;font-weight:750;line-height:1.2;color:#19233a}.booking-summary-card.success .booking-summary-value{color:#07966f}.booking-summary-card.warning .booking-summary-value{color:#e75526}.booking-summary-detail{font-size:12px;color:#657086;margin-top:3px}
 .guest-card .card-header{border-bottom:0;padding-bottom:0}.guest-avatar{width:52px;height:52px;border-radius:50%;display:grid;place-items:center;background:#eeeaff;color:#6045d9;font-size:19px;font-weight:700}.guest-name{font-size:16px;font-weight:700;color:#182238}.booking-detail-label{display:block;color:#7a8496;font-size:11px;text-transform:uppercase;letter-spacing:.035em;margin-bottom:3px}.booking-detail-value{font-size:13px;color:#24324b}.booking-side-title{font-size:15px;font-weight:700}.booking-account-note{background:#f2f7ff;border-color:#cfe0fb!important}.booking-account-note strong{color:#1552a1}.booking-workspace .invoice-table thead th{white-space:nowrap;color:#667085;font-size:11px;text-transform:uppercase;letter-spacing:.025em;border-bottom-width:1px}.booking-workspace .invoice-table tfoot td{font-weight:700;background:#fafbfc}.booking-workspace .invoice-number{font-weight:500;text-decoration:none}.booking-workspace .invoice-actions{white-space:nowrap}.booking-workspace .invoice-actions .btn{padding:6px 10px}.booking-side .card{border-radius:12px}.booking-side .alert{border-radius:9px}.status-explanation{font-size:12px;color:#748096}.document-actions .btn{flex:1 1 auto}.owner-posting-card{border:1px solid #cee0ff;border-radius:11px;background:#f5f9ff;padding:15px 18px;margin-bottom:16px;color:#32547f}
 .renew-charge-card{padding:16px;border:1px solid #e3e7ef;border-radius:12px;background:#f8f9fc;transition:border-color .18s ease,box-shadow .18s ease}.renew-charge-card:focus-within{border-color:#aa9cf4;box-shadow:0 0 0 3px #6045e512}.renew-vat-choice{display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-top:10px;padding:4px;border-radius:9px;background:#e9edf4}.renew-vat-choice .btn{border:0!important;border-radius:6px!important;padding:7px 9px;color:#5f697c;background:transparent;font-size:12px;font-weight:600;box-shadow:none!important}.renew-vat-choice .btn-check:checked+.btn{color:#fff;background:#6045df;box-shadow:0 2px 7px #6045df38!important}.renew-nontax-card{min-height:86px;padding:14px 16px;border:1px solid #e3e7ef;border-radius:12px;background:#fff;display:flex;align-items:center;justify-content:space-between;gap:18px}.renew-nontax-card .form-control{max-width:190px}.renew-summary{border:1px solid #e3e7ef;border-radius:12px;overflow:hidden;background:#fff}.renew-summary-item{padding:12px 14px}.renew-summary-item.total{background:#f0edff;color:#36247d}.renew-summary-item small{font-size:11px}.renew-summary-item strong{font-size:15px}
+.invoice-create-modal .modal-content{border:0;border-radius:16px;overflow:hidden;box-shadow:0 24px 70px #1d21402e}.invoice-create-modal .modal-header{padding:18px 24px;border-bottom:1px solid #e8ebf2}.invoice-create-modal .modal-body{padding:24px}.invoice-create-modal .modal-footer{padding:16px 24px;border-top:1px solid #e8ebf2;background:#fafbfc}.invoice-create-title{font-weight:750;color:#19233a}.invoice-create-section{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:6px 0 10px}.invoice-create-section h6{margin:0;font-weight:750;color:#25314a}.invoice-period-card{height:100%;padding:13px 15px;border:1px solid #e3e7ef;border-radius:11px;background:#fff}.invoice-period-card small{display:block;color:#7a8496;margin-bottom:3px}.invoice-safe-note{padding:12px 14px;border-radius:10px;background:#f5f7fb;color:#657086;font-size:12px}
 @media(max-width:1199px){.booking-summary{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:767px){.booking-page-head{display:block}.booking-head-actions{margin-top:12px}.booking-summary{grid-template-columns:1fr}.booking-page-head h3{font-size:20px}.renew-nontax-card{align-items:stretch;flex-direction:column;gap:10px}.renew-nontax-card .form-control{max-width:none}.renew-summary-item{border-right:0!important;border-bottom:1px solid #e3e7ef}.renew-summary-item:last-child{border-bottom:0}}
 </style>
 @endpush
@@ -327,47 +328,33 @@
     </div>
 </div>
 
-<div class="modal fade" id="extendBookingModal" tabindex="-1" aria-labelledby="extendBookingModalLabel" aria-hidden="true">
-    <div class="modal-dialog">
+<div class="modal fade invoice-create-modal" id="extendBookingModal" tabindex="-1" aria-labelledby="extendBookingModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
         <div class="modal-content">
             <form action="{{ route('admin.booking.extend', $booking->id) }}" method="POST">
                 @csrf
                 <div class="modal-header">
-                    <h5 class="modal-title" id="extendBookingModalLabel">Extend Booking</h5>
+                    <div><h5 class="modal-title invoice-create-title" id="extendBookingModalLabel">Create Extension Invoice</h5><small class="text-muted">Extend the current contract and issue its separate invoice.</small></div>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                    <div class="row g-2 mb-3">
-                        <div class="col-6"><div class="border rounded p-2"><span class="small text-muted">Previous checkout</span><br><strong>{{ $booking->check_out?->format('d M Y') }}</strong></div></div>
-                        <div class="col-6"><div class="border rounded p-2"><span class="small text-muted">Maximum under this contract</span><br><strong>{{ $contractLimitDate?->format('d M Y') }}</strong></div></div>
-                    </div>
-                    <div class="mb-3">
-                        <label for="extend_check_out" class="form-label">New Check Out Date</label>
-                        <input type="date" id="extend_check_out" name="check_out" class="form-control" min="{{ $booking->check_out?->copy()->addDay()->format('Y-m-d') }}" max="{{ $contractLimitDate?->format('Y-m-d') }}" value="{{ old('check_out', $booking->check_out?->copy()->addDay()->min($contractLimitDate)->format('Y-m-d')) }}" required>
-                    </div>
-                    <div class="mb-3">
-                        <label for="extend_check_out_time" class="form-label">Check Out Time</label>
-                        <input type="time" id="extend_check_out_time" name="check_out_time" class="form-control" value="{{ old('check_out_time', $booking->check_out_time ? \Carbon\Carbon::parse($booking->check_out_time)->format('H:i') : '11:00') }}">
-                    </div>
-                    <div class="mb-3">
-                        <label for="extension_rent_amount" class="form-label">Rent amount (AED)</label>
-                        <input type="number" step="0.01" min="0" id="extension_rent_amount" name="extension_rent_amount" class="form-control extension-calculation" value="{{ old('extension_rent_amount', $defaultExtensionRent) }}" required>
-                        <small class="text-muted">Enter the agreed amount, then choose whether it already includes VAT.</small>
-                    </div>
-                    <div class="btn-group w-100 mb-3" role="group" aria-label="Extension VAT treatment">
-                        <input type="radio" class="btn-check extension-calculation" id="extension_vat_included" name="vat_included" value="1" @checked(old('vat_included', $booking->vat_included))><label class="btn btn-outline-primary" for="extension_vat_included">VAT Included</label>
-                        <input type="radio" class="btn-check extension-calculation" id="extension_vat_excluded" name="vat_included" value="0" @checked(!old('vat_included', $booking->vat_included))><label class="btn btn-outline-primary" for="extension_vat_excluded">VAT Excluded (add VAT)</label>
-                    </div>
-                    <div class="row g-3 mb-3">
-                        <div class="col-md-4"><label class="form-label" for="extension_vat_rate">VAT Rate %</label><input class="form-control extension-calculation" type="number" step="0.01" min="0" max="100" id="extension_vat_rate" name="vat_rate" value="{{ old('vat_rate', 5) }}" required></div>
-                        <div class="col-md-4"><label class="form-label" for="extension_other_fees">Other Fees (AED)</label><input class="form-control extension-calculation" type="number" step="0.01" min="0" id="extension_other_fees" name="other_fees" value="{{ old('other_fees', 0) }}"></div>
-                        <div class="col-md-4"><label class="form-label" for="extension_agency_fee">Agency Fee (AED)</label><input class="form-control extension-calculation" type="number" step="0.01" min="0" id="extension_agency_fee" name="agency_fee" value="{{ old('agency_fee', 0) }}"><div class="renew-vat-choice"><input type="radio" class="btn-check extension-calculation" id="extension_agency_vat_included" name="agency_fee_vat_included" value="1" @checked(old('agency_fee_vat_included', false))><label class="btn" for="extension_agency_vat_included">Included</label><input type="radio" class="btn-check extension-calculation" id="extension_agency_vat_excluded" name="agency_fee_vat_included" value="0" @checked(!old('agency_fee_vat_included', false))><label class="btn" for="extension_agency_vat_excluded">Add VAT</label></div></div>
-                    </div>
-                    <div class="border rounded overflow-hidden mb-3"><div class="row g-0 text-center"><div class="col-4 p-2 border-end"><small class="text-muted d-block">Rent before VAT</small><strong id="extensionNet">AED 0.00</strong></div><div class="col-4 p-2 border-end"><small class="text-muted d-block">VAT</small><strong id="extensionVat">AED 0.00</strong></div><div class="col-4 p-2 bg-primary-subtle"><small class="text-muted d-block">Invoice total</small><strong id="extensionTotal">AED 0.00</strong></div></div></div>
-                    <p class="small text-muted">The original booking invoice and its payments will not be changed.</p>
-                    <div class="mb-0">
+                    <div class="row g-3">
+                        <div class="col-lg-3"><div class="invoice-period-card"><small>Current checkout</small><strong>{{ $booking->check_out?->format('d M Y') }}</strong></div></div>
+                        <div class="col-lg-3"><div class="invoice-period-card"><small>Contract limit</small><strong>{{ $contractLimitDate?->format('d M Y') }}</strong></div></div>
+                        <div class="col-lg-3"><label for="extend_check_out" class="form-label fw-semibold">New checkout date</label><input type="date" id="extend_check_out" name="check_out" class="form-control" min="{{ $booking->check_out?->copy()->addDay()->format('Y-m-d') }}" max="{{ $contractLimitDate?->format('Y-m-d') }}" value="{{ old('check_out', $booking->check_out?->copy()->addDay()->min($contractLimitDate)->format('Y-m-d')) }}" required></div>
+                        <div class="col-lg-3"><label for="extend_check_out_time" class="form-label fw-semibold">Checkout time</label><input type="time" id="extend_check_out_time" name="check_out_time" class="form-control" value="{{ old('check_out_time', $booking->check_out_time ? \Carbon\Carbon::parse($booking->check_out_time)->format('H:i') : '11:00') }}"></div>
+
+                        <div class="col-12 mt-4"><div class="invoice-create-section"><div><h6>Invoice charges</h6><small class="text-muted">Each taxable charge has its own VAT treatment.</small></div><div class="d-flex align-items-center gap-2"><label class="small text-muted mb-0" for="extension_vat_rate">VAT rate</label><div class="input-group input-group-sm" style="width:105px"><input class="form-control extension-calculation" type="number" step="0.01" min="0" max="100" id="extension_vat_rate" name="vat_rate" value="{{ old('vat_rate', 5) }}" required><span class="input-group-text">%</span></div></div></div></div>
+                        <div class="col-lg-4"><div class="renew-charge-card h-100"><label for="extension_rent_amount" class="form-label fw-semibold">Rent <span class="text-muted fw-normal">(AED)</span></label><input type="number" step="0.01" min="0" id="extension_rent_amount" name="extension_rent_amount" class="form-control extension-calculation" value="{{ old('extension_rent_amount', $defaultExtensionRent) }}" required><div class="renew-vat-choice"><input type="radio" class="btn-check extension-calculation" id="extension_vat_included" name="vat_included" value="1" @checked(old('vat_included', $booking->vat_included))><label class="btn" for="extension_vat_included">Included</label><input type="radio" class="btn-check extension-calculation" id="extension_vat_excluded" name="vat_included" value="0" @checked(!old('vat_included', $booking->vat_included))><label class="btn" for="extension_vat_excluded">Add VAT</label></div></div></div>
+                        <div class="col-lg-4"><div class="renew-charge-card h-100"><label for="extension_agency_fee" class="form-label fw-semibold">Agency Fee <span class="text-muted fw-normal">(AED)</span></label><input class="form-control extension-calculation" type="number" step="0.01" min="0" id="extension_agency_fee" name="agency_fee" value="{{ old('agency_fee', 0) }}"><div class="renew-vat-choice"><input type="radio" class="btn-check extension-calculation" id="extension_agency_vat_included" name="agency_fee_vat_included" value="1" @checked(old('agency_fee_vat_included', false))><label class="btn" for="extension_agency_vat_included">Included</label><input type="radio" class="btn-check extension-calculation" id="extension_agency_vat_excluded" name="agency_fee_vat_included" value="0" @checked(!old('agency_fee_vat_included', false))><label class="btn" for="extension_agency_vat_excluded">Add VAT</label></div></div></div>
+                        <div class="col-lg-4"><div class="renew-charge-card h-100"><label for="extension_other_fees" class="form-label fw-semibold">Other Fees <span class="text-muted fw-normal">(AED)</span></label><input class="form-control extension-calculation" type="number" step="0.01" min="0" id="extension_other_fees" name="other_fees" value="{{ old('other_fees', 0) }}"><small class="text-muted d-block mt-2">Non-taxable additional charge</small></div></div></div>
+
+                        <div class="col-12"><div class="renew-summary"><div class="row g-0 text-center"><div class="col-md-4 renew-summary-item border-end"><small class="text-muted d-block">Rent before VAT</small><strong id="extensionNet">AED 0.00</strong></div><div class="col-md-4 renew-summary-item border-end"><small class="text-muted d-block">Total VAT</small><strong id="extensionVat">AED 0.00</strong></div><div class="col-md-4 renew-summary-item total"><small class="d-block opacity-75">Invoice total</small><strong id="extensionTotal">AED 0.00</strong></div></div></div></div>
+                        <div class="col-12"><div class="invoice-safe-note"><i class="ri-information-line me-1"></i>The original booking invoice and all existing payments remain unchanged.</div></div>
+                        <div class="col-12">
                         <label for="extension_notes" class="form-label">Notes</label>
                         <textarea id="extension_notes" name="notes" rows="3" class="form-control">{{ old('notes') }}</textarea>
+                        </div>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -379,13 +366,13 @@
     </div>
 </div>
 
-<div class="modal fade" id="renewBookingModal" tabindex="-1" aria-labelledby="renewBookingModalLabel" aria-hidden="true">
+<div class="modal fade invoice-create-modal" id="renewBookingModal" tabindex="-1" aria-labelledby="renewBookingModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-xl modal-dialog-scrollable">
         <div class="modal-content">
             <form action="{{ route('admin.booking.renew', $booking->id) }}" method="POST">
                 @csrf
                 <div class="modal-header">
-                    <h5 class="modal-title" id="renewBookingModalLabel">Renew Booking</h5>
+                    <div><h5 class="modal-title invoice-create-title" id="renewBookingModalLabel">Create Renewal Invoice</h5><small class="text-muted">Start the next contract and issue its first invoice.</small></div>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">

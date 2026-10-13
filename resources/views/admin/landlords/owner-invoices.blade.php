@@ -1,5 +1,10 @@
 @extends('layouts.app')
 @section('title', 'Owner Charges & Invoices')
+@push('styles')
+<style>
+.owner-invoice-create .modal-content{border:0;border-radius:16px;overflow:hidden;box-shadow:0 24px 70px #1d21402e}.owner-invoice-create .modal-header{padding:18px 24px;background:#fff!important;border-bottom:1px solid #e8ebf2}.owner-invoice-create .modal-title{color:#19233a!important;font-weight:750}.owner-invoice-create .modal-header small{color:#7a8496}.owner-invoice-create .btn-close{filter:none}.owner-invoice-create .modal-body{padding:24px}.owner-invoice-create .modal-footer{padding:16px 24px;background:#fafbfc;border-top:1px solid #e8ebf2}.owner-invoice-create .owner-line{padding:16px!important;border-color:#e3e7ef!important;border-radius:12px!important;background:#f8f9fc}.owner-invoice-create .owner-line:focus-within{border-color:#aa9cf4!important;box-shadow:0 0 0 3px #6045e512}.owner-invoice-create .form-label{font-weight:600;color:#364258}.owner-invoice-section{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-top:4px}.owner-invoice-section h6{font-weight:750;color:#25314a}
+</style>
+@endpush
 @section('content')
 <div class="container-fluid">
     <div class="d-flex justify-content-between align-items-center mb-3"><div><h4 class="mb-1">{{ $landlord->name }}</h4><p class="text-muted mb-0">Owner onboarding charges, collections, actual costs and profit</p></div><button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createOwnerInvoice"><i class="ri-add-line me-1"></i>Create Tax Invoice</button></div>
@@ -22,10 +27,10 @@
     </tbody></table></div><div class="card-footer">{{ $invoices->links('pagination::bootstrap-5') }}</div></div>
 </div>
 
-<div class="modal fade" id="createOwnerInvoice" tabindex="-1"><div class="modal-dialog modal-xl modal-dialog-scrollable"><form class="modal-content" method="post" action="{{ route('admin.landlord.owner-invoices.store',$landlord) }}">@csrf
-<div class="modal-header bg-primary text-white"><div><h5 class="modal-title text-white">New Owner Onboarding Tax Invoice</h5><small>Issue now; actual supplier cost can remain pending</small></div><button class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
+<div class="modal fade owner-invoice-create" id="createOwnerInvoice" tabindex="-1"><div class="modal-dialog modal-xl modal-dialog-scrollable"><form class="modal-content" method="post" action="{{ route('admin.landlord.owner-invoices.store',$landlord) }}">@csrf
+<div class="modal-header"><div><h5 class="modal-title">Create Owner Tax Invoice</h5><small>Enter invoice details and add each charge as a separate line.</small></div><button class="btn-close" data-bs-dismiss="modal"></button></div>
 <div class="modal-body"><div class="row g-3 mb-4"><div class="col-md-5"><label class="form-label">Unit</label><select name="property_id" class="form-select" required><option value="">Select unit</option>@foreach($properties as $property)<option value="{{ $property->id }}">{{ $property->name }} — {{ $property->building?->building_name ?? 'No Building' }}</option>@endforeach</select></div><div class="col-md-3"><label class="form-label">Invoice Date</label><input type="date" name="invoice_date" value="{{ today()->toDateString() }}" class="form-control" required></div><div class="col-md-3"><label class="form-label">Due Date</label><input type="date" name="due_date" value="{{ today()->addDays(7)->toDateString() }}" class="form-control"></div></div>
-<div class="d-flex justify-content-between align-items-center mb-2"><h6 class="mb-0">Invoice Items</h6><button type="button" id="addOwnerLine" class="btn btn-sm btn-outline-primary"><i class="ri-add-line"></i>Add Item</button></div>
+<div class="owner-invoice-section mb-2"><div><h6 class="mb-0">Invoice Items</h6><small class="text-muted">Description, quantity, price and VAT are arranged by column.</small></div><button type="button" id="addOwnerLine" class="btn btn-sm btn-outline-primary"><i class="ri-add-line"></i>Add Item</button></div>
 <div id="ownerInvoiceLines"></div><div class="alert alert-warning mt-3"><i class="ri-information-line me-1"></i><strong>Cost Pending:</strong> Issue the owner invoice using agreed selling prices. Link supplier bills later to calculate final profit.</div><label class="form-label">Notes</label><textarea name="notes" class="form-control" rows="2" placeholder="Contract, furnishing package or startup details"></textarea></div>
 <div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary">Create & Post Invoice</button></div></form></div></div>
 

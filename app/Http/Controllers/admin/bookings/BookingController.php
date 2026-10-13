@@ -449,7 +449,7 @@ class BookingController extends Controller
             ]);
 
             $invoice = $this->createBookingInvoice($booking, 'extension', [
-                'period_from' => $oldCheckOut?->copy()->addDay() ?? $booking->check_in,
+                'period_from' => $oldCheckOut ?? $booking->check_in,
                 'period_to' => $booking->check_out,
                 'rent_amount' => $baseRent,
                 'vat_rate' => (float) $validatedData['vat_rate'],
@@ -571,7 +571,14 @@ class BookingController extends Controller
         }
 
         DB::transaction(function () use ($booking, $invoice) {
-            $previousCheckout = $invoice->period_from?->copy()->subDay();
+            $previousCheckout = $booking->invoices()
+                ->whereKeyNot($invoice->id)
+                ->whereDate('period_to', '<=', $invoice->period_from)
+                ->orderByDesc('period_to')
+                ->value('period_to');
+            $previousCheckout = $previousCheckout
+                ? \Carbon\Carbon::parse($previousCheckout)
+                : $invoice->period_from?->copy();
             $ownerId = $booking->property?->landlord_id;
             LandlordAccountEntry::where('reference', $invoice->invoice_number)->delete();
             $booking->histories()->create([
