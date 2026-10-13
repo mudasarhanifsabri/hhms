@@ -404,12 +404,18 @@ class BookingController extends Controller
             'check_out' => 'required|date|after:'.$booking->check_out?->toDateString(),
             'check_out_time' => 'nullable|date_format:H:i',
             'extension_rent_amount' => 'required|numeric|min:0',
+            'vat_included' => 'nullable|boolean',
             'vat_rate' => 'required|numeric|min:0|max:100',
             'other_fees' => 'nullable|numeric|min:0',
             'notes' => 'nullable|string|max:2000',
         ]);
 
         $additionalRent = (float) ($validatedData['extension_rent_amount'] ?? 0);
+        $vatRate = (float) $validatedData['vat_rate'];
+        $rentVat = $request->boolean('vat_included')
+            ? round($additionalRent - ($additionalRent / (1 + $vatRate / 100)), 2)
+            : round($additionalRent * $vatRate / 100, 2);
+        $baseRent = $request->boolean('vat_included') ? round($additionalRent - $rentVat, 2) : $additionalRent;
         $oldCheckOut = $booking->check_out?->copy();
         $maximumContractCheckout = $booking->check_in?->copy()->addDays(90);
 
@@ -421,7 +427,7 @@ class BookingController extends Controller
 
         $this->ensurePropertyCanBeBooked($booking->property_id, $booking->check_in?->toDateString(), $validatedData['check_out'], $booking->id);
 
-        $createdInvoice = DB::transaction(function () use ($booking, $validatedData, $additionalRent, $oldCheckOut) {
+        $createdInvoice = DB::transaction(function () use ($booking, $validatedData, $baseRent, $rentVat, $oldCheckOut, $request) {
             $booking->update([
                 'check_out' => $validatedData['check_out'],
                 'check_out_time' => $validatedData['check_out_time'] ?? $booking->check_out_time,
@@ -430,8 +436,10 @@ class BookingController extends Controller
             $invoice = $this->createBookingInvoice($booking, 'extension', [
                 'period_from' => $oldCheckOut?->copy()->addDay() ?? $booking->check_in,
                 'period_to' => $booking->check_out,
-                'rent_amount' => $additionalRent,
+                'rent_amount' => $baseRent,
                 'vat_rate' => (float) $validatedData['vat_rate'],
+                'vat_included' => $request->boolean('vat_included'),
+                'vat_amount' => $rentVat,
                 'fees' => ['Other Fees' => (float) ($validatedData['other_fees'] ?? 0)],
                 'notes' => 'Extension invoice for booking '.$booking->booking_reference,
             ]);
@@ -457,6 +465,7 @@ class BookingController extends Controller
             'check_out' => 'required|date|after:check_in',
             'check_out_time' => 'nullable|date_format:H:i',
             'rent_amount' => 'required|numeric|min:0',
+            'vat_included' => 'nullable|boolean',
             'dtcm_fee' => 'required|numeric|min:0.01',
             'cleaning_fee' => 'nullable|numeric|min:0',
             'agency_fee' => 'nullable|numeric|min:0',
@@ -482,7 +491,7 @@ class BookingController extends Controller
             'check_out' => $validatedData['check_out'],
             'check_out_time' => $validatedData['check_out_time'] ?? $booking->check_out_time,
             'rent_amount' => $validatedData['rent_amount'],
-            'vat_included' => $booking->vat_included,
+            'vat_included' => $request->has('vat_included') ? $request->boolean('vat_included') : $booking->vat_included,
             'dtcm_fee' => $validatedData['dtcm_fee'] ?? 0,
             'cleaning_fee' => $validatedData['cleaning_fee'] ?? 0,
             'agency_fee' => $validatedData['agency_fee'] ?? 0,
@@ -490,7 +499,7 @@ class BookingController extends Controller
             'notes' => $validatedData['notes'] ?? null,
         ];
         $this->ensurePropertyCanBeBooked($payload['property_id'], $payload['check_in'], $payload['check_out']);
-        $amounts = $this->calculateAmounts($payload, new Request(['vat_included' => $booking->vat_included]));
+        $amounts = $this->calculateAmounts($payload, new Request(['vat_included' => $payload['vat_included']]));
 
         $newBooking = Booking::create([
             ...$payload,
@@ -524,6 +533,33 @@ class BookingController extends Controller
 
         return redirect()->route('admin.booking.show', $newBooking->id)
             ->with('success', 'Booking renewed successfully.');
+    }
+
+    public function destroyExtensionInvoice(BookingInvoice $invoice)
+    {
+        abort_unless($invoice->invoice_type === 'extension', 422, 'Only an extension invoice can be removed here.');
+        $invoice->load(['booking.property', 'allPayments']);
+        $booking = $invoice->booking;
+        $latestInvoice = $booking->invoices()->orderByDesc('period_to')->orderByDesc('created_at')->first();
+
+        if ($latestInvoice?->id !== $invoice->id || $invoice->status !== 'unpaid' || $invoice->allPayments->isNotEmpty()) {
+            throw ValidationException::withMessages(['invoice' => 'Only the latest unpaid extension invoice with no payment history can be deleted.']);
+        }
+
+        DB::transaction(function () use ($booking, $invoice) {
+            $previousCheckout = $invoice->period_from?->copy()->subDay();
+            $ownerId = $booking->property?->landlord_id;
+            LandlordAccountEntry::where('reference', $invoice->invoice_number)->delete();
+            $booking->histories()->create([
+                'title' => 'Extension Invoice Deleted',
+                'description' => $invoice->invoice_number.' was deleted and checkout was restored to '.$previousCheckout?->format('d M Y').'.',
+            ]);
+            $invoice->delete();
+            if ($previousCheckout) $booking->update(['check_out' => $previousCheckout]);
+            if ($ownerId) LandlordAccountEntry::recalculateBalancesFor($ownerId);
+        });
+
+        return back()->with('success', 'Extension invoice deleted and the previous checkout date restored.');
     }
 
     public function show(Booking $booking)

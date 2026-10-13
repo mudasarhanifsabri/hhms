@@ -195,6 +195,7 @@
                                         <a class="dropdown-item" href="{{ route('admin.accounting.booking-invoices.pdf', $invoice) }}"><iconify-icon icon="solar:bill-list-broken" class="me-2"></iconify-icon>Invoice PDF</a>
                                         @if($invoice->payments->isNotEmpty())<a class="dropdown-item" href="{{ route('admin.booking-invoice.receipt', $invoice) }}"><iconify-icon icon="solar:bill-check-broken" class="me-2"></iconify-icon>Payment receipt</a>@endif
                                         @if($invoice->status==='unpaid' && $invoice->payments->isEmpty())<button type="button" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#correctInvoice{{ $invoice->id }}"><iconify-icon icon="solar:pen-2-broken" class="me-2"></iconify-icon>Edit invoice</button>@endif
+                                        @if($invoice->invoice_type === 'extension' && $invoice->status === 'unpaid' && $invoice->allPayments->isEmpty() && $booking->invoices->sortByDesc('period_to')->first()?->id === $invoice->id)<form method="POST" action="{{ route('admin.booking-invoice.destroy', $invoice) }}" onsubmit="return confirm('Delete this extension invoice and restore the previous checkout date?')">@csrf @method('DELETE')<button class="dropdown-item text-danger"><iconify-icon icon="solar:trash-bin-trash-broken" class="me-2"></iconify-icon>Delete extension invoice</button></form>@endif
                                     </div></div>
                                 </div></td>
                             </tr>
@@ -348,14 +349,19 @@
                         <input type="time" id="extend_check_out_time" name="check_out_time" class="form-control" value="{{ old('check_out_time', $booking->check_out_time ? \Carbon\Carbon::parse($booking->check_out_time)->format('H:i') : '11:00') }}">
                     </div>
                     <div class="mb-3">
-                        <label for="extension_rent_amount" class="form-label">New Extension Rent (AED)</label>
+                        <label for="extension_rent_amount" class="form-label">Rent amount (AED)</label>
                         <input type="number" step="0.01" min="0" id="extension_rent_amount" name="extension_rent_amount" class="form-control extension-calculation" value="{{ old('extension_rent_amount', $defaultExtensionRent) }}" required>
+                        <small class="text-muted">Enter the agreed amount, then choose whether it already includes VAT.</small>
+                    </div>
+                    <div class="btn-group w-100 mb-3" role="group" aria-label="Extension VAT treatment">
+                        <input type="radio" class="btn-check extension-calculation" id="extension_vat_included" name="vat_included" value="1" @checked(old('vat_included', $booking->vat_included))><label class="btn btn-outline-primary" for="extension_vat_included">VAT Included</label>
+                        <input type="radio" class="btn-check extension-calculation" id="extension_vat_excluded" name="vat_included" value="0" @checked(!old('vat_included', $booking->vat_included))><label class="btn btn-outline-primary" for="extension_vat_excluded">VAT Excluded (add VAT)</label>
                     </div>
                     <div class="row g-3 mb-3">
                         <div class="col-6"><label class="form-label" for="extension_vat_rate">VAT Rate %</label><input class="form-control extension-calculation" type="number" step="0.01" min="0" max="100" id="extension_vat_rate" name="vat_rate" value="{{ old('vat_rate', 5) }}" required></div>
                         <div class="col-6"><label class="form-label" for="extension_other_fees">Other Fees (AED)</label><input class="form-control extension-calculation" type="number" step="0.01" min="0" id="extension_other_fees" name="other_fees" value="{{ old('other_fees', 0) }}"></div>
                     </div>
-                    <div class="alert alert-primary d-flex justify-content-between"><span>Separate extension invoice total</span><strong id="extensionTotal">AED 0.00</strong></div>
+                    <div class="border rounded overflow-hidden mb-3"><div class="row g-0 text-center"><div class="col-4 p-2 border-end"><small class="text-muted d-block">Rent before VAT</small><strong id="extensionNet">AED 0.00</strong></div><div class="col-4 p-2 border-end"><small class="text-muted d-block">VAT</small><strong id="extensionVat">AED 0.00</strong></div><div class="col-4 p-2 bg-primary-subtle"><small class="text-muted d-block">Invoice total</small><strong id="extensionTotal">AED 0.00</strong></div></div></div>
                     <p class="small text-muted">The original booking invoice and its payments will not be changed.</p>
                     <div class="mb-0">
                         <label for="extension_notes" class="form-label">Notes</label>
@@ -399,26 +405,28 @@
                             <input type="time" id="renew_check_out_time" name="check_out_time" class="form-control" value="{{ old('check_out_time', $booking->check_out_time ? \Carbon\Carbon::parse($booking->check_out_time)->format('H:i') : '11:00') }}">
                         </div>
                         <div class="col-lg-4">
-                            <label for="renew_rent_amount" class="form-label">Rent</label>
-                            <input type="number" step="0.01" min="0" id="renew_rent_amount" name="rent_amount" class="form-control" value="{{ old('rent_amount', $defaultExtensionRent) }}" required>
+                            <label for="renew_rent_amount" class="form-label">Rent amount (AED)</label>
+                            <input type="number" step="0.01" min="0" id="renew_rent_amount" name="rent_amount" class="form-control renewal-calculation" value="{{ old('rent_amount', $defaultExtensionRent) }}" required>
                         </div>
                         <div class="col-lg-4">
                             <label for="renew_dtcm_fee" class="form-label">DTCM Fee</label>
-                            <input type="number" step="0.01" min="0" id="renew_dtcm_fee" name="dtcm_fee" class="form-control" value="{{ old('dtcm_fee', $booking->dtcm_fee) }}">
+                            <input type="number" step="0.01" min="0" id="renew_dtcm_fee" name="dtcm_fee" class="form-control renewal-calculation" value="{{ old('dtcm_fee', $booking->dtcm_fee) }}">
                         </div>
                         <div class="col-lg-4">
                             <label for="renew_cleaning_fee" class="form-label">Cleaning Fee</label>
-                            <input type="number" step="0.01" min="0" id="renew_cleaning_fee" name="cleaning_fee" class="form-control" value="{{ old('cleaning_fee', $booking->cleaning_fee) }}">
+                            <input type="number" step="0.01" min="0" id="renew_cleaning_fee" name="cleaning_fee" class="form-control renewal-calculation" value="{{ old('cleaning_fee', $booking->cleaning_fee) }}">
                         </div>
                         <div class="col-lg-4">
                             <label for="renew_agency_fee" class="form-label">Agency Fee</label>
-                            <input type="number" step="0.01" min="0" id="renew_agency_fee" name="agency_fee" class="form-control" value="{{ old('agency_fee', $booking->agency_fee) }}">
+                            <input type="number" step="0.01" min="0" id="renew_agency_fee" name="agency_fee" class="form-control renewal-calculation" value="{{ old('agency_fee', $booking->agency_fee) }}">
                         </div>
                         <div class="col-lg-4">
                             <label for="renew_security_deposit" class="form-label">Security Deposit</label>
-                            <input type="number" step="0.01" min="0" id="renew_security_deposit" name="security_deposit" class="form-control" value="{{ old('security_deposit', $booking->security_deposit) }}">
+                            <input type="number" step="0.01" min="0" id="renew_security_deposit" name="security_deposit" class="form-control renewal-calculation" value="{{ old('security_deposit', $booking->security_deposit) }}">
                             <small class="text-muted">Set to 0 if carrying an existing deposit forward from the Deposit Wallet.</small>
                         </div>
+                        <div class="col-12"><div class="btn-group w-100" role="group" aria-label="Renewal VAT treatment"><input type="radio" class="btn-check renewal-calculation" id="renew_vat_included" name="vat_included" value="1" @checked(old('vat_included', $booking->vat_included))><label class="btn btn-outline-primary" for="renew_vat_included">VAT Included</label><input type="radio" class="btn-check renewal-calculation" id="renew_vat_excluded" name="vat_included" value="0" @checked(!old('vat_included', $booking->vat_included))><label class="btn btn-outline-primary" for="renew_vat_excluded">VAT Excluded (add VAT)</label></div><small class="text-muted">Cleaning and agency fees always add 5% VAT. DTCM and deposit have no VAT.</small></div>
+                        <div class="col-12"><div class="border rounded overflow-hidden"><div class="row g-0 text-center"><div class="col-4 p-2 border-end"><small class="text-muted d-block">Rent before VAT</small><strong id="renewalNet">AED 0.00</strong></div><div class="col-4 p-2 border-end"><small class="text-muted d-block">Total VAT</small><strong id="renewalVat">AED 0.00</strong></div><div class="col-4 p-2 bg-primary-subtle"><small class="text-muted d-block">Invoice total</small><strong id="renewalTotal">AED 0.00</strong></div></div></div></div>
                         <div class="col-lg-12">
                             <label for="renew_notes" class="form-label">Notes</label>
                             <textarea id="renew_notes" name="notes" rows="3" class="form-control">{{ old('notes') }}</textarea>
@@ -580,9 +588,35 @@ document.addEventListener('DOMContentLoaded', function () {
     const vat = document.getElementById('extension_vat_rate');
     const fees = document.getElementById('extension_other_fees');
     const total = document.getElementById('extensionTotal');
-    const calculate = () => total.textContent = 'AED ' + ((parseFloat(rent?.value) || 0) * (1 + (parseFloat(vat?.value) || 0) / 100) + (parseFloat(fees?.value) || 0)).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    const currency = value => 'AED ' + value.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    const calculate = () => {
+        const entered = parseFloat(rent?.value) || 0, rate = (parseFloat(vat?.value) || 0) / 100;
+        const included = document.getElementById('extension_vat_included')?.checked;
+        const net = included ? entered / (1 + rate) : entered;
+        const vatAmount = included ? entered - net : net * rate;
+        document.getElementById('extensionNet').textContent = currency(net);
+        document.getElementById('extensionVat').textContent = currency(vatAmount);
+        total.textContent = currency(net + vatAmount + (parseFloat(fees?.value) || 0));
+    };
     document.querySelectorAll('.extension-calculation').forEach(input => input.addEventListener('input', calculate));
+    document.querySelectorAll('[name="vat_included"]').forEach(input => input.addEventListener('change', calculate));
     calculate();
+    const calculateRenewal = () => {
+        const entered = parseFloat(document.getElementById('renew_rent_amount')?.value) || 0;
+        const included = document.getElementById('renew_vat_included')?.checked;
+        const net = included ? entered / 1.05 : entered;
+        const rentVat = included ? entered - net : net * .05;
+        const cleaning = parseFloat(document.getElementById('renew_cleaning_fee')?.value) || 0;
+        const agency = parseFloat(document.getElementById('renew_agency_fee')?.value) || 0;
+        const dtcm = parseFloat(document.getElementById('renew_dtcm_fee')?.value) || 0;
+        const deposit = parseFloat(document.getElementById('renew_security_deposit')?.value) || 0;
+        const totalVat = rentVat + (cleaning + agency) * .05;
+        document.getElementById('renewalNet').textContent = currency(net);
+        document.getElementById('renewalVat').textContent = currency(totalVat);
+        document.getElementById('renewalTotal').textContent = currency(net + totalVat + cleaning + agency + dtcm + deposit);
+    };
+    document.querySelectorAll('.renewal-calculation').forEach(input => { input.addEventListener('input', calculateRenewal); input.addEventListener('change', calculateRenewal); });
+    calculateRenewal();
     document.querySelectorAll('[data-card-payment-form]').forEach(function (form) {
         const method = form.querySelector('[data-card-method]');
         const amount = form.querySelector('[name="amount"]');
