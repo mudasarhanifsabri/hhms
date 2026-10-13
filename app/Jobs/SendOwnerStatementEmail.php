@@ -56,6 +56,7 @@ class SendOwnerStatementEmail implements ShouldQueue
             $this->customMessage,
             $pdf,
             $filename,
+            $this->deliveryId,
         ));
         EmailDelivery::whereKey($this->deliveryId)->update([
             'status' => 'sent',

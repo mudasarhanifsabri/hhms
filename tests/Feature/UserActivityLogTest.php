@@ -5,6 +5,8 @@ namespace Tests\Feature;
 use App\Models\User;
 use App\Models\UserActivityLog;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 class UserActivityLogTest extends TestCase
@@ -30,5 +32,27 @@ class UserActivityLogTest extends TestCase
         $this->assertTrue(UserActivityLog::where('event', 'logout')->where('user_id', $admin->id)->exists());
 
         $this->actingAs($admin)->get(route('admin.activity-logs.index'))->assertOk()->assertSee('User Activity Logs')->assertSee('203.0.113.25');
+    }
+
+    public function test_activity_log_page_enriches_public_ips_with_approximate_location(): void
+    {
+        Cache::flush();
+        Http::fake(['ipwho.is/*' => Http::response([
+            'success' => true, 'city' => 'Dubai', 'region' => 'Dubai', 'country' => 'United Arab Emirates',
+            'country_code' => 'AE', 'latitude' => 25.2048, 'longitude' => 55.2708,
+            'timezone' => ['id' => 'Asia/Dubai'],
+        ])]);
+        $admin = User::factory()->create(['role' => 'admin']);
+        UserActivityLog::create([
+            'user_id' => $admin->id, 'user_email' => $admin->email, 'event' => 'login_success',
+            'ip_address' => '8.8.8.8', 'device' => 'Chrome on Windows', 'occurred_at' => now(),
+        ]);
+
+        $this->actingAs($admin)->get(route('admin.activity-logs.index'))
+            ->assertOk()->assertSee('Dubai, Dubai, United Arab Emirates')->assertSee('Approximate map');
+
+        $log = UserActivityLog::where('ip_address', '8.8.8.8')->firstOrFail();
+        $this->assertSame('Dubai', $log->location_city);
+        $this->assertSame('AE', $log->location_country_code);
     }
 }

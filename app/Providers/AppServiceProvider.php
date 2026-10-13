@@ -15,6 +15,9 @@ use Illuminate\Auth\Events\Login;
 use Illuminate\Auth\Events\Failed;
 use Illuminate\Auth\Events\Logout;
 use App\Support\ActivityLogger;
+use App\Support\OutboundEmailTracker;
+use Illuminate\Mail\Events\MessageSending;
+use Illuminate\Mail\Events\MessageSent;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -46,5 +49,7 @@ class AppServiceProvider extends ServiceProvider
         Event::listen(Login::class, fn (Login $event) => ActivityLogger::write('login_success', $event->user, ['description' => 'Successful login']));
         Event::listen(Failed::class, fn (Failed $event) => ActivityLogger::write('login_failed', $event->user, ['user_email' => $event->credentials['email'] ?? null, 'description' => 'Failed login attempt']));
         Event::listen(Logout::class, fn (Logout $event) => ActivityLogger::write('logout', $event->user, ['description' => 'User logged out']));
+        Event::listen(MessageSending::class, [OutboundEmailTracker::class, 'sending']);
+        Event::listen(MessageSent::class, [OutboundEmailTracker::class, 'sent']);
     }
 }

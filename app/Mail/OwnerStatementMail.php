@@ -8,6 +8,7 @@ use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Attachment;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
+use Illuminate\Mail\Mailables\Headers;
 use Illuminate\Queue\SerializesModels;
 
 class OwnerStatementMail extends Mailable
@@ -21,7 +22,16 @@ class OwnerStatementMail extends Mailable
         public ?string $customMessage,
         public string $pdfContent,
         public string $pdfFilename,
+        public ?string $deliveryId = null,
     ) {}
+
+    public function headers(): Headers
+    {
+        return new Headers(text: array_filter([
+            'X-RMS-Delivery-ID' => $this->deliveryId,
+            'X-RMS-Mail-Type' => 'owner_statement',
+        ]));
+    }
 
     public function envelope(): Envelope
     {
