@@ -31,6 +31,8 @@ class BookingReservationDateTest extends TestCase
         $this->assertStringContainsString('Reservation date', $html);
         $this->assertStringContainsString('15 Aug 2026', $html);
         $this->assertStringContainsString('27 Aug 2026', $html);
+        $this->assertStringContainsString('vacation-homes-rental-stamp.png', $html);
+        $this->assertStringContainsString('Authorized paid booking confirmation', $html);
     }
 
     public function test_data_repair_sets_requested_date_without_changing_check_in(): void

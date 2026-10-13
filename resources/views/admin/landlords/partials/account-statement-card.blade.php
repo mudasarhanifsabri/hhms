@@ -202,32 +202,33 @@
                 </div>
                 <div class="modal-body">
                     <div class="alert alert-primary mb-3">
-                        <div class="d-flex align-items-center gap-2 mb-2"><i class="ri-mail-check-line fs-24"></i><strong>Statement recipients</strong></div>
+                        <div class="d-flex align-items-center gap-2 mb-1"><i class="ri-mail-check-line fs-24"></i><strong>Statement recipients</strong></div>
+                        <div class="small mb-2">Confirm who will receive this statement before sending.</div>
                         <div id="statementRecipientPreview" class="d-flex flex-column gap-2"></div>
-                        <div class="small mt-2 opacity-75">For a selected unit, all registered owners of that unit receive the same statement.</div>
+                        <div id="statementRecipientHelp" class="small mt-2 opacity-75"></div>
                     </div>
                     <div class="row g-3">
-                        <div class="col-lg-6"><label class="form-label">Send To</label><select class="form-control" name="recipient_mode" id="statement_recipient_mode" required><option value="owner">All unit owners</option><option value="custom">Custom email only</option><option value="both">All unit owners and custom email</option></select></div>
-                        <div class="col-lg-6"><label class="form-label">Custom Email</label><input type="email" class="form-control" id="statement_custom_email" name="custom_email" placeholder="accounts@example.com"></div>
+                        <div class="col-12"><label class="form-label">Send statement to</label><select class="form-select" name="recipient_mode" id="statement_recipient_mode" required><option value="owner">Registered owner email(s)</option><option value="custom">A different email address only</option><option value="both">Registered owner email(s) and another address</option></select></div>
+                        <div class="col-12 d-none" id="statementCustomEmailField"><label class="form-label" for="statement_custom_email">Additional recipient email</label><input type="email" class="form-control" id="statement_custom_email" name="custom_email" placeholder="name@example.com"><div class="form-text">Use this for an accountant, assistant, or another approved recipient.</div></div>
                         <div class="col-lg-6"><label class="form-label">Purpose</label><select class="form-control" name="purpose" id="statement_purpose" required><option>Monthly Statement</option><option>Payout Summary</option><option>Account Reconciliation</option><option>Custom</option></select></div>
-                        <div class="col-lg-6"><label class="form-label">Custom Purpose</label><input type="text" class="form-control" name="custom_purpose" maxlength="120" placeholder="Example: August final settlement"></div>
+                        <div class="col-lg-6 d-none" id="statementCustomPurposeField"><label class="form-label" for="statement_custom_purpose">Custom purpose</label><input type="text" class="form-control" id="statement_custom_purpose" name="custom_purpose" maxlength="120" placeholder="Example: August final settlement"></div>
                         <input type="hidden" name="date_from" value="{{ $filters['date_from'] ?? '' }}">
                         <input type="hidden" name="date_to" value="{{ $filters['date_to'] ?? '' }}">
                         <div class="col-lg-8"><label class="form-label">Statement Period</label><div class="form-control bg-light">{{ \Carbon\Carbon::parse($filters['date_from'])->format('d M Y') }} – {{ \Carbon\Carbon::parse($filters['date_to'])->format('d M Y') }}</div></div>
                         <div class="col-lg-4"><label class="form-label">Unit</label><select class="form-control" id="statement_property_id" name="property_id">
-                            <option value="" data-owner-recipients="{{ e(collect([['name' => $landlord->name, 'email' => $landlord->email]])->toJson()) }}">All units</option>
+                            <option value="" data-owner-recipients="{{ collect([['name' => $landlord->name, 'email' => $landlord->email]])->toJson() }}">All units</option>
                             @foreach($relatedProperties as $property)
                                 @php
                                     $unitOwners = $property->ownerShares->pluck('owner')->filter()->prepend($property->landlord)->filter()->unique('id')->values()
                                         ->map(fn ($owner) => ['name' => $owner->name, 'email' => $owner->email]);
                                 @endphp
-                                <option value="{{ $property->id }}" data-owner-recipients="{{ e($unitOwners->toJson()) }}" @selected(($filters['property_id'] ?? '')===$property->id)>{{ $property->name }} - {{ $property->building?->building_name ?? 'No building' }}</option>
+                                <option value="{{ $property->id }}" data-owner-recipients="{{ $unitOwners->toJson() }}" @selected(($filters['property_id'] ?? '')===$property->id)>{{ $property->name }} - {{ $property->building?->building_name ?? 'No building' }}</option>
                             @endforeach
                         </select></div>
-                        <div class="col-12"><label class="form-label">Message to Owner</label><textarea class="form-control" name="message" rows="4" maxlength="2000" placeholder="Optional personal message shown inside the email"></textarea></div>
+                        <div class="col-12"><label class="form-label">Personal message <span class="text-muted fw-normal">(optional)</span></label><textarea class="form-control" name="message" rows="3" maxlength="2000" placeholder="Leave blank to send the standard statement email."></textarea></div>
                     </div>
                 </div>
-                <div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-primary"><i class="ri-send-plane-fill me-1"></i>Send Email with PDF</button></div>
+                <div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-primary" id="statementSendButton"><i class="ri-send-plane-fill me-1"></i>Send statement and PDF</button></div>
             </form>
         </div>
     </div>
@@ -239,7 +240,12 @@
     const mode = document.getElementById('statement_recipient_mode');
     const custom = document.getElementById('statement_custom_email');
     const preview = document.getElementById('statementRecipientPreview');
-    if (!unit || !mode || !custom || !preview) return;
+    const help = document.getElementById('statementRecipientHelp');
+    const customField = document.getElementById('statementCustomEmailField');
+    const purpose = document.getElementById('statement_purpose');
+    const customPurpose = document.getElementById('statement_custom_purpose');
+    const customPurposeField = document.getElementById('statementCustomPurposeField');
+    if (!unit || !mode || !custom || !preview || !help || !customField || !purpose || !customPurpose || !customPurposeField) return;
 
     const renderRecipients = () => {
         let recipients = [];
@@ -256,15 +262,33 @@
             seen.add(email);
             return true;
         });
+        const needsCustomEmail = mode.value === 'custom' || mode.value === 'both';
+        customField.classList.toggle('d-none', !needsCustomEmail);
+        custom.required = needsCustomEmail;
+        if (!needsCustomEmail) custom.value = '';
+
         preview.innerHTML = recipients.length
             ? recipients.map(recipient => `<div class="d-flex justify-content-between gap-3 bg-white bg-opacity-75 rounded px-3 py-2"><strong>${escapeHtml(recipient.name || 'Owner')}</strong><span class="text-break">${escapeHtml(recipient.email)}</span></div>`).join('')
-            : '<div class="bg-white bg-opacity-75 rounded px-3 py-2">Enter a valid custom email address.</div>';
+            : (needsCustomEmail
+                ? '<div class="bg-white bg-opacity-75 rounded px-3 py-2">Enter the additional email address below.</div>'
+                : '<div class="bg-white bg-opacity-75 rounded px-3 py-2 text-danger"><strong>No owner email is saved.</strong> Add an email to the owner profile or choose “A different email address only”.</div>');
+        help.textContent = unit.value
+            ? 'This is a unit statement. Every registered owner shown above receives the same statement.'
+            : 'This is an all-units statement. It is sent only to the primary owner to protect unit financial information.';
+    };
+    const renderPurpose = () => {
+        const isCustom = purpose.value === 'Custom';
+        customPurposeField.classList.toggle('d-none', !isCustom);
+        customPurpose.required = isCustom;
+        if (!isCustom) customPurpose.value = '';
     };
     const escapeHtml = value => String(value).replace(/[&<>'"]/g, character => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#039;','"':'&quot;'}[character]));
     unit.addEventListener('change', renderRecipients);
     mode.addEventListener('change', renderRecipients);
     custom.addEventListener('input', renderRecipients);
+    purpose.addEventListener('change', renderPurpose);
     renderRecipients();
+    renderPurpose();
 })();
 </script>
 
