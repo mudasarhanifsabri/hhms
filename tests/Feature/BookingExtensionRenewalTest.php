@@ -165,6 +165,22 @@ class BookingExtensionRenewalTest extends TestCase
         $this->assertSame('5350.00', $invoice->total_amount);
     }
 
+    public function test_extension_can_add_an_independently_taxed_agency_fee(): void
+    {
+        ['admin' => $admin, 'booking' => $booking] = $this->booking();
+
+        $this->actingAs($admin)->post(route('admin.booking.extend', $booking), [
+            'check_out' => '2026-03-27', 'extension_rent_amount' => 4500,
+            'vat_included' => 0, 'vat_rate' => 5, 'agency_fee' => 1050,
+            'agency_fee_vat_included' => 1,
+        ])->assertSessionHasNoErrors();
+
+        $invoice = BookingInvoice::where('invoice_type', 'extension')->firstOrFail();
+        $this->assertSame('1000.00', number_format((float) $invoice->fees['Agency Fee'], 2, '.', ''));
+        $this->assertSame('275.00', $invoice->vat_amount);
+        $this->assertSame('5775.00', $invoice->total_amount);
+    }
+
     public function test_latest_unpaid_extension_invoice_can_be_deleted_and_checkout_is_restored(): void
     {
         ['admin' => $admin, 'booking' => $booking] = $this->booking();

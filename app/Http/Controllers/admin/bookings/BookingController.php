@@ -413,6 +413,8 @@ class BookingController extends Controller
             'check_out_time' => 'nullable|date_format:H:i',
             'extension_rent_amount' => 'required|numeric|min:0',
             'vat_included' => 'nullable|boolean',
+            'agency_fee' => 'nullable|numeric|min:0',
+            'agency_fee_vat_included' => 'nullable|boolean',
             'vat_rate' => 'required|numeric|min:0|max:100',
             'other_fees' => 'nullable|numeric|min:0',
             'notes' => 'nullable|string|max:2000',
@@ -424,6 +426,11 @@ class BookingController extends Controller
             ? round($additionalRent - ($additionalRent / (1 + $vatRate / 100)), 2)
             : round($additionalRent * $vatRate / 100, 2);
         $baseRent = $request->boolean('vat_included') ? round($additionalRent - $rentVat, 2) : $additionalRent;
+        $agencyInput = (float) ($validatedData['agency_fee'] ?? 0);
+        $agencyVat = $request->boolean('agency_fee_vat_included')
+            ? round($agencyInput - ($agencyInput / (1 + $vatRate / 100)), 2)
+            : round($agencyInput * $vatRate / 100, 2);
+        $baseAgencyFee = $request->boolean('agency_fee_vat_included') ? round($agencyInput - $agencyVat, 2) : $agencyInput;
         $oldCheckOut = $booking->check_out?->copy();
         $maximumContractCheckout = $booking->check_in?->copy()->addDays(90);
 
@@ -435,7 +442,7 @@ class BookingController extends Controller
 
         $this->ensurePropertyCanBeBooked($booking->property_id, $booking->check_in?->toDateString(), $validatedData['check_out'], $booking->id);
 
-        $createdInvoice = DB::transaction(function () use ($booking, $validatedData, $baseRent, $rentVat, $oldCheckOut, $request) {
+        $createdInvoice = DB::transaction(function () use ($booking, $validatedData, $baseRent, $rentVat, $baseAgencyFee, $agencyVat, $oldCheckOut, $request) {
             $booking->update([
                 'check_out' => $validatedData['check_out'],
                 'check_out_time' => $validatedData['check_out_time'] ?? $booking->check_out_time,
@@ -447,8 +454,11 @@ class BookingController extends Controller
                 'rent_amount' => $baseRent,
                 'vat_rate' => (float) $validatedData['vat_rate'],
                 'vat_included' => $request->boolean('vat_included'),
-                'vat_amount' => $rentVat,
-                'fees' => ['Other Fees' => (float) ($validatedData['other_fees'] ?? 0)],
+                'vat_amount' => $rentVat + $agencyVat,
+                'fees' => [
+                    'Agency Fee' => $baseAgencyFee,
+                    'Other Fees' => (float) ($validatedData['other_fees'] ?? 0),
+                ],
                 'notes' => 'Extension invoice for booking '.$booking->booking_reference,
             ]);
 
