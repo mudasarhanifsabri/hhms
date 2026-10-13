@@ -88,7 +88,7 @@ class BookingExtensionRenewalTest extends TestCase
         app('url')->setRoutes($routes);
 
         $this->actingAs($admin)->get(route('admin.booking.show', $booking))
-            ->assertOk()->assertSee('Period confirmation unavailable')->assertSee('Guest & Stay', false);
+            ->assertOk()->assertSee('Period confirmation unavailable')->assertSee('Guest &amp; Stay', false);
     }
 
     public function test_invoice_payment_requires_the_full_balance(): void
