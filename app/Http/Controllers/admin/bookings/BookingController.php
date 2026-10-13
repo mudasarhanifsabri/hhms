@@ -216,7 +216,15 @@ class BookingController extends Controller
                         'Cleaning Fee' => $index === 0 ? (float) $amounts['cleaning_fee'] : 0,
                         'Agency Fee' => $index === 0 ? (float) $amounts['agency_fee'] : 0,
                         'Security Deposit' => $index === 0 ? (float) $amounts['security_deposit'] : 0];
-                    $feeVat = $index === 0 ? round(((float) $amounts['cleaning_fee'] + (float) $amounts['agency_fee']) * .05, 2) : 0;
+                    $feeVat = $index === 0 ? round(
+                        ($request->boolean('cleaning_fee_vat_included')
+                            ? (float) ($validatedData['cleaning_fee'] ?? 0) - (float) $amounts['cleaning_fee']
+                            : (float) $amounts['cleaning_fee'] * .05)
+                        + ($request->boolean('agency_fee_vat_included')
+                            ? (float) ($validatedData['agency_fee'] ?? 0) - (float) $amounts['agency_fee']
+                            : (float) $amounts['agency_fee'] * .05),
+                        2
+                    ) : 0;
                     $invoice = $this->createBookingInvoice($booking, $firstOfContract ? ($contractIndex === 0 ? 'original' : 'renewal') : 'extension', [
                         'invoice_number' => $firstOfContract ? $booking->invoice_number : null,
                         'period_from' => $period['from'], 'period_to' => $period['to'], 'due_date' => $period['due_date'],
@@ -468,7 +476,9 @@ class BookingController extends Controller
             'vat_included' => 'nullable|boolean',
             'dtcm_fee' => 'required|numeric|min:0.01',
             'cleaning_fee' => 'nullable|numeric|min:0',
+            'cleaning_fee_vat_included' => 'nullable|boolean',
             'agency_fee' => 'nullable|numeric|min:0',
+            'agency_fee_vat_included' => 'nullable|boolean',
             'security_deposit' => 'nullable|numeric|min:0',
             'notes' => 'nullable|string|max:2000',
         ]);
@@ -499,7 +509,11 @@ class BookingController extends Controller
             'notes' => $validatedData['notes'] ?? null,
         ];
         $this->ensurePropertyCanBeBooked($payload['property_id'], $payload['check_in'], $payload['check_out']);
-        $amounts = $this->calculateAmounts($payload, new Request(['vat_included' => $payload['vat_included']]));
+        $amounts = $this->calculateAmounts($payload, new Request([
+            'vat_included' => $payload['vat_included'],
+            'cleaning_fee_vat_included' => $request->boolean('cleaning_fee_vat_included'),
+            'agency_fee_vat_included' => $request->boolean('agency_fee_vat_included'),
+        ]));
 
         $newBooking = Booking::create([
             ...$payload,
@@ -1196,7 +1210,9 @@ class BookingController extends Controller
             'vat_included' => 'nullable|boolean',
             'dtcm_fee' => 'nullable|numeric|min:0',
             'cleaning_fee' => 'nullable|numeric|min:0',
+            'cleaning_fee_vat_included' => 'nullable|boolean',
             'agency_fee' => 'nullable|numeric|min:0',
+            'agency_fee_vat_included' => 'nullable|boolean',
             'security_deposit' => 'nullable|numeric|min:0',
             'notes' => 'nullable|string|max:2000',
         ]);
@@ -1212,13 +1228,19 @@ class BookingController extends Controller
         $managementFeePercent = (float) ($property->management_fee_percent ?? 0);
         $managementFeeAmount = round($baseRent * ($managementFeePercent / 100), 2);
         $ownerRentIncome = round($baseRent - $managementFeeAmount, 2);
+        $cleaningInput = (float) ($validatedData['cleaning_fee'] ?? 0);
+        $agencyInput = (float) ($validatedData['agency_fee'] ?? 0);
+        $cleaningVatIncluded = $request->boolean('cleaning_fee_vat_included');
+        $agencyVatIncluded = $request->boolean('agency_fee_vat_included');
+        $cleaningVat = $cleaningVatIncluded ? round($cleaningInput - $cleaningInput / 1.05, 2) : round($cleaningInput * .05, 2);
+        $agencyVat = $agencyVatIncluded ? round($agencyInput - $agencyInput / 1.05, 2) : round($agencyInput * .05, 2);
         $fees = [
             'dtcm_fee' => (float) ($validatedData['dtcm_fee'] ?? 0),
-            'cleaning_fee' => (float) ($validatedData['cleaning_fee'] ?? 0),
-            'agency_fee' => (float) ($validatedData['agency_fee'] ?? 0),
+            'cleaning_fee' => $cleaningVatIncluded ? round($cleaningInput - $cleaningVat, 2) : $cleaningInput,
+            'agency_fee' => $agencyVatIncluded ? round($agencyInput - $agencyVat, 2) : $agencyInput,
             'security_deposit' => (float) ($validatedData['security_deposit'] ?? 0),
         ];
-        $taxableFeeVat = round(($fees['cleaning_fee'] + $fees['agency_fee']) * 0.05, 2);
+        $taxableFeeVat = $cleaningVat + $agencyVat;
         $vatAmount = $rentVatAmount + $taxableFeeVat;
 
         return [

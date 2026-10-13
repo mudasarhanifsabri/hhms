@@ -404,28 +404,28 @@
                             <label for="renew_check_out_time" class="form-label">Check Out Time</label>
                             <input type="time" id="renew_check_out_time" name="check_out_time" class="form-control" value="{{ old('check_out_time', $booking->check_out_time ? \Carbon\Carbon::parse($booking->check_out_time)->format('H:i') : '11:00') }}">
                         </div>
-                        <div class="col-lg-4">
+                        <div class="col-lg-4"><div class="border rounded p-3 h-100">
                             <label for="renew_rent_amount" class="form-label">Rent amount (AED)</label>
-                            <input type="number" step="0.01" min="0" id="renew_rent_amount" name="rent_amount" class="form-control renewal-calculation" value="{{ old('rent_amount', $defaultExtensionRent) }}" required>
-                        </div>
+                            <input type="number" step="0.01" min="0" id="renew_rent_amount" name="rent_amount" class="form-control renewal-calculation mb-2" value="{{ old('rent_amount', $defaultExtensionRent) }}" required>
+                            <div class="btn-group btn-group-sm w-100"><input type="radio" class="btn-check renewal-calculation" id="renew_vat_included" name="vat_included" value="1" @checked(old('vat_included', $booking->vat_included))><label class="btn btn-outline-primary" for="renew_vat_included">VAT Included</label><input type="radio" class="btn-check renewal-calculation" id="renew_vat_excluded" name="vat_included" value="0" @checked(!old('vat_included', $booking->vat_included))><label class="btn btn-outline-primary" for="renew_vat_excluded">VAT Excluded</label></div></div></div>
                         <div class="col-lg-4">
                             <label for="renew_dtcm_fee" class="form-label">DTCM Fee</label>
                             <input type="number" step="0.01" min="0" id="renew_dtcm_fee" name="dtcm_fee" class="form-control renewal-calculation" value="{{ old('dtcm_fee', $booking->dtcm_fee) }}">
                         </div>
-                        <div class="col-lg-4">
+                        <div class="col-lg-4"><div class="border rounded p-3 h-100">
                             <label for="renew_cleaning_fee" class="form-label">Cleaning Fee</label>
-                            <input type="number" step="0.01" min="0" id="renew_cleaning_fee" name="cleaning_fee" class="form-control renewal-calculation" value="{{ old('cleaning_fee', $booking->cleaning_fee) }}">
-                        </div>
-                        <div class="col-lg-4">
+                            <input type="number" step="0.01" min="0" id="renew_cleaning_fee" name="cleaning_fee" class="form-control renewal-calculation mb-2" value="{{ old('cleaning_fee', $booking->cleaning_fee) }}">
+                            <div class="btn-group btn-group-sm w-100"><input type="radio" class="btn-check renewal-calculation" id="renew_cleaning_vat_included" name="cleaning_fee_vat_included" value="1" @checked(old('cleaning_fee_vat_included', false))><label class="btn btn-outline-primary" for="renew_cleaning_vat_included">VAT Included</label><input type="radio" class="btn-check renewal-calculation" id="renew_cleaning_vat_excluded" name="cleaning_fee_vat_included" value="0" @checked(!old('cleaning_fee_vat_included', false))><label class="btn btn-outline-primary" for="renew_cleaning_vat_excluded">VAT Excluded</label></div></div></div>
+                        <div class="col-lg-4"><div class="border rounded p-3 h-100">
                             <label for="renew_agency_fee" class="form-label">Agency Fee</label>
-                            <input type="number" step="0.01" min="0" id="renew_agency_fee" name="agency_fee" class="form-control renewal-calculation" value="{{ old('agency_fee', $booking->agency_fee) }}">
-                        </div>
+                            <input type="number" step="0.01" min="0" id="renew_agency_fee" name="agency_fee" class="form-control renewal-calculation mb-2" value="{{ old('agency_fee', $booking->agency_fee) }}">
+                            <div class="btn-group btn-group-sm w-100"><input type="radio" class="btn-check renewal-calculation" id="renew_agency_vat_included" name="agency_fee_vat_included" value="1" @checked(old('agency_fee_vat_included', false))><label class="btn btn-outline-primary" for="renew_agency_vat_included">VAT Included</label><input type="radio" class="btn-check renewal-calculation" id="renew_agency_vat_excluded" name="agency_fee_vat_included" value="0" @checked(!old('agency_fee_vat_included', false))><label class="btn btn-outline-primary" for="renew_agency_vat_excluded">VAT Excluded</label></div></div></div>
                         <div class="col-lg-4">
                             <label for="renew_security_deposit" class="form-label">Security Deposit</label>
                             <input type="number" step="0.01" min="0" id="renew_security_deposit" name="security_deposit" class="form-control renewal-calculation" value="{{ old('security_deposit', $booking->security_deposit) }}">
                             <small class="text-muted">Set to 0 if carrying an existing deposit forward from the Deposit Wallet.</small>
                         </div>
-                        <div class="col-12"><div class="btn-group w-100" role="group" aria-label="Renewal VAT treatment"><input type="radio" class="btn-check renewal-calculation" id="renew_vat_included" name="vat_included" value="1" @checked(old('vat_included', $booking->vat_included))><label class="btn btn-outline-primary" for="renew_vat_included">VAT Included</label><input type="radio" class="btn-check renewal-calculation" id="renew_vat_excluded" name="vat_included" value="0" @checked(!old('vat_included', $booking->vat_included))><label class="btn btn-outline-primary" for="renew_vat_excluded">VAT Excluded (add VAT)</label></div><small class="text-muted">Cleaning and agency fees always add 5% VAT. DTCM and deposit have no VAT.</small></div>
+                        <div class="col-12"><div class="alert alert-light border py-2 mb-0"><strong>Non-taxable:</strong> DTCM Fee and Security Deposit do not include VAT.</div></div>
                         <div class="col-12"><div class="border rounded overflow-hidden"><div class="row g-0 text-center"><div class="col-4 p-2 border-end"><small class="text-muted d-block">Rent before VAT</small><strong id="renewalNet">AED 0.00</strong></div><div class="col-4 p-2 border-end"><small class="text-muted d-block">Total VAT</small><strong id="renewalVat">AED 0.00</strong></div><div class="col-4 p-2 bg-primary-subtle"><small class="text-muted d-block">Invoice total</small><strong id="renewalTotal">AED 0.00</strong></div></div></div></div>
                         <div class="col-lg-12">
                             <label for="renew_notes" class="form-label">Notes</label>
@@ -606,11 +606,17 @@ document.addEventListener('DOMContentLoaded', function () {
         const included = document.getElementById('renew_vat_included')?.checked;
         const net = included ? entered / 1.05 : entered;
         const rentVat = included ? entered - net : net * .05;
-        const cleaning = parseFloat(document.getElementById('renew_cleaning_fee')?.value) || 0;
-        const agency = parseFloat(document.getElementById('renew_agency_fee')?.value) || 0;
+        const cleaningInput = parseFloat(document.getElementById('renew_cleaning_fee')?.value) || 0;
+        const agencyInput = parseFloat(document.getElementById('renew_agency_fee')?.value) || 0;
+        const cleaningIncluded = document.getElementById('renew_cleaning_vat_included')?.checked;
+        const agencyIncluded = document.getElementById('renew_agency_vat_included')?.checked;
+        const cleaningVat = cleaningIncluded ? cleaningInput - cleaningInput / 1.05 : cleaningInput * .05;
+        const agencyVat = agencyIncluded ? agencyInput - agencyInput / 1.05 : agencyInput * .05;
+        const cleaning = cleaningIncluded ? cleaningInput - cleaningVat : cleaningInput;
+        const agency = agencyIncluded ? agencyInput - agencyVat : agencyInput;
         const dtcm = parseFloat(document.getElementById('renew_dtcm_fee')?.value) || 0;
         const deposit = parseFloat(document.getElementById('renew_security_deposit')?.value) || 0;
-        const totalVat = rentVat + (cleaning + agency) * .05;
+        const totalVat = rentVat + cleaningVat + agencyVat;
         document.getElementById('renewalNet').textContent = currency(net);
         document.getElementById('renewalVat').textContent = currency(totalVat);
         document.getElementById('renewalTotal').textContent = currency(net + totalVat + cleaning + agency + dtcm + deposit);

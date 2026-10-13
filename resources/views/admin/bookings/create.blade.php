@@ -130,8 +130,8 @@
                         <input type="radio" class="btn-check booking-money" id="vat_added" name="vat_included" value="0" @checked(!(old('vat_included', false)))><label class="btn btn-outline-primary" for="vat_added">VAT Excluded (add VAT)</label>
                     </div>
                     <div class="mb-3"><label class="form-label" for="dtcm_fee">DTCM Fee per contract <span class="badge bg-light text-muted">No VAT</span></label><input type="number" step="0.01" min="0" id="dtcm_fee" name="dtcm_fee" value="{{ old('dtcm_fee', 0) }}" class="form-control booking-money"><small class="text-muted">Suggested from unit type settings. Charged on first period and each 90-day renewal.</small>@error('dtcm_fee')<span class="text-danger d-block">{{ $message }}</span>@enderror</div>
-                    <div class="mb-3"><label class="form-label" for="cleaning_fee">Cleaning Fee <span class="badge bg-primary-subtle text-primary">+ 5% VAT</span></label><input type="number" step="0.01" min="0" id="cleaning_fee" name="cleaning_fee" value="{{ old('cleaning_fee', 0) }}" class="form-control booking-money"></div>
-                    <div class="mb-3"><label class="form-label" for="agency_fee">Agency Fee <span class="badge bg-primary-subtle text-primary">+ 5% VAT</span></label><input type="number" step="0.01" min="0" id="agency_fee" name="agency_fee" value="{{ old('agency_fee', 0) }}" class="form-control booking-money"></div>
+                    <div class="row g-3 mb-3"><div class="col-md-6"><div class="border rounded p-3 h-100"><label class="form-label" for="cleaning_fee">Cleaning Fee</label><input type="number" step="0.01" min="0" id="cleaning_fee" name="cleaning_fee" value="{{ old('cleaning_fee', 0) }}" class="form-control booking-money mb-2"><div class="btn-group btn-group-sm w-100" role="group"><input type="radio" class="btn-check booking-money" id="cleaning_vat_included" name="cleaning_fee_vat_included" value="1" @checked(old('cleaning_fee_vat_included', false))><label class="btn btn-outline-primary" for="cleaning_vat_included">VAT Included</label><input type="radio" class="btn-check booking-money" id="cleaning_vat_excluded" name="cleaning_fee_vat_included" value="0" @checked(!old('cleaning_fee_vat_included', false))><label class="btn btn-outline-primary" for="cleaning_vat_excluded">VAT Excluded</label></div></div></div>
+                    <div class="col-md-6"><div class="border rounded p-3 h-100"><label class="form-label" for="agency_fee">Agency Fee</label><input type="number" step="0.01" min="0" id="agency_fee" name="agency_fee" value="{{ old('agency_fee', 0) }}" class="form-control booking-money mb-2"><div class="btn-group btn-group-sm w-100" role="group"><input type="radio" class="btn-check booking-money" id="agency_vat_included" name="agency_fee_vat_included" value="1" @checked(old('agency_fee_vat_included', false))><label class="btn btn-outline-primary" for="agency_vat_included">VAT Included</label><input type="radio" class="btn-check booking-money" id="agency_vat_excluded" name="agency_fee_vat_included" value="0" @checked(!old('agency_fee_vat_included', false))><label class="btn btn-outline-primary" for="agency_vat_excluded">VAT Excluded</label></div></div></div></div>
                     <div class="mb-3"><label class="form-label" for="security_deposit">Refundable security deposit (company held)</label><input type="number" step="0.01" min="0" id="security_deposit" name="security_deposit" value="{{ old('security_deposit', 0) }}" class="form-control booking-money"></div>
                     <div class="table-responsive booking-charge-preview border rounded mt-3">
                         <table class="table table-sm align-middle mb-0">
@@ -171,12 +171,16 @@
         const vatIncluded = document.getElementById('vat_included').checked;
         const rentVat = vatIncluded ? rentInput - (rentInput / 1.05) : rentInput * 0.05;
         const rent = vatIncluded ? rentInput - rentVat : rentInput;
-        const cleaning = money('cleaning_fee');
-        const agency = money('agency_fee');
+        const cleaningInput = money('cleaning_fee');
+        const agencyInput = money('agency_fee');
+        const cleaningIncluded = document.getElementById('cleaning_vat_included').checked;
+        const agencyIncluded = document.getElementById('agency_vat_included').checked;
+        const cleaningVat = cleaningIncluded ? cleaningInput - cleaningInput / 1.05 : cleaningInput * .05;
+        const agencyVat = agencyIncluded ? agencyInput - agencyInput / 1.05 : agencyInput * .05;
+        const cleaning = cleaningIncluded ? cleaningInput - cleaningVat : cleaningInput;
+        const agency = agencyIncluded ? agencyInput - agencyVat : agencyInput;
         const dtcm = money('dtcm_fee');
         const deposit = money('security_deposit');
-        const cleaningVat = cleaning * 0.05;
-        const agencyVat = agency * 0.05;
         const vat = rentVat + cleaningVat + agencyVat;
         const total = rent + vat + dtcm + cleaning + agency + deposit;
         document.getElementById('base_rent').value = rent.toFixed(2);
@@ -239,15 +243,20 @@
     }
     function calculateScheduleTotals() {
         const included = document.getElementById('vat_included').checked;
-        const dtcm = money('dtcm_fee'), cleaning = money('cleaning_fee'), agency = money('agency_fee'), deposit = money('security_deposit');
+        const dtcm = money('dtcm_fee'), cleaningInput = money('cleaning_fee'), agencyInput = money('agency_fee'), deposit = money('security_deposit');
+        const cleaningIncluded = document.getElementById('cleaning_vat_included').checked, agencyIncluded = document.getElementById('agency_vat_included').checked;
+        const cleaningVat = cleaningIncluded ? cleaningInput - cleaningInput / 1.05 : cleaningInput * .05;
+        const agencyVat = agencyIncluded ? agencyInput - agencyInput / 1.05 : agencyInput * .05;
+        const cleaning = cleaningIncluded ? cleaningInput - cleaningVat : cleaningInput;
+        const agency = agencyIncluded ? agencyInput - agencyVat : agencyInput;
         let grand = 0;
         document.querySelectorAll('#invoice-schedule-body tr').forEach(row => {
             const input = Number(row.querySelector('.period-rent').value) || 0;
             const rentVat = included ? input - input / 1.05 : input * .05;
             const first = row.dataset.first === '1', renewal = row.dataset.renewal === '1';
             const fees = (first || renewal ? dtcm : 0) + (first ? cleaning + agency + deposit : 0);
-            const vat = rentVat + (first ? (cleaning + agency) * .05 : 0);
-            const total = (included ? input : input + rentVat) + fees + (first ? (cleaning + agency) * .05 : 0);
+            const vat = rentVat + (first ? cleaningVat + agencyVat : 0);
+            const total = (included ? input : input + rentVat) + fees + (first ? cleaningVat + agencyVat : 0);
             row.querySelector('.period-vat').textContent = vat.toFixed(2);
             row.querySelector('.period-fees').textContent = fees.toFixed(2);
             row.querySelector('.period-total').textContent = total.toFixed(2);

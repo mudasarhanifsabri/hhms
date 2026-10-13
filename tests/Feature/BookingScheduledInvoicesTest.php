@@ -28,16 +28,20 @@ class BookingScheduledInvoicesTest extends TestCase
         $this->actingAs($admin)->post(route('admin.booking.store'), [
             'property_id' => $property->id,
             'guest_name' => 'Ranjith Hewalage', 'guest_email' => 'ranjith@example.com', 'guest_phone' => '0500000001',
-            'guest_passport_id_no' => 'PASS-812', 'check_in' => '2026-09-26', 'check_out' => '2026-10-25',
+            'guest_passport_id_no' => 'PASS-812', 'reservation_date' => '2026-09-20', 'check_in' => '2026-09-26', 'check_out' => '2026-10-25',
             'check_in_time' => '15:00', 'check_out_time' => '11:00',
             'rent_amount' => 6000, 'vat_included' => 0, 'dtcm_fee' => 200,
-            'cleaning_fee' => 100, 'agency_fee' => 100, 'security_deposit' => 500,
+            'cleaning_fee' => 105, 'cleaning_fee_vat_included' => 1,
+            'agency_fee' => 210, 'agency_fee_vat_included' => 1, 'security_deposit' => 500,
         ])->assertRedirect()->assertSessionHasNoErrors();
 
         $booking = Booking::where('guest_email', 'ranjith@example.com')->firstOrFail();
         $this->assertCount(1, $booking->invoices);
         $this->assertSame('2026-09-26', $booking->invoices->first()->period_from->toDateString());
         $this->assertSame('2026-10-25', $booking->invoices->first()->period_to->toDateString());
+        $this->assertSame('100.00', $booking->cleaning_fee);
+        $this->assertSame('200.00', $booking->agency_fee);
+        $this->assertSame('315.00', $booking->invoices->first()->vat_amount);
     }
 
     public function test_long_booking_creates_separate_period_invoices_and_renews_dtcm_at_day_ninety(): void
