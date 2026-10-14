@@ -20,6 +20,7 @@ use App\Models\UtilityBill;
 use App\Models\Vendor;
 use App\Mail\ExpenseTaxInvoiceMail;
 use App\Mail\OwnerExpenseApprovalMail;
+use App\Mail\OwnerPayoutReceiptMail;
 use App\Support\MediaStorage;
 use App\Support\AppSettings;
 use App\Support\OwnerStatementPdf;
@@ -160,6 +161,96 @@ class AccountingController extends Controller
             ->withQueryString();
 
         return view('admin.accounting.expenses', $this->expenseSharedData() + compact('expenses'));
+    }
+
+    public function ownerPayouts(Request $request)
+    {
+        $search = trim((string) $request->input('search'));
+        $status = $request->input('status');
+        $ownerId = $request->input('landlord_id');
+        $from = $request->input('date_from');
+        $to = $request->input('date_to');
+        $base = LandlordAccountEntry::query()->where('type', 'payout')->where('direction', 'debit');
+        $filtered = (clone $base)
+            ->when($ownerId, fn ($query) => $query->where('landlord_id', $ownerId))
+            ->when($status, fn ($query) => $query->where('transfer_status', $status))
+            ->when($from, fn ($query) => $query->whereDate('entry_date', '>=', $from))
+            ->when($to, fn ($query) => $query->whereDate('entry_date', '<=', $to))
+            ->when($search !== '', fn ($query) => $query->where(function ($query) use ($search) {
+                $query->where('reference', 'like', "%{$search}%")
+                    ->orWhere('description', 'like', "%{$search}%")
+                    ->orWhereHas('landlord', fn ($owner) => $owner->where('name', 'like', "%{$search}%"))
+                    ->orWhereHas('property', fn ($property) => $property->where('name', 'like', "%{$search}%"));
+            }));
+        $summary = [
+            'count' => (clone $filtered)->count(),
+            'total' => (float) (clone $filtered)->sum('amount'),
+            'this_month' => (float) (clone $base)->whereBetween('entry_date', [now()->startOfMonth(), now()->endOfMonth()])->sum('amount'),
+            'owners' => (clone $base)->distinct()->count('landlord_id'),
+        ];
+        $payouts = $filtered->with(['landlord', 'property.building', 'bookingInvoice.booking', 'bankAccount', 'creator'])
+            ->latest('entry_date')->latest()->paginate(25)->withQueryString();
+        $owners = User::where('role', 'landlord')->orderBy('name')->get(['id', 'name', 'email', 'bank_name', 'iban']);
+        $properties = Property::with('building')->whereNotNull('landlord_id')->orderBy('name')->get();
+        $invoices = BookingInvoice::with('booking.property')->where('status', 'paid')->latest('period_to')->limit(300)->get();
+        $bankAccounts = BankAccount::where('is_active', true)->orderBy('name')->get();
+
+        return view('admin.accounting.owner-payouts', compact('payouts', 'summary', 'owners', 'properties', 'invoices', 'bankAccounts', 'search', 'status', 'ownerId', 'from', 'to'));
+    }
+
+    public function storeOwnerPayout(Request $request)
+    {
+        $data = $request->validate([
+            'landlord_id' => 'required|exists:users,id',
+            'property_id' => 'nullable|exists:properties,id',
+            'booking_invoice_id' => 'nullable|exists:booking_invoices,id',
+            'entry_date' => 'required|date',
+            'amount' => 'required|numeric|min:0.01|max:99999999',
+            'payment_method' => 'required|in:bank_transfer,cash,cheque,other',
+            'bank_account_id' => 'nullable|exists:bank_accounts,id',
+            'reference' => 'required|string|max:255|unique:landlord_account_entries,reference',
+            'description' => 'nullable|string|max:1000',
+            'receipt' => 'nullable|file|mimes:pdf,jpg,jpeg,png,webp|max:10240',
+        ]);
+        $owner = User::where('role', 'landlord')->findOrFail($data['landlord_id']);
+        $property = ! empty($data['property_id']) ? Property::findOrFail($data['property_id']) : null;
+        if ($property && $property->landlord_id !== $owner->id && ! $property->ownerShares()->where('owner_id', $owner->id)->exists()) {
+            return back()->withErrors(['property_id' => 'The selected unit does not belong to this owner.'])->withInput();
+        }
+        $invoice = ! empty($data['booking_invoice_id']) ? BookingInvoice::with('booking')->findOrFail($data['booking_invoice_id']) : null;
+        if ($invoice && $property && $invoice->booking?->property_id !== $property->id) {
+            return back()->withErrors(['booking_invoice_id' => 'The invoice does not belong to the selected unit.'])->withInput();
+        }
+        $receipt = $this->upload($request, 'receipt', 'owner_payout_receipts');
+        $payout = LandlordAccountEntry::create([
+            ...$data,
+            'type' => 'payout', 'direction' => 'debit',
+            'description' => $data['description'] ?: 'Owner payout transfer',
+            'receipt_attachment' => $receipt,
+            'transfer_status' => 'completed',
+            'created_by' => auth()->id(),
+        ]);
+        LandlordAccountEntry::recalculateBalancesFor($owner->id);
+        $mailNote = '';
+        if (filter_var($owner->email, FILTER_VALIDATE_EMAIL)) {
+            try {
+                Mail::to($owner->email)->send(new OwnerPayoutReceiptMail($payout->load(['landlord', 'property.building', 'bookingInvoice.booking'])));
+                $mailNote = ' Receipt emailed to '.$owner->email.'.';
+            } catch (Throwable $exception) {
+                Log::error('Owner payout receipt failed.', ['payout_id' => $payout->id, 'message' => $exception->getMessage()]);
+                $mailNote = ' Transfer saved, but the receipt email failed.';
+            }
+        }
+
+        return back()->with('success', 'Owner payout transfer recorded.'.$mailNote);
+    }
+
+    public function ownerPayoutReceipt(LandlordAccountEntry $payout)
+    {
+        abort_unless($payout->type === 'payout' && $payout->receipt_attachment, 404);
+        abort_if(blank($url = MediaStorage::url($payout->receipt_attachment)), 404);
+
+        return redirect()->away($url);
     }
 
     public function expenseReportPdf(Request $request)

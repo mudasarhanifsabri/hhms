@@ -201,6 +201,7 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
+                    <div class="alert alert-info d-flex justify-content-between align-items-center gap-3"><span><strong>Owner payouts now have a dedicated transfer register.</strong><br><small>Use it for bank, reference, receipt and booking-period details.</small></span><a href="{{ route('admin.accounting.owner-payouts') }}" class="btn btn-sm btn-primary text-nowrap">Owner Payouts</a></div>
                     <div class="alert alert-primary mb-3">
                         <div class="d-flex align-items-center gap-2 mb-1"><i class="ri-mail-check-line fs-24"></i><strong>Statement recipients</strong></div>
                         <div class="small mb-2">Confirm who will receive this statement before sending.</div>
@@ -380,6 +381,7 @@
                             <label for="type" class="form-label">Entry Type</label>
                             <select class="form-control" id="type" name="type" required>
                                 @foreach ($accountEntryTypes as $type => $label)
+                                    @continue($type === 'payout')
                                     <option value="{{ $type }}" @selected(old('type') === $type)>{{ $label }}</option>
                                 @endforeach
                                 <option value="__custom__" @selected(old('type') === '__custom__')>+ Add Custom Category</option>

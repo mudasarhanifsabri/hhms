@@ -43,6 +43,10 @@ class LandlordAccountEntry extends BaseModel
         'amount',
         'balance_after',
         'reference',
+        'payment_method',
+        'bank_account_id',
+        'transfer_status',
+        'created_by',
         'description',
         'invoice_attachment',
         'receipt_attachment',
@@ -67,6 +71,16 @@ class LandlordAccountEntry extends BaseModel
     public function bookingInvoice(): BelongsTo
     {
         return $this->belongsTo(BookingInvoice::class);
+    }
+
+    public function bankAccount(): BelongsTo
+    {
+        return $this->belongsTo(BankAccount::class);
+    }
+
+    public function creator(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by')->withTrashed();
     }
 
     public function getTypeLabelAttribute(): string

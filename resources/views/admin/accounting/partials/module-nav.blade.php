@@ -23,6 +23,7 @@
         ['label' => 'Vendors', 'route' => 'admin.accounting.vendors', 'icon' => 'ri-store-2-line'],
         ['label' => 'Ledger', 'route' => 'admin.accounting.ledger', 'icon' => 'ri-book-2-line'],
         ['label' => 'Expenses', 'route' => 'admin.accounting.expenses', 'icon' => 'ri-receipt-line'],
+        ['label' => 'Owner Payouts', 'route' => 'admin.accounting.owner-payouts', 'icon' => 'ri-exchange-dollar-line'],
         ['label' => 'Utilities', 'route' => 'admin.accounting.utilities', 'icon' => 'ri-flashlight-line'],
         ['label' => 'VAT', 'route' => 'admin.accounting.vat', 'icon' => 'ri-percent-line'],
         ['label' => 'Owner Statements', 'route' => 'admin.accounting.owner-statements', 'icon' => 'ri-file-list-3-line'],
