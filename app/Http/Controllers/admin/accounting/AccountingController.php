@@ -19,6 +19,7 @@ use App\Models\UtilityAccount;
 use App\Models\UtilityBill;
 use App\Models\Vendor;
 use App\Mail\ExpenseTaxInvoiceMail;
+use App\Mail\OwnerExpenseApprovalMail;
 use App\Support\MediaStorage;
 use App\Support\AppSettings;
 use App\Support\OwnerStatementPdf;
@@ -214,10 +215,11 @@ class AccountingController extends Controller
     public function expenseDocument(Expense $expense, ?string $kind = null)
     {
         $path = match ($kind) {
+            'quotation' => $expense->quotation_path,
             'invoice' => $expense->invoice_path,
             'receipt' => $expense->receipt_path,
             'import' => $expense->import_source_file,
-            default => $expense->invoice_path ?: $expense->receipt_path ?: $expense->import_source_file,
+            default => $expense->quotation_path ?: $expense->invoice_path ?: $expense->receipt_path ?: $expense->import_source_file,
         };
         abort_if(blank($path), 404, 'No invoice or receipt is attached to this expense.');
 
@@ -426,6 +428,7 @@ class AccountingController extends Controller
             'transaction_reference' => 'nullable|string|max:255',
             'receipt' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:10240',
             'invoice' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:10240',
+            'quotation' => 'nullable|file|mimes:pdf,jpg,jpeg,png,webp|max:10240',
             'approval_status' => 'nullable|in:draft,pending,reviewed,approved,paid,rejected',
             'description' => 'nullable|string|max:1000',
         ]);
@@ -439,6 +442,7 @@ class AccountingController extends Controller
         $saleAmounts = $this->expenseAmounts((float) ($data['sale_amount'] ?? 0), $saleVatRate, $saleVatMode === 'included');
         $receipt = $this->upload($request, 'receipt', 'expense_receipts');
         $invoice = $this->upload($request, 'invoice', 'expense_invoices');
+        $quotation = $this->upload($request, 'quotation', 'expense_quotations');
 
         $expense = Expense::create([
             ...$data,
@@ -459,6 +463,7 @@ class AccountingController extends Controller
             'profit_amount' => $saleAmounts['gross'] > 0 ? round($saleAmounts['net'] - $amounts['net'], 2) : 0,
             'receipt_path' => $receipt,
             'invoice_path' => $invoice,
+            'quotation_path' => $quotation,
             'approval_status' => $data['approval_status'] ?? 'pending',
             'created_by' => auth()->id(),
         ]);
@@ -509,6 +514,7 @@ class AccountingController extends Controller
             'transaction_reference' => 'nullable|string|max:255',
             'receipt' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:10240',
             'invoice' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:10240',
+            'quotation' => 'nullable|file|mimes:pdf,jpg,jpeg,png,webp|max:10240',
             'approval_status' => 'required|in:draft,pending,reviewed,approved,paid,rejected',
             'description' => 'nullable|string|max:1000',
         ]);
@@ -526,6 +532,7 @@ class AccountingController extends Controller
         $saleAmounts = $this->expenseAmounts((float) ($data['sale_amount'] ?? 0), $saleVatRate, $saleVatMode === 'included');
         $receipt = $this->upload($request, 'receipt', 'expense_receipts');
         $invoice = $this->upload($request, 'invoice', 'expense_invoices');
+        $quotation = $this->upload($request, 'quotation', 'expense_quotations');
 
         $expense->update([
             ...$data,
@@ -545,6 +552,7 @@ class AccountingController extends Controller
             'profit_amount' => $saleAmounts['gross'] > 0 ? round($saleAmounts['net'] - $amounts['net'], 2) : 0,
             'receipt_path' => $receipt ?? $expense->receipt_path,
             'invoice_path' => $invoice ?? $expense->invoice_path,
+            'quotation_path' => $quotation ?? $expense->quotation_path,
             'needs_review' => in_array($data['approval_status'], ['draft', 'pending'], true) ? $expense->needs_review : false,
         ]);
 
@@ -599,6 +607,12 @@ class AccountingController extends Controller
 
     public function approveExpense(Expense $expense)
     {
+        if ($expense->owner_approval_status === 'pending') {
+            return back()->with('error', 'This expense is waiting for the owner decision and cannot be posted yet.');
+        }
+        if (in_array($expense->owner_approval_status, ['rejected', 'owner_paying'], true)) {
+            return back()->with('error', 'This expense cannot be posted because the owner rejected it or chose to handle it personally.');
+        }
         if ($expense->approval_status === 'rejected') {
             return back()->with('error', 'Rejected expenses cannot be approved.');
         }
@@ -625,6 +639,58 @@ class AccountingController extends Controller
         $this->syncExpenseInputVat($expense);
 
         return back()->with('success', 'Expense approved and posted.');
+    }
+
+    public function sendExpenseForOwnerApproval(Request $request, Expense $expense)
+    {
+        $data = $request->validate([
+            'remarks' => 'required|string|min:5|max:2000',
+            'deadline' => 'nullable|date|after_or_equal:today',
+            'quotation' => 'nullable|file|mimes:pdf,jpg,jpeg,png,webp|max:10240',
+        ]);
+        $expense->loadMissing(['landlord', 'property.building', 'vendor']);
+        if (! $expense->landlord || ! filter_var($expense->landlord->email, FILTER_VALIDATE_EMAIL)) {
+            return back()->with('error', 'This expense does not have an owner with a valid email address.');
+        }
+        if (in_array($expense->owner_approval_status, ['approved', 'rejected', 'owner_paying'], true)) {
+            return back()->with('warning', 'The owner has already decided this expense request.');
+        }
+        if ($expense->owner_approval_status === 'pending' && $expense->owner_approval_sent_at) {
+            return back()->with('warning', 'This approval request was already emailed to the owner.');
+        }
+
+        $quotation = $this->upload($request, 'quotation', 'expense_quotations');
+        if (! $quotation && ! $expense->quotation_path && ! $expense->invoice_path) {
+            return back()->withErrors(['quotation' => 'Attach a quotation or supplier invoice before requesting owner approval.']);
+        }
+        $expense->update([
+            'quotation_path' => $quotation ?: $expense->quotation_path,
+            'owner_approval_status' => 'pending',
+            'owner_approval_remarks' => $data['remarks'],
+            'owner_approval_deadline' => $data['deadline'] ?? null,
+            'owner_approval_requested_at' => now(),
+            'owner_approval_sent_at' => null,
+            'owner_decided_at' => null,
+            'owner_decided_by' => null,
+            'owner_decision_remarks' => null,
+            'approval_status' => 'pending',
+            'owner_billable' => true,
+        ]);
+
+        try {
+            Mail::to($expense->landlord->email)->send(new OwnerExpenseApprovalMail($expense->fresh(['landlord', 'property.building', 'vendor'])));
+            $expense->update(['owner_approval_sent_at' => now()]);
+            ExpenseAudit::create([
+                'expense_id' => $expense->id, 'user_id' => auth()->id(), 'action' => 'owner_approval_requested',
+                'reason' => $data['remarks'], 'after_values' => ['deadline' => $data['deadline'] ?? null, 'recipient' => $expense->landlord->email],
+                'ip_address' => $request->ip(),
+            ]);
+        } catch (Throwable $exception) {
+            Log::error('Owner expense approval email failed.', ['expense_id' => $expense->id, 'message' => $exception->getMessage()]);
+            return back()->with('error', 'The approval request was saved, but the email could not be sent. You can try again.');
+        }
+
+        return back()->with('success', 'Expense approval request emailed to '.$expense->landlord->email.'.');
     }
 
     public function destroyExpense(Expense $expense)

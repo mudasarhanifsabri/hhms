@@ -24,6 +24,7 @@ use App\Support\RmsStatementCutoff;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Database\QueryException;
 use App\Notifications\LandlordCreated;
 use Throwable;
 
@@ -269,17 +270,77 @@ class LandlordController extends Controller
             ->values()
             ->all();
 
-        $delivery = EmailDelivery::create([
+        $statementData = OwnerStatementPdf::data(
+            $landlord,
+            $validated['date_from'] ?? null,
+            $validated['date_to'] ?? null,
+            $validated['property_id'] ?? null,
+        );
+        $statementFrom = $statementData['period']['from']->toDateString();
+        $statementTo = $statementData['period']['to']->toDateString();
+        $dedupeKey = hash('sha256', implode('|', [
+            'owner_statement',
+            $landlord->id,
+            $selectedProperty?->id ?? 'all-units',
+            $statementFrom,
+            $statementTo,
+        ]));
+
+        $alreadyQueuedOrSent = EmailDelivery::query()
+            ->where('type', 'owner_statement')
+            ->whereIn('status', ['queued', 'sending', 'sent'])
+            ->where('landlord_id', $landlord->id)
+            ->where(function ($query) use ($dedupeKey, $statementFrom, $statementTo) {
+                $query->where('dedupe_key', $dedupeKey)
+                    // Protect statements sent before deduplication was introduced.
+                    ->orWhere('subject', 'like', '%'.\Carbon\Carbon::parse($statementFrom)->format('d M Y').' to '.\Carbon\Carbon::parse($statementTo)->format('d M Y'));
+            })
+            ->when($selectedProperty, fn ($query) => $query->where('property_id', $selectedProperty->id), fn ($query) => $query->whereNull('property_id'))
+            ->first();
+
+        if ($alreadyQueuedOrSent) {
+            $when = ($alreadyQueuedOrSent->sent_at ?? $alreadyQueuedOrSent->queued_at)?->timezone('Asia/Dubai')->format('d M Y, h:i A');
+
+            return back()->with('warning', 'Duplicate prevented: this statement is already '.($alreadyQueuedOrSent->status === 'sent' ? 'sent' : 'queued').($when ? ' since '.$when : '').'.');
+        }
+
+        $deliveryValues = [
             'type' => 'owner_statement',
             'status' => 'queued',
             'recipients' => collect([$recipient])->concat($ccRecipients)->values()->all(),
             'subject' => 'Owner Statement - '.$purpose,
             'purpose' => $purpose,
+            'statement_from' => $statementFrom,
+            'statement_to' => $statementTo,
+            'dedupe_key' => $dedupeKey,
             'landlord_id' => $landlord->id,
             'property_id' => $selectedProperty?->id,
             'created_by' => auth()->id(),
             'queued_at' => now(),
-        ]);
+            'sent_at' => null,
+            'failed_at' => null,
+            'failure_reason' => null,
+        ];
+
+        $delivery = EmailDelivery::where('dedupe_key', $dedupeKey)->first();
+
+        if ($delivery) {
+            $requeued = EmailDelivery::whereKey($delivery->id)->where('status', 'failed')->update($deliveryValues);
+            if (! $requeued) {
+                return back()->with('warning', 'Duplicate prevented: this statement is already being processed.');
+            }
+            $delivery->refresh();
+        } else {
+            try {
+                $delivery = EmailDelivery::create($deliveryValues);
+            } catch (QueryException $exception) {
+                if ($exception->getCode() !== '23000') {
+                    throw $exception;
+                }
+
+                return back()->with('warning', 'Duplicate prevented: this statement was already queued by another request.');
+            }
+        }
 
         SendOwnerStatementEmail::dispatch(
             $delivery->id,
@@ -288,8 +349,8 @@ class LandlordController extends Controller
             $ccRecipients,
             $purpose,
             $validated['message'] ?? null,
-            $validated['date_from'] ?? null,
-            $validated['date_to'] ?? null,
+            $statementFrom,
+            $statementTo,
             $validated['property_id'] ?? null,
         );
 

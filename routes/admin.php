@@ -91,17 +91,18 @@ Route::get('/accounting/expenses', [AccountingController::class, 'expenses'])->n
 Route::get('/accounting/expenses/report/pdf', [AccountingController::class, 'expenseReportPdf'])->name('accounting.expenses.report.pdf');
 Route::get('/accounting/expenses/report/csv', [AccountingController::class, 'expenseReportCsv'])->name('accounting.expenses.report.csv');
 Route::get('/accounting/expenses/{expense}/document/{kind?}', [AccountingController::class, 'expenseDocument'])
-    ->where('kind', 'invoice|receipt|import')
+    ->where('kind', 'quotation|invoice|receipt|import')
     ->name('accounting.expenses.document');
 // Keep previously exported links working after moving to the descriptive route.
 Route::get('/e/{expense}/{kind?}', [AccountingController::class, 'expenseDocument'])
-    ->where('kind', 'invoice|receipt|import');
+    ->where('kind', 'quotation|invoice|receipt|import');
 Route::get('/accounting/expenses/{expense}/tax-invoice', [AccountingController::class, 'expenseTaxInvoice'])->name('accounting.expenses.tax-invoice');
 Route::post('/accounting/expenses/{expense}/tax-invoice/email', [AccountingController::class, 'emailExpenseTaxInvoice'])->name('accounting.expenses.tax-invoice.email');
 Route::post('/accounting/expenses', [AccountingController::class, 'storeExpense'])->name('accounting.expenses.store');
 Route::put('/accounting/expenses/{expense}', [AccountingController::class, 'updateExpense'])->name('accounting.expenses.update');
 Route::delete('/accounting/expenses/{expense}', [AccountingController::class, 'destroyExpense'])->name('accounting.expenses.destroy');
 Route::post('/accounting/expenses/{expense}/approve', [AccountingController::class, 'approveExpense'])->name('accounting.expenses.approve');
+Route::post('/accounting/expenses/{expense}/owner-approval', [AccountingController::class, 'sendExpenseForOwnerApproval'])->name('accounting.expenses.owner-approval');
 Route::get('/accounting/expenses/import', [AccountingController::class, 'importExpenses'])->name('accounting.expenses.import');
 Route::post('/accounting/expenses/import/preview', [AccountingController::class, 'previewExpenseImport'])->name('accounting.expenses.import.preview');
 Route::post('/accounting/expenses/import/confirm', [AccountingController::class, 'confirmExpenseImport'])->name('accounting.expenses.import.confirm');

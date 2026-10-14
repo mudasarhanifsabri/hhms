@@ -194,7 +194,7 @@
 <div class="modal fade" id="emailStatementModal" tabindex="-1" aria-labelledby="emailStatementModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content">
-            <form action="{{ $statementEmailRoute }}" method="POST">
+            <form action="{{ $statementEmailRoute }}" method="POST" id="statementEmailForm">
                 @csrf
                 <div class="modal-header bg-light-subtle">
                     <div><h5 class="modal-title" id="emailStatementModalLabel">Email Owner Statement</h5><div class="text-muted small">A branded HTML email with the A4 PDF statement attached.</div></div>
@@ -206,6 +206,10 @@
                         <div class="small mb-2">Confirm who will receive this statement before sending.</div>
                         <div id="statementRecipientPreview" class="d-flex flex-column gap-2"></div>
                         <div id="statementRecipientHelp" class="small mt-2 opacity-75"></div>
+                    </div>
+                    <div class="alert alert-light border d-flex gap-2 align-items-start">
+                        <i class="ri-shield-check-line text-success fs-20"></i>
+                        <div><strong>Duplicate-email protection is active.</strong><div class="small text-muted">Each owner/unit/statement period can be emailed only once. Failed attempts can be tried again.</div></div>
                     </div>
                     <div class="row g-3">
                         <div class="col-12"><label class="form-label">Send statement to</label><select class="form-select" name="recipient_mode" id="statement_recipient_mode" required><option value="owner">Registered owner email(s)</option><option value="custom">A different email address only</option><option value="both">Registered owner email(s) and another address</option></select></div>
@@ -245,6 +249,8 @@
     const purpose = document.getElementById('statement_purpose');
     const customPurpose = document.getElementById('statement_custom_purpose');
     const customPurposeField = document.getElementById('statementCustomPurposeField');
+    const form = document.getElementById('statementEmailForm');
+    const sendButton = document.getElementById('statementSendButton');
     if (!unit || !mode || !custom || !preview || !help || !customField || !purpose || !customPurpose || !customPurposeField) return;
 
     const renderRecipients = () => {
@@ -287,6 +293,11 @@
     mode.addEventListener('change', renderRecipients);
     custom.addEventListener('input', renderRecipients);
     purpose.addEventListener('change', renderPurpose);
+    form?.addEventListener('submit', () => {
+        if (!sendButton) return;
+        sendButton.disabled = true;
+        sendButton.innerHTML = '<span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>Queueing safely…';
+    });
     renderRecipients();
     renderPurpose();
 })();

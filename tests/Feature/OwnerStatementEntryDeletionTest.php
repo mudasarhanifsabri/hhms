@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Mail\OwnerStatementMail;
 use App\Jobs\SendOwnerStatementEmail;
 use App\Models\Expense;
+use App\Models\EmailDelivery;
 use App\Models\LandlordAccountEntry;
 use App\Models\Property;
 use App\Models\PropertyOwnerShare;
@@ -188,5 +189,70 @@ class OwnerStatementEntryDeletionTest extends TestCase
             ->assertSee('co-owner@example.com')
             ->assertSee('Shared Unit 501')
             ->assertSee('Monthly Statement');
+    }
+
+    public function test_same_owner_statement_cannot_be_queued_twice(): void
+    {
+        Queue::fake();
+        $admin = User::factory()->create(['role' => 'admin']);
+        $owner = User::factory()->create(['role' => 'landlord', 'email' => 'protected-owner@example.com']);
+        LandlordAccountEntry::create([
+            'landlord_id' => $owner->id,
+            'entry_date' => '2026-09-10',
+            'type' => 'rent_income',
+            'direction' => 'credit',
+            'amount' => 5000,
+        ]);
+        $payload = [
+            'recipient_mode' => 'owner',
+            'purpose' => 'Monthly Statement',
+            'date_from' => '2026-09-01',
+            'date_to' => '2026-09-30',
+        ];
+
+        $this->actingAs($admin)->post(route('admin.landlord.account-statement.email', $owner), $payload)
+            ->assertRedirect()->assertSessionHas('success');
+        $this->post(route('admin.landlord.account-statement.email', $owner), $payload)
+            ->assertRedirect()
+            ->assertSessionHas('warning', fn ($message) => str_contains($message, 'Duplicate prevented'));
+
+        $this->assertSame(1, EmailDelivery::where('type', 'owner_statement')->count());
+        Queue::assertPushed(SendOwnerStatementEmail::class, 1);
+    }
+
+    public function test_failed_owner_statement_can_be_queued_again_without_a_duplicate_record(): void
+    {
+        Queue::fake();
+        $admin = User::factory()->create(['role' => 'admin']);
+        $owner = User::factory()->create(['role' => 'landlord', 'email' => 'retry-owner@example.com']);
+        LandlordAccountEntry::create([
+            'landlord_id' => $owner->id,
+            'entry_date' => '2026-09-10',
+            'type' => 'rent_income',
+            'direction' => 'credit',
+            'amount' => 5000,
+        ]);
+        $payload = [
+            'recipient_mode' => 'owner',
+            'purpose' => 'Monthly Statement',
+            'date_from' => '2026-09-01',
+            'date_to' => '2026-09-30',
+        ];
+
+        $this->actingAs($admin)->post(route('admin.landlord.account-statement.email', $owner), $payload);
+        EmailDelivery::where('type', 'owner_statement')->update([
+            'status' => 'failed',
+            'failed_at' => now(),
+            'failure_reason' => 'Temporary SMTP failure',
+        ]);
+
+        $this->post(route('admin.landlord.account-statement.email', $owner), $payload)
+            ->assertRedirect()->assertSessionHas('success');
+
+        $delivery = EmailDelivery::where('type', 'owner_statement')->sole();
+        $this->assertSame('queued', $delivery->status);
+        $this->assertNull($delivery->failed_at);
+        $this->assertNull($delivery->failure_reason);
+        Queue::assertPushed(SendOwnerStatementEmail::class, 2);
     }
 }

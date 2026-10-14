@@ -123,6 +123,10 @@
                     <div class="alert alert-danger">
                         {{ session('error') }}
                     </div>
+                @elseif(session('warning'))
+                    <div class="alert alert-warning">
+                        <i class="ri-shield-check-line me-1"></i>{{ session('warning') }}
+                    </div>
                 @endif
 
 

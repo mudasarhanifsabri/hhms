@@ -30,13 +30,13 @@ class EmailDeliveryController extends Controller
                 'deliveries' => $deliveries,
                 'search' => $search,
                 'status' => $status,
-                'statusCounts' => array_fill_keys(['queued', 'sent', 'failed'], 0),
+                'statusCounts' => array_fill_keys(['queued', 'sending', 'sent', 'failed'], 0),
                 'deliveryLogUnavailable' => true,
             ]);
         }
 
         $deliveries = EmailDelivery::with(['landlord', 'property.building', 'creator'])
-            ->when(in_array($status, ['queued', 'sent', 'failed'], true), fn ($query) => $query->where('status', $status))
+            ->when(in_array($status, ['queued', 'sending', 'sent', 'failed'], true), fn ($query) => $query->where('status', $status))
             ->when($search !== '', fn ($query) => $query->where(function ($query) use ($search) {
                 $query->where('subject', 'like', "%{$search}%")->orWhere('purpose', 'like', "%{$search}%")
                     ->orWhere('recipients', 'like', "%{$search}%")
@@ -46,7 +46,7 @@ class EmailDeliveryController extends Controller
 
         $statusCounts = EmailDelivery::query()
             ->selectRaw('status, COUNT(*) as aggregate')
-            ->whereIn('status', ['queued', 'sent', 'failed'])
+            ->whereIn('status', ['queued', 'sending', 'sent', 'failed'])
             ->groupBy('status')
             ->pluck('aggregate', 'status')
             ->all();

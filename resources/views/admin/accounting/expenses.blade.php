@@ -56,10 +56,12 @@
                         @if($expense->audits->isNotEmpty())<button type="button" class="btn btn-sm btn-soft-info" data-bs-toggle="modal" data-bs-target="#expenseAudit{{ $expense->id }}" title="Audit History"><i class="ri-history-line"></i></button>@endif
                         @if($expense->receipt_path)<a href="{{ route('admin.accounting.expenses.document', [$expense, 'receipt']) }}" target="_blank" class="btn btn-sm btn-soft-primary" title="Receipt"><i class="ri-receipt-line"></i></a>@endif
                         @if($expense->invoice_path)<a href="{{ route('admin.accounting.expenses.document', [$expense, 'invoice']) }}" target="_blank" class="btn btn-sm btn-soft-info" title="Invoice"><i class="ri-file-list-3-line"></i></a>@endif
+                        @if($expense->quotation_path)<a href="{{ route('admin.accounting.expenses.document', [$expense, 'quotation']) }}" target="_blank" class="btn btn-sm btn-soft-warning" title="Quotation"><i class="ri-file-paper-2-line"></i></a>@endif
                         @if((float)$expense->sale_gross_amount > 0)<a href="{{ route('admin.accounting.expenses.tax-invoice',$expense) }}" class="btn btn-sm btn-soft-success" title="Download Tax Invoice"><i class="ri-bill-line"></i></a><button type="button" class="btn btn-sm btn-soft-primary" data-bs-toggle="modal" data-bs-target="#emailTaxInvoice{{ $expense->id }}" title="Email Tax Invoice"><i class="ri-mail-send-line"></i></button>@endif
                         @if($expense->import_source_file)<a href="{{ route('admin.accounting.expenses.document', [$expense, 'import']) }}" target="_blank" class="btn btn-sm btn-soft-secondary" title="Import Source"><i class="ri-file-upload-line"></i></a>@endif
                     </td>
                     <td>
+                        @if($expense->owner_approval_status)<span class="badge mb-1 {{ $expense->owner_approval_status==='approved'?'bg-success':($expense->owner_approval_status==='rejected'?'bg-danger':'bg-info') }}">Owner: {{ str($expense->owner_approval_status)->replace('_',' ')->headline() }}</span><br>@endif
                         @if($expense->approval_status !== 'reversed' && (! in_array($expense->approval_status, ['approved', 'paid'], true) || auth()->user()?->role === 'admin'))
                         <button type="button" class="btn btn-sm btn-light" data-bs-toggle="modal" data-bs-target="#editExpense{{ $expense->id }}"><i class="ri-edit-line"></i></button>
                         @endif
@@ -69,6 +71,7 @@
                                 <button class="btn btn-sm btn-success" title="Approve and post"><i class="ri-check-line"></i></button>
                             </form>
                         @endif
+                        @if($expense->landlord_id && !in_array($expense->owner_approval_status,['approved','rejected','owner_paying'],true))<button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#ownerApproval{{ $expense->id }}" title="Request owner approval"><i class="ri-user-follow-line"></i></button>@endif
                         @if(in_array($expense->approval_status, ['approved', 'paid', 'reversed'], true) && auth()->user()?->role === 'admin')
                             <button type="button" class="btn btn-sm btn-soft-danger" data-bs-toggle="modal" data-bs-target="#deleteExpense{{ $expense->id }}" title="Delete expense permanently"><i class="ri-delete-bin-line"></i></button>
                         @elseif($expense->approval_status !== 'reversed')
@@ -112,6 +115,7 @@
             <div class="col-12"><label class="form-label">Description</label><textarea name="description" rows="3" class="form-control"></textarea></div>
             <div class="col-md-6"><label class="form-label">Receipt</label><input type="file" name="receipt" class="form-control"></div>
             <div class="col-md-6"><label class="form-label">Supplier Invoice</label><input type="file" name="invoice" class="form-control"></div>
+            <div class="col-md-6"><label class="form-label">Quotation</label><input type="file" name="quotation" class="form-control" accept=".pdf,.jpg,.jpeg,.png,.webp"></div>
         </div>
         <div class="modal-footer"><button class="btn btn-primary">Save Expense</button></div>
     </form></div>
@@ -181,6 +185,7 @@
                 <div class="col-12"><label class="form-label">Description</label><textarea name="description" rows="3" class="form-control">{{ $expense->description }}</textarea></div>
                 <div class="col-md-6"><label class="form-label">Receipt</label><input type="file" name="receipt" class="form-control"></div>
                 <div class="col-md-6"><label class="form-label">Supplier Invoice</label><input type="file" name="invoice" class="form-control"></div>
+                <div class="col-md-6"><label class="form-label">Quotation</label><input type="file" name="quotation" class="form-control" accept=".pdf,.jpg,.jpeg,.png,.webp"></div>
                 @if(in_array($expense->approval_status, ['approved', 'paid'], true))
                     <div class="col-12"><div class="alert alert-warning mb-0"><strong>Protected financial record</strong><br>Editing will synchronize accounting, VAT and the owner statement. Confirm your own Super Admin password and explain the change.</div></div>
                     <div class="col-md-6"><label class="form-label">Super Admin Password</label><input type="password" name="current_password" class="form-control" autocomplete="current-password" required></div>
@@ -202,6 +207,9 @@
 @endif
 @if(in_array($expense->approval_status, ['approved', 'paid', 'reversed'], true) && auth()->user()?->role === 'admin')
 <div class="modal fade" id="deleteExpense{{ $expense->id }}" tabindex="-1" aria-hidden="true"><div class="modal-dialog modal-dialog-centered"><form class="modal-content" method="post" action="{{ route('admin.accounting.expenses.destroy',$expense) }}">@csrf @method('DELETE')<div class="modal-header"><div><h5 class="modal-title text-danger">Permanently Delete Expense</h5><small class="text-muted">{{ $expense->expense_no }} · This action cannot be undone</small></div><button class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><div class="alert alert-danger"><strong>The expense will be removed completely.</strong> Its ledger, VAT, owner-statement entries, audit history, receipt and invoice will also be deleted. No reversal entry will be created.</div><label class="form-label">Super Admin Password</label><input type="password" name="current_password" class="form-control mb-3" autocomplete="current-password" required><label class="form-label">Reason for Deletion</label><textarea name="change_reason" class="form-control" rows="3" minlength="5" maxlength="1000" required></textarea></div><div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button><button class="btn btn-danger">Delete Permanently</button></div></form></div></div>
+@endif
+@if($expense->landlord_id && !in_array($expense->owner_approval_status,['approved','rejected','owner_paying'],true))
+<div class="modal fade" id="ownerApproval{{ $expense->id }}" tabindex="-1"><div class="modal-dialog modal-lg modal-dialog-centered"><form class="modal-content" method="POST" action="{{ route('admin.accounting.expenses.owner-approval',$expense) }}" enctype="multipart/form-data">@csrf<div class="modal-header"><div><h5 class="modal-title">Request Owner Approval</h5><small class="text-muted">{{ $expense->expense_no }} · {{ $expense->property?->name }} · AED {{ number_format((float)$expense->gross_amount,2) }}</small></div><button class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><div class="alert alert-info"><i class="ri-information-line me-1"></i>The owner can Approve & Deduct, Reject, or choose to arrange/pay personally.</div><div class="row g-3"><div class="col-12"><label class="form-label">Required work, remarks and details</label><textarea name="remarks" class="form-control" rows="4" minlength="5" maxlength="2000" required>{{ $expense->owner_approval_remarks ?: $expense->description }}</textarea></div><div class="col-md-6"><label class="form-label">Decision deadline</label><input type="date" name="deadline" min="{{ today()->toDateString() }}" class="form-control" value="{{ $expense->owner_approval_deadline?->toDateString() }}"></div><div class="col-md-6"><label class="form-label">Quotation @if(!$expense->quotation_path && !$expense->invoice_path)<span class="text-danger">required</span>@endif</label><input type="file" name="quotation" class="form-control" accept=".pdf,.jpg,.jpeg,.png,.webp" @required(!$expense->quotation_path && !$expense->invoice_path)></div></div></div><div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary"><i class="ri-mail-send-line me-1"></i>Send Approval Request</button></div></form></div></div></div>
 @endif
 @endforeach
 @endsection

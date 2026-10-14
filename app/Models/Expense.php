@@ -54,6 +54,9 @@ class Expense extends BaseModel
         'imported_payload',
         'needs_review',
         'approval_status',
+        'owner_approval_status', 'owner_approval_remarks', 'owner_decision_remarks',
+        'owner_approval_deadline', 'owner_approval_requested_at', 'owner_approval_sent_at',
+        'owner_decided_at', 'owner_decided_by', 'quotation_path',
         'reversed_at', 'reversed_by', 'reversal_reason',
         'description',
         'accounting_entry_id',
@@ -76,6 +79,10 @@ class Expense extends BaseModel
         'imported_payload' => 'array',
         'needs_review' => 'boolean',
         'reversed_at' => 'datetime',
+        'owner_approval_deadline' => 'date',
+        'owner_approval_requested_at' => 'datetime',
+        'owner_approval_sent_at' => 'datetime',
+        'owner_decided_at' => 'datetime',
     ];
 
     public function property(): BelongsTo
@@ -116,5 +123,10 @@ class Expense extends BaseModel
     public function audits()
     {
         return $this->hasMany(ExpenseAudit::class);
+    }
+
+    public function ownerDecisionBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'owner_decided_by');
     }
 }

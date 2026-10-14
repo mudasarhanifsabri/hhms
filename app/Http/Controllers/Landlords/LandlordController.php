@@ -8,12 +8,14 @@ use App\Models\LandlordAccountEntry;
 use App\Models\Property;
 use App\Models\PropertyOwnerDocument;
 use App\Models\Expense;
+use App\Models\ExpenseAudit;
 use App\Models\UtilityBill;
 use App\Models\BookingTask;
 use App\Models\UnitDocument;
 use App\Support\PdfRenderer;
 use App\Support\OwnerStatementPdf;
 use App\Support\RmsStatementCutoff;
+use App\Support\MediaStorage;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
@@ -148,6 +150,81 @@ class LandlordController extends Controller
         $request->user()->unreadNotifications->markAsRead();
 
         return back()->with('success', 'Notifications marked as read.');
+    }
+
+    public function expenseApproval(Request $request, Expense $expense)
+    {
+        $this->authorizeOwnerExpense($request, $expense);
+        $expense->load(['property.building', 'vendor', 'landlord', 'ownerDecisionBy']);
+
+        return view('landlord.expenses.approval', compact('expense'));
+    }
+
+    public function decideExpense(Request $request, Expense $expense)
+    {
+        $this->authorizeOwnerExpense($request, $expense);
+        $data = $request->validate([
+            'decision' => 'required|in:approved,rejected,owner_paying',
+            'remarks' => 'nullable|required_unless:decision,approved|string|min:3|max:1500',
+        ]);
+        $before = $expense->getAttributes();
+        $updates = [
+            'owner_approval_status' => $data['decision'],
+            'owner_decision_remarks' => $data['remarks'] ?? null,
+            'owner_decided_at' => now(),
+            'owner_decided_by' => $request->user()->id,
+        ];
+        if ($data['decision'] === 'rejected') {
+            $updates['approval_status'] = 'rejected';
+        } elseif ($data['decision'] === 'owner_paying') {
+            $updates['approval_status'] = 'draft';
+            $updates['responsibility'] = 'owner';
+            $updates['owner_billable'] = false;
+        } else {
+            $updates['approval_status'] = 'pending';
+            $updates['owner_billable'] = true;
+        }
+
+        $updated = Expense::whereKey($expense->id)->where('owner_approval_status', 'pending')->update($updates);
+        if (! $updated) {
+            return back()->with('warning', 'A decision has already been recorded for this request.');
+        }
+        $expense->refresh();
+        ExpenseAudit::create([
+            'expense_id' => $expense->id,
+            'user_id' => $request->user()->id,
+            'action' => 'owner_'.$data['decision'],
+            'reason' => $data['remarks'] ?? 'Approved by owner',
+            'before_values' => $before,
+            'after_values' => $expense->getAttributes(),
+            'ip_address' => $request->ip(),
+        ]);
+
+        return redirect()->route('landlord.expenses.approval.show', $expense)
+            ->with('success', match ($data['decision']) {
+                'approved' => 'Expense approved. The team has been notified to proceed.',
+                'rejected' => 'Expense rejected and your reason has been recorded.',
+                default => 'Recorded that you will arrange or pay this expense yourself.',
+            });
+    }
+
+    public function expenseDocument(Request $request, Expense $expense, string $kind)
+    {
+        $this->authorizeOwnerExpense($request, $expense);
+        $path = $kind === 'quotation' ? $expense->quotation_path : $expense->invoice_path;
+        abort_if(blank($path) || blank($url = MediaStorage::url($path)), 404, 'Document unavailable.');
+
+        return redirect()->away($url);
+    }
+
+    private function authorizeOwnerExpense(Request $request, Expense $expense): void
+    {
+        $ownsUnit = Expense::whereKey($expense->id)
+            ->where(function ($query) use ($request) {
+                $query->where('landlord_id', $request->user()->id)
+                    ->orWhereHas('property.ownerShares', fn ($shares) => $shares->where('owner_id', $request->user()->id));
+            })->exists();
+        abort_unless($ownsUnit, 403, 'This expense does not belong to one of your units.');
     }
 
     private function isMobile(Request $request): bool

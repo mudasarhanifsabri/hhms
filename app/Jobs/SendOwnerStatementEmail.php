@@ -21,7 +21,7 @@ class SendOwnerStatementEmail implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    public int $tries = 3;
+    public int $tries = 1;
 
     public int $timeout = 180;
 
@@ -39,35 +39,53 @@ class SendOwnerStatementEmail implements ShouldQueue
 
     public function handle(): void
     {
-        $landlord = User::where('role', 'landlord')->findOrFail($this->landlordId);
-        $statementData = OwnerStatementPdf::data($landlord, $this->dateFrom, $this->dateTo, $this->propertyId);
-        $filename = 'owner-statement-'.Str::slug($landlord->name).'-'.$statementData['period']['to']->format('Y-m-d').'.pdf';
-        $pdf = PdfRenderer::output(view('admin.landlords.pdf.account-statement', $statementData)->render(), ['format' => 'A4']);
-        $pendingMail = Mail::to($this->recipient);
+        $claimed = EmailDelivery::whereKey($this->deliveryId)
+            ->where('status', 'queued')
+            ->update(['status' => 'sending']);
 
-        if ($this->ccRecipients !== []) {
-            $pendingMail->cc($this->ccRecipients);
+        if (! $claimed) {
+            Log::notice('Duplicate owner statement job skipped.', ['delivery_id' => $this->deliveryId]);
+            return;
         }
 
-        $pendingMail->send(new OwnerStatementMail(
-            $landlord,
-            $statementData,
-            $this->purpose,
-            $this->customMessage,
-            $pdf,
-            $filename,
-            $this->deliveryId,
-        ));
-        EmailDelivery::whereKey($this->deliveryId)->update([
-            'status' => 'sent',
-            'subject' => 'Owner Statement - '.$this->purpose.' - '.$statementData['period']['from']->format('d M Y').' to '.$statementData['period']['to']->format('d M Y'),
-            'sent_at' => now(),
-            'failed_at' => null,
-            'failure_reason' => null,
-        ]);
+        try {
+            $landlord = User::where('role', 'landlord')->findOrFail($this->landlordId);
+            $statementData = OwnerStatementPdf::data($landlord, $this->dateFrom, $this->dateTo, $this->propertyId);
+            $filename = 'owner-statement-'.Str::slug($landlord->name).'-'.$statementData['period']['to']->format('Y-m-d').'.pdf';
+            $pdf = PdfRenderer::output(view('admin.landlords.pdf.account-statement', $statementData)->render(), ['format' => 'A4']);
+            $pendingMail = Mail::to($this->recipient);
+
+            if ($this->ccRecipients !== []) {
+                $pendingMail->cc($this->ccRecipients);
+            }
+
+            $pendingMail->send(new OwnerStatementMail(
+                $landlord,
+                $statementData,
+                $this->purpose,
+                $this->customMessage,
+                $pdf,
+                $filename,
+                $this->deliveryId,
+            ));
+            EmailDelivery::whereKey($this->deliveryId)->update([
+                'status' => 'sent',
+                'subject' => 'Owner Statement - '.$this->purpose.' - '.$statementData['period']['from']->format('d M Y').' to '.$statementData['period']['to']->format('d M Y'),
+                'sent_at' => now(),
+                'failed_at' => null,
+                'failure_reason' => null,
+            ]);
+        } catch (Throwable $exception) {
+            $this->markFailed($exception);
+        }
     }
 
     public function failed(?Throwable $exception): void
+    {
+        $this->markFailed($exception);
+    }
+
+    private function markFailed(?Throwable $exception): void
     {
         EmailDelivery::whereKey($this->deliveryId)->update([
             'status' => 'failed',
