@@ -165,6 +165,9 @@ class AccountingController extends Controller
 
     public function ownerPayouts(Request $request)
     {
+        $perPage = in_array($request->input('per_page', '100'), ['25', '50', '100', '250'], true)
+            ? (int) $request->input('per_page', 100)
+            : 100;
         $search = trim((string) $request->input('search'));
         $status = $request->input('status');
         $ownerId = $request->input('landlord_id');
@@ -189,13 +192,13 @@ class AccountingController extends Controller
             'owners' => (clone $base)->distinct()->count('landlord_id'),
         ];
         $payouts = $filtered->with(['landlord', 'property.building', 'bookingInvoice.booking', 'bankAccount', 'creator'])
-            ->latest('entry_date')->latest()->paginate(25)->withQueryString();
+            ->latest('entry_date')->latest()->paginate($perPage)->withQueryString();
         $owners = User::where('role', 'landlord')->orderBy('name')->get(['id', 'name', 'email', 'bank_name', 'iban']);
         $properties = Property::with('building')->whereNotNull('landlord_id')->orderBy('name')->get();
         $invoices = BookingInvoice::with('booking.property')->where('status', 'paid')->latest('period_to')->limit(300)->get();
         $bankAccounts = BankAccount::where('is_active', true)->orderBy('name')->get();
 
-        return view('admin.accounting.owner-payouts', compact('payouts', 'summary', 'owners', 'properties', 'invoices', 'bankAccounts', 'search', 'status', 'ownerId', 'from', 'to'));
+        return view('admin.accounting.owner-payouts', compact('payouts', 'summary', 'owners', 'properties', 'invoices', 'bankAccounts', 'search', 'status', 'ownerId', 'from', 'to', 'perPage'));
     }
 
     public function storeOwnerPayout(Request $request)

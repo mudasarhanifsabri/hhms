@@ -27,8 +27,9 @@ class OwnerPayoutRegisterTest extends TestCase
         ]);
 
         $this->actingAs($admin)->get(route('admin.accounting.owner-payouts'))
-            ->assertOk()->assertSee('Owner Payout Transfers')->assertSee('Register Owner')
-            ->assertSee('LEGACY-PAYOUT-100')->assertSee('7,250.00')->assertSee('Legacy Completed');
+            ->assertOk()->assertSee('All Recorded Owner Payouts')->assertSee('Register Owner')
+            ->assertSee('LEGACY-PAYOUT-100')->assertSee('7,250.00')->assertSee('Completed')
+            ->assertSee('Showing 1–1 of 1 recorded payouts');
     }
 
     public function test_admin_can_record_a_detailed_owner_transfer_and_email_receipt(): void
