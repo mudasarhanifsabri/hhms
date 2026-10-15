@@ -1,12 +1,14 @@
 @extends('layouts.app')
 
+@section('title', ($archive ?? false) ? 'Checked-Out Booking Archive' : 'Bookings')
+
 @section('content')
 @include('admin.bookings.partials.compact-style')
 <div class="booking-workspace">
 <div class="row">
     <div class="col-md-3">
         <div class="card"><div class="card-body d-flex align-items-center justify-content-between">
-            <div><h4 class="card-title mb-2">Total Bookings</h4><p class="text-muted fw-medium fs-22 mb-0">{{ $totalBookings }}</p></div>
+            <div><h4 class="card-title mb-2">{{ ($archive ?? false) ? 'Checked-Out Bookings' : 'Active Bookings' }}</h4><p class="text-muted fw-medium fs-22 mb-0">{{ $totalBookings }}</p></div>
             <div class="avatar-md bg-primary bg-opacity-10 rounded"><iconify-icon icon="solar:calendar-bold" class="fs-32 text-primary avatar-title"></iconify-icon></div>
         </div></div>
     </div>
@@ -34,17 +36,16 @@
     <div class="col-xl-12">
         <div class="card" id="bookingTableCard">
             <div class="card-header d-flex flex-wrap gap-2 justify-content-between align-items-center border-bottom">
-                <h4 class="card-title mb-0">Bookings</h4>
+                <div><h4 class="card-title mb-1">{{ ($archive ?? false) ? 'Checked-Out Booking Archive' : 'Active Bookings' }}</h4><p class="text-muted small mb-0">{{ ($archive ?? false) ? 'Every booking with a completed checkout is retained here with its invoices, payments and history.' : 'Current and upcoming stays. Completed checkouts move to the archive.' }}</p></div>
                 <div class="d-flex gap-2">
                     <div class="dropdown">
                         <button class="btn btn-sm btn-outline-dark dropdown-toggle" data-bs-toggle="dropdown"><i class="ri-download-2-line me-1"></i>Export</button>
                         <div class="dropdown-menu dropdown-menu-end">
-                            <a class="dropdown-item" href="{{ route('admin.booking.export.excel', request()->except(['page','per_page'])) }}"><i class="ri-file-excel-2-line me-2 text-success"></i>Excel</a>
-                            <a class="dropdown-item" href="{{ route('admin.booking.export.pdf', request()->except(['page','per_page'])) }}"><i class="ri-file-pdf-2-line me-2 text-danger"></i>PDF</a>
+                            <a class="dropdown-item" href="{{ route('admin.booking.export.excel', array_merge(request()->except(['page','per_page']), ($archive ?? false) ? ['status'=>'checked_out'] : [])) }}"><i class="ri-file-excel-2-line me-2 text-success"></i>Excel</a>
+                            <a class="dropdown-item" href="{{ route('admin.booking.export.pdf', array_merge(request()->except(['page','per_page']), ($archive ?? false) ? ['status'=>'checked_out'] : [])) }}"><i class="ri-file-pdf-2-line me-2 text-danger"></i>PDF</a>
                         </div>
                     </div>
-                    <a href="{{ route('admin.booking.grid', request()->except('page')) }}" class="btn btn-sm btn-outline-primary">Grid View</a>
-                    <a href="{{ route('admin.booking.create') }}" class="btn btn-sm btn-primary">+ Create Booking</a>
+                    @if($archive ?? false)<a href="{{ route('admin.booking.index') }}" class="btn btn-sm btn-outline-primary"><i class="ri-calendar-check-line me-1"></i>Active Bookings</a>@else<a href="{{ route('admin.booking.checked-out') }}" class="btn btn-sm btn-outline-secondary"><i class="ri-archive-line me-1"></i>Checked-Out Archive</a><a href="{{ route('admin.booking.grid', request()->except('page')) }}" class="btn btn-sm btn-outline-primary">Grid View</a><a href="{{ route('admin.booking.create') }}" class="btn btn-sm btn-primary">+ Create Booking</a>@endif
                 </div>
             </div>
 

@@ -81,6 +81,7 @@
                 <div class="collapse" id="sidebarBookings">
                     <ul class="nav sub-navbar-nav">
                         <li class="sub-nav-item"><a class="sub-nav-link" href="{{ route('admin.booking.index') }}">Booking List</a></li>
+                        <li class="sub-nav-item"><a class="sub-nav-link" href="{{ route('admin.booking.checked-out') }}"><i class="ri-archive-line me-1"></i>Checked-Out Archive</a></li>
                         <li class="sub-nav-item"><a class="sub-nav-link" href="{{ route('admin.booking.grid') }}">Booking Grid</a></li>
                         <li class="sub-nav-item"><a class="sub-nav-link" href="{{ route('admin.booking.create') }}">Create Booking</a></li>
                     </ul>

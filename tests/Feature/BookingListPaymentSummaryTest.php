@@ -14,6 +14,37 @@ class BookingListPaymentSummaryTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_checked_out_bookings_are_kept_in_the_separate_archive(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $owner = User::factory()->create(['role' => 'landlord']);
+        $unit = Property::create(['landlord_id' => $owner->id, 'name' => 'Archive 101', 'status' => 'vacant']);
+
+        foreach ([['BK-ACTIVE-101', 'checked_in'], ['BK-ARCHIVE-101', 'checked_out']] as [$reference, $status]) {
+            Booking::create([
+                'property_id' => $unit->id,
+                'booking_reference' => $reference,
+                'invoice_number' => 'INV-'.$reference,
+                'guest_name' => 'Archive Test Guest',
+                'guest_email' => strtolower($reference).'@example.com',
+                'guest_phone' => '0500000000',
+                'guest_passport_id_no' => 'P-'.$reference,
+                'check_in' => '2026-09-01',
+                'check_out' => '2026-10-01',
+                'status' => $status,
+                'invoice_status' => 'paid',
+            ]);
+        }
+
+        $this->actingAs($admin)->get(route('admin.booking.index'))
+            ->assertOk()->assertSee('BK-ACTIVE-101')->assertDontSee('BK-ARCHIVE-101')
+            ->assertSee('Checked-Out Archive');
+
+        $this->actingAs($admin)->get(route('admin.booking.checked-out'))
+            ->assertOk()->assertSee('Checked-Out Booking Archive')
+            ->assertSee('BK-ARCHIVE-101')->assertDontSee('BK-ACTIVE-101');
+    }
+
     public function test_list_shows_paid_first_invoice_and_partial_second_invoice_with_breakdown(): void
     {
         $admin = User::factory()->create(['role' => 'admin']);

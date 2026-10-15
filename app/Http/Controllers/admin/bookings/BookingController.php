@@ -34,13 +34,28 @@ class BookingController extends Controller
 {
     public function index(Request $request)
     {
-        $bookings = $this->filteredBookings($request);
-        $totalBookings = Booking::count();
+        $bookings = $this->filteredBookings($request, true, 'active');
+        $totalBookings = Booking::where('status', '!=', 'checked_out')->count();
         $paidInvoices = BookingInvoice::where('status', 'paid')->count();
         $partialInvoices = BookingInvoice::where('status', 'partial')->count();
         $unpaidInvoices = BookingInvoice::where('status', 'unpaid')->count();
 
-        return view('admin.bookings.index', compact('bookings', 'totalBookings', 'paidInvoices', 'partialInvoices', 'unpaidInvoices'));
+        $archive = false;
+
+        return view('admin.bookings.index', compact('bookings', 'totalBookings', 'paidInvoices', 'partialInvoices', 'unpaidInvoices', 'archive'));
+    }
+
+    public function checkedOut(Request $request)
+    {
+        $bookings = $this->filteredBookings($request, true, 'checked_out');
+        $totalBookings = Booking::where('status', 'checked_out')->count();
+        $invoiceQuery = BookingInvoice::whereHas('booking', fn ($query) => $query->where('status', 'checked_out'));
+        $paidInvoices = (clone $invoiceQuery)->where('status', 'paid')->count();
+        $partialInvoices = (clone $invoiceQuery)->where('status', 'partial')->count();
+        $unpaidInvoices = (clone $invoiceQuery)->where('status', 'unpaid')->count();
+        $archive = true;
+
+        return view('admin.bookings.index', compact('bookings', 'totalBookings', 'paidInvoices', 'partialInvoices', 'unpaidInvoices', 'archive'));
     }
 
     public function grid(Request $request)
@@ -50,7 +65,7 @@ class BookingController extends Controller
         return view('admin.bookings.grid', compact('bookings'));
     }
 
-    private function filteredBookings(Request $request, bool $paginate = true)
+    private function filteredBookings(Request $request, bool $paginate = true, string $scope = 'all')
     {
         $filters = $request->validate([
             'search' => 'nullable|string|max:200',
@@ -62,6 +77,11 @@ class BookingController extends Controller
         ]);
         $query = Booking::with(['property.building', 'property.landlord', 'agent',
             'invoices' => fn ($query) => $query->withSum('payments', 'amount')->withCount('allPayments')]);
+        if ($scope === 'checked_out') {
+            $query->where('status', 'checked_out');
+        } elseif ($scope === 'active' && empty($filters['status'])) {
+            $query->where('status', '!=', 'checked_out');
+        }
         $search = trim($filters['search'] ?? '');
         if ($search !== '') {
             $query->where(function ($query) use ($search) {

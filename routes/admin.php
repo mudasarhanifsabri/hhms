@@ -223,6 +223,7 @@ Route::delete('/properties/{property}', [PropertyController::class, 'destroy'])-
 
 // AdminBooking Routes
 Route::get('/bookings', [BookingController::class, 'index'])->name('booking.index');
+Route::get('/bookings/checked-out', [BookingController::class, 'checkedOut'])->name('booking.checked-out');
 Route::get('/bookings/grid', [BookingController::class, 'grid'])->name('booking.grid');
 Route::get('/bookings/export/excel', [BookingController::class, 'exportExcel'])->name('booking.export.excel');
 Route::get('/bookings/export/pdf', [BookingController::class, 'exportPdf'])->name('booking.export.pdf');
