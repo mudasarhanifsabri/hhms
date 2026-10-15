@@ -7,6 +7,7 @@ use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
+use Illuminate\Mail\Mailables\Headers;
 use Illuminate\Queue\SerializesModels;
 
 class OwnerPayoutReceiptMail extends Mailable
@@ -25,5 +26,14 @@ class OwnerPayoutReceiptMail extends Mailable
     public function content(): Content
     {
         return new Content(view: 'emails.owner-payout-receipt');
+    }
+
+    public function headers(): Headers
+    {
+        return new Headers(text: array_filter([
+            'X-RMS-Mail-Type' => 'owner_payout',
+            'X-RMS-Landlord-ID' => (string) $this->entry->landlord_id,
+            'X-RMS-Property-ID' => (string) ($this->entry->property_id ?? ''),
+        ]));
     }
 }

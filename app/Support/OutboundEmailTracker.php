@@ -18,6 +18,10 @@ class OutboundEmailTracker
 
     private const TYPE_HEADER = 'X-RMS-Mail-Type';
 
+    private const LANDLORD_HEADER = 'X-RMS-Landlord-ID';
+
+    private const PROPERTY_HEADER = 'X-RMS-Property-ID';
+
     public static function sending(MessageSending $event): void
     {
         try {
@@ -44,6 +48,8 @@ class OutboundEmailTracker
                 'recipients' => $recipients,
                 'subject' => $message->getSubject() ?: '(No subject)',
                 'purpose' => self::purpose($message->getSubject()),
+                'landlord_id' => self::headerValue($message, self::LANDLORD_HEADER) ?: null,
+                'property_id' => self::headerValue($message, self::PROPERTY_HEADER) ?: null,
                 'created_by' => Auth::id(),
                 'queued_at' => now(),
             ]);

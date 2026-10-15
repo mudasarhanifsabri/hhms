@@ -214,6 +214,7 @@ class AccountingController extends Controller
             'reference' => 'required|string|max:255|unique:landlord_account_entries,reference',
             'description' => 'nullable|string|max:1000',
             'receipt' => 'nullable|file|mimes:pdf,jpg,jpeg,png,webp|max:10240',
+            'send_email' => 'nullable|boolean',
         ]);
         $owner = User::where('role', 'landlord')->findOrFail($data['landlord_id']);
         $property = ! empty($data['property_id']) ? Property::findOrFail($data['property_id']) : null;
@@ -225,17 +226,19 @@ class AccountingController extends Controller
             return back()->withErrors(['booking_invoice_id' => 'The invoice does not belong to the selected unit.'])->withInput();
         }
         $receipt = $this->upload($request, 'receipt', 'owner_payout_receipts');
+        $entryData = $data;
+        unset($entryData['receipt'], $entryData['send_email']);
         $payout = LandlordAccountEntry::create([
-            ...$data,
+            ...$entryData,
             'type' => 'payout', 'direction' => 'debit',
-            'description' => $data['description'] ?: 'Owner payout transfer',
+            'description' => ($data['description'] ?? null) ?: 'Owner payout transfer',
             'receipt_attachment' => $receipt,
             'transfer_status' => 'completed',
             'created_by' => auth()->id(),
         ]);
         LandlordAccountEntry::recalculateBalancesFor($owner->id);
         $mailNote = '';
-        if (filter_var($owner->email, FILTER_VALIDATE_EMAIL)) {
+        if ($request->boolean('send_email') && filter_var($owner->email, FILTER_VALIDATE_EMAIL)) {
             try {
                 Mail::to($owner->email)->send(new OwnerPayoutReceiptMail($payout->load(['landlord', 'property.building', 'bookingInvoice.booking'])));
                 $mailNote = ' Receipt emailed to '.$owner->email.'.';
@@ -243,6 +246,10 @@ class AccountingController extends Controller
                 Log::error('Owner payout receipt failed.', ['payout_id' => $payout->id, 'message' => $exception->getMessage()]);
                 $mailNote = ' Transfer saved, but the receipt email failed.';
             }
+        } elseif ($request->boolean('send_email')) {
+            $mailNote = ' Transfer saved, but the owner does not have a valid email address.';
+        } else {
+            $mailNote = ' Email receipt was not requested.';
         }
 
         return back()->with('success', 'Owner payout transfer recorded.'.$mailNote);
