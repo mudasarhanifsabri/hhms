@@ -183,8 +183,16 @@
                                         <small class="d-block mt-1 text-muted"><iconify-icon icon="solar:letter-broken" class="align-middle"></iconify-icon> Not sent</small>
                                     @endif
                                 </td>
-                                <td><div class="d-flex gap-1 invoice-actions">
+                                @php
+                                    $isLatestExtensionRow = $invoice->invoice_type === 'extension' && $booking->invoices->sortByDesc('period_to')->first()?->id === $invoice->id;
+                                    $canDeleteExtensionRow = $isLatestExtensionRow && $invoice->status === 'unpaid' && $invoice->allPayments->isEmpty();
+                                @endphp
+                                <td><div class="d-flex flex-wrap gap-1 invoice-actions">
                                     <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#invoiceDetails{{ $invoice->id }}">View</button>
+                                    @if($isLatestExtensionRow)
+                                        <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#extensionDateModal{{ $invoice->id }}"><iconify-icon icon="solar:calendar-mark-broken" class="align-middle"></iconify-icon> Edit Dates</button>
+                                        @if($canDeleteExtensionRow)<form method="POST" action="{{ route('admin.booking-invoice.destroy', $invoice) }}" data-swal-confirm="The extension invoice will be permanently deleted and checkout will return to the previous invoice date." data-swal-title="Delete extension invoice?" data-swal-icon="warning" data-swal-confirm-text="Yes, delete extension">@csrf @method('DELETE')<button type="submit" class="btn btn-sm btn-outline-danger" title="Delete extension invoice"><iconify-icon icon="solar:trash-bin-trash-broken" class="align-middle"></iconify-icon> Delete</button></form>@endif
+                                    @endif
                                     @if($invoice->balance_due > 0)
                                         <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#paymentModal{{ $invoice->id }}">Pay</button>
                                     @endif
@@ -437,6 +445,20 @@
     $commissionRate = $booking->agent_id ? (float) ($booking->agent_commission_percent ?? $booking->agent?->agent_commission ?? 0) : 0;
 @endphp
 @include('admin.bookings.partials.invoice-edit-modal')
+@php
+    $isLatestExtensionModal = $invoice->invoice_type === 'extension' && $booking->invoices->sortByDesc('period_to')->first()?->id === $invoice->id;
+@endphp
+@if($isLatestExtensionModal)
+<div class="modal fade" id="extensionDateModal{{ $invoice->id }}" tabindex="-1" aria-hidden="true"><div class="modal-dialog modal-lg modal-dialog-centered"><form method="POST" action="{{ route('admin.booking-invoice.extension-date', $invoice) }}" class="modal-content">@csrf @method('PUT')
+    <div class="modal-header"><div><h5 class="modal-title">Edit Extension Dates</h5><small class="text-muted">{{ $invoice->invoice_number }}</small></div><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body">
+        <div class="alert alert-light border"><div class="row g-2"><div class="col-sm-6"><small class="text-muted d-block">Extension starts</small><strong>{{ $invoice->period_from?->format('d M Y') }}</strong></div><div class="col-sm-6"><small class="text-muted d-block">Maximum checkout</small><strong>{{ $booking->check_in?->copy()->addDays(90)->format('d M Y') }}</strong></div></div></div>
+        <div class="row g-3"><div class="col-md-7"><label class="form-label" for="quickExtensionDate{{ $invoice->id }}">New checkout date</label><input id="quickExtensionDate{{ $invoice->id }}" type="date" name="check_out" value="{{ $invoice->period_to?->format('Y-m-d') }}" min="{{ $invoice->period_from?->copy()->addDay()->format('Y-m-d') }}" max="{{ $booking->check_in?->copy()->addDays(90)->format('Y-m-d') }}" class="form-control" required></div><div class="col-md-5"><label class="form-label" for="quickExtensionTime{{ $invoice->id }}">Checkout time</label><input id="quickExtensionTime{{ $invoice->id }}" type="time" name="check_out_time" value="{{ $booking->check_out_time ? \Carbon\Carbon::parse($booking->check_out_time)->format('H:i') : '11:00' }}" class="form-control"></div></div>
+        <p class="small text-muted mt-3 mb-0">This updates both the extension invoice period and the booking checkout date. Financial amounts remain unchanged.</p>
+    </div>
+    <div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-primary"><iconify-icon icon="solar:calendar-mark-broken" class="me-1"></iconify-icon>Save Extension Date</button></div>
+</form></div></div>
+@endif
 <div class="modal fade" id="invoiceDetails{{ $invoice->id }}" tabindex="-1" aria-hidden="true"><div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable"><div class="modal-content">
     <div class="modal-header"><h5>{{ $invoice->type_label }} — {{ $invoice->invoice_number }}</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
     @php

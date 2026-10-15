@@ -206,6 +206,12 @@ class BookingExtensionRenewalTest extends TestCase
         ])->assertSessionHasNoErrors();
         $invoice = BookingInvoice::where('invoice_type', 'extension')->firstOrFail();
 
+        $this->get(route('admin.booking.show', $booking))
+            ->assertOk()
+            ->assertSee('Edit Dates')
+            ->assertSee('Delete')
+            ->assertSee('Edit Extension Dates');
+
         $this->put(route('admin.booking-invoice.extension-date', $invoice), [
             'check_out' => '2026-03-30', 'check_out_time' => '13:30',
         ])->assertSessionHasNoErrors()->assertSessionHas('success');
