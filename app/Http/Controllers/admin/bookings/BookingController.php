@@ -613,6 +613,53 @@ class BookingController extends Controller
         return back()->with('success', 'Extension invoice deleted and the previous checkout date restored.');
     }
 
+    public function updateExtensionDate(Request $request, BookingInvoice $invoice)
+    {
+        abort_unless($invoice->invoice_type === 'extension', 422, 'Only an extension invoice date can be updated here.');
+        $invoice->load('booking.property');
+        $booking = $invoice->booking;
+        $latestInvoice = $booking->invoices()->orderByDesc('period_to')->orderByDesc('created_at')->first();
+
+        if ($latestInvoice?->id !== $invoice->id) {
+            throw ValidationException::withMessages(['check_out' => 'Only the latest extension date can be updated.']);
+        }
+
+        $validated = $request->validate([
+            'check_out' => ['required', 'date', 'after:'.$invoice->period_from?->toDateString()],
+            'check_out_time' => ['nullable', 'date_format:H:i'],
+        ]);
+        $newCheckout = \Carbon\Carbon::parse($validated['check_out']);
+        $maximumContractCheckout = $booking->check_in?->copy()->addDays(90);
+
+        if ($maximumContractCheckout && $newCheckout->gt($maximumContractCheckout)) {
+            throw ValidationException::withMessages([
+                'check_out' => 'This date exceeds the 90-day contract limit. Create a contract renewal instead.',
+            ]);
+        }
+
+        $this->ensurePropertyCanBeBooked(
+            $booking->property_id,
+            $booking->check_in?->toDateString(),
+            $newCheckout->toDateString(),
+            $booking->id
+        );
+
+        DB::transaction(function () use ($booking, $invoice, $newCheckout, $validated) {
+            $oldCheckout = $invoice->period_to?->format('d M Y');
+            $invoice->update(['period_to' => $newCheckout]);
+            $booking->update([
+                'check_out' => $newCheckout,
+                'check_out_time' => $validated['check_out_time'] ?? $booking->check_out_time,
+            ]);
+            $booking->histories()->create([
+                'title' => 'Extension Date Updated',
+                'description' => $invoice->invoice_number.' checkout changed from '.$oldCheckout.' to '.$newCheckout->format('d M Y').'.',
+            ]);
+        });
+
+        return back()->with('success', 'Extension checkout date updated successfully.');
+    }
+
     public function show(Booking $booking)
     {
         $booking->load([

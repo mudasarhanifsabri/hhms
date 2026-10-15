@@ -243,6 +243,7 @@ Route::get('/bookings/{booking}/history', [BookingController::class, 'history'])
 Route::post('/bookings/{booking}/payment-proof', [BookingController::class, 'attachPaymentProof'])->name('booking.payment-proof');
 Route::post('/booking-invoices/{invoice}/payments', [BookingController::class, 'recordInvoicePayment'])->name('booking-invoice.payment');
 Route::post('/booking-invoices/{invoice}/management-email', [BookingController::class, 'sendManagementPaymentEmail'])->name('booking-invoice.management-email');
+Route::put('/booking-invoices/{invoice}/extension-date', [BookingController::class, 'updateExtensionDate'])->name('booking-invoice.extension-date');
 Route::delete('/booking-invoices/{invoice}', [BookingController::class, 'destroyExtensionInvoice'])->name('booking-invoice.destroy');
 Route::post('/bookings/{booking}/combined-payment', [BookingController::class, 'recordCombinedPayment'])->name('booking.combined-payment');
 Route::get('/booking-invoices/{invoice}/receipt', [BookingController::class, 'paymentReceipt'])->name('booking-invoice.receipt');

@@ -196,4 +196,39 @@ class BookingExtensionRenewalTest extends TestCase
         $this->assertDatabaseMissing('booking_invoices', ['id' => $invoice->id]);
         $this->assertSame('2026-03-22', $booking->fresh()->check_out->toDateString());
     }
+
+    public function test_latest_extension_checkout_date_can_be_updated(): void
+    {
+        ['admin' => $admin, 'booking' => $booking] = $this->booking();
+        $this->actingAs($admin)->post(route('admin.booking.extend', $booking), [
+            'check_out' => '2026-03-27', 'extension_rent_amount' => 4500,
+            'vat_included' => 0, 'vat_rate' => 5,
+        ])->assertSessionHasNoErrors();
+        $invoice = BookingInvoice::where('invoice_type', 'extension')->firstOrFail();
+
+        $this->put(route('admin.booking-invoice.extension-date', $invoice), [
+            'check_out' => '2026-03-30', 'check_out_time' => '13:30',
+        ])->assertSessionHasNoErrors()->assertSessionHas('success');
+
+        $this->assertSame('2026-03-30', $invoice->fresh()->period_to->toDateString());
+        $this->assertSame('2026-03-30', $booking->fresh()->check_out->toDateString());
+        $this->assertDatabaseHas('booking_histories', ['booking_id' => $booking->id, 'title' => 'Extension Date Updated']);
+    }
+
+    public function test_extension_checkout_date_cannot_exceed_contract_limit(): void
+    {
+        ['admin' => $admin, 'booking' => $booking] = $this->booking();
+        $this->actingAs($admin)->post(route('admin.booking.extend', $booking), [
+            'check_out' => '2026-03-27', 'extension_rent_amount' => 4500,
+            'vat_included' => 0, 'vat_rate' => 5,
+        ])->assertSessionHasNoErrors();
+        $invoice = BookingInvoice::where('invoice_type', 'extension')->firstOrFail();
+
+        $this->put(route('admin.booking-invoice.extension-date', $invoice), [
+            'check_out' => '2026-04-05', 'check_out_time' => '11:00',
+        ])->assertSessionHasErrors('check_out');
+
+        $this->assertSame('2026-03-27', $invoice->fresh()->period_to->toDateString());
+        $this->assertSame('2026-03-27', $booking->fresh()->check_out->toDateString());
+    }
 }

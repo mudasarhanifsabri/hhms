@@ -476,10 +476,24 @@
     <p class="small text-warning mt-2">Period confirmation unavailable. Complete the software update and refresh the server route cache.</p>
     @endif
     @if($invoice->payments->isNotEmpty())<a class="btn btn-outline-success" href="{{ route('admin.booking-invoice.receipt', $invoice) }}">Receipt — Amount Paid</a>@else<p class="small text-muted mt-2">A receipt requires an itemised payment record.</p>@endif
-    @php($canDeleteExtension = $invoice->invoice_type === 'extension' && $invoice->status === 'unpaid' && $invoice->allPayments->isEmpty() && $booking->invoices->sortByDesc('period_to')->first()?->id === $invoice->id)
-    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mt-4 pt-3 border-top">
-        <small class="text-muted">@if($invoice->invoice_type !== 'extension')Original and renewal invoices are protected records.@elseif(!$canDeleteExtension)Deletion is locked because this is not the latest untouched unpaid extension.@elseDeleting restores checkout to the previous invoice period.@endif</small>
-        @if($canDeleteExtension)<form method="POST" action="{{ route('admin.booking-invoice.destroy', $invoice) }}" data-swal-confirm="The extension invoice will be deleted and checkout will return to the previous invoice boundary." data-swal-title="Delete extension invoice?" data-swal-icon="warning" data-swal-confirm-text="Delete extension">@csrf @method('DELETE')<button class="btn btn-outline-danger"><iconify-icon icon="solar:trash-bin-trash-broken" class="me-1"></iconify-icon>Delete Extension Invoice</button></form>@endif
+    @php($isLatestExtension = $invoice->invoice_type === 'extension' && $booking->invoices->sortByDesc('period_to')->first()?->id === $invoice->id)
+    @php($canDeleteExtension = $isLatestExtension && $invoice->status === 'unpaid' && $invoice->allPayments->isEmpty())
+    <div class="mt-4 pt-3 border-top">
+        @if($isLatestExtension)
+        <h6 class="mb-3">Extension Actions</h6>
+        <form method="POST" action="{{ route('admin.booking-invoice.extension-date', $invoice) }}" class="row g-2 align-items-end mb-3">
+            @csrf @method('PUT')
+            <div class="col-md-5"><label class="form-label" for="extensionDate{{ $invoice->id }}">Extension checkout date</label><input id="extensionDate{{ $invoice->id }}" type="date" name="check_out" value="{{ $invoice->period_to?->format('Y-m-d') }}" min="{{ $invoice->period_from?->copy()->addDay()->format('Y-m-d') }}" max="{{ $booking->check_in?->copy()->addDays(90)->format('Y-m-d') }}" class="form-control" required></div>
+            <div class="col-md-3"><label class="form-label" for="extensionTime{{ $invoice->id }}">Checkout time</label><input id="extensionTime{{ $invoice->id }}" type="time" name="check_out_time" value="{{ $booking->check_out_time ? \Carbon\Carbon::parse($booking->check_out_time)->format('H:i') : '11:00' }}" class="form-control"></div>
+            <div class="col-md-4"><button class="btn btn-primary w-100"><iconify-icon icon="solar:calendar-mark-broken" class="me-1"></iconify-icon>Update Extension Date</button></div>
+        </form>
+        <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+            <small class="text-muted">@if($canDeleteExtension)Delete removes this untouched extension and restores the previous checkout date.@elseThis extension has payment history or is settled, so it cannot be deleted.@endif</small>
+            @if($canDeleteExtension)<form method="POST" action="{{ route('admin.booking-invoice.destroy', $invoice) }}" data-swal-confirm="The extension invoice will be deleted and checkout will return to the previous invoice boundary." data-swal-title="Delete extension invoice?" data-swal-icon="warning" data-swal-confirm-text="Delete extension">@csrf @method('DELETE')<button class="btn btn-outline-danger"><iconify-icon icon="solar:trash-bin-trash-broken" class="me-1"></iconify-icon>Delete Extension Invoice</button></form>@endif
+        </div>
+        @else
+        <small class="text-muted">{{ $invoice->invoice_type === 'extension' ? 'Only the latest extension can be changed.' : 'Original and renewal invoices are protected records.' }}</small>
+        @endif
     </div>
     </div>
 </div></div></div>
