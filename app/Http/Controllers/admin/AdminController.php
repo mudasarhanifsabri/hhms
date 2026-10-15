@@ -92,6 +92,9 @@ class AdminController extends Controller
             ->get()
             ->filter(fn (BookingInvoice $invoice) => $invoice->balance_due > 0.009)
             ->values();
+        $pendingInvoiceBalance = (float) $pendingInvoices->sum(fn (BookingInvoice $invoice) => $invoice->balance_due);
+        $activeBookings = Booking::query()->whereIn('status', ['confirmed', 'checked_in'])->count();
+        $checkedOutBookings = Booking::query()->where('status', 'checked_out')->count();
         $pendingFinancialApprovals = auth()->user()?->hasAnyRole(['Manager', 'Admin', 'Accounting', 'Super Administrator'])
             ? FinancialApprovalRequest::with(['booking', 'invoice', 'requester'])->where('status', 'pending')->latest('requested_at')->limit(8)->get()
             : collect();
@@ -121,7 +124,7 @@ class AdminController extends Controller
             'propertiesRented',
             'propertiesVacant',
             'upcomingDtcmExpiry',
-            'recentProperties', 'occupiedUnits', 'emptyUnits', 'occupancyPercent', 'arrivalsToday', 'departuresToday', 'overdueDepartures', 'otherUsers', 'expiringBookings', 'pendingInvoices', 'pendingFinancialApprovals'
+            'recentProperties', 'occupiedUnits', 'emptyUnits', 'occupancyPercent', 'arrivalsToday', 'departuresToday', 'overdueDepartures', 'otherUsers', 'expiringBookings', 'pendingInvoices', 'pendingFinancialApprovals', 'pendingInvoiceBalance', 'activeBookings', 'checkedOutBookings'
         ));
     }
 }

@@ -1,260 +1,37 @@
 @extends('layouts.app')
-
-@section('title', 'Admin Dashboard')
-
+@section('title', 'Operations Command Center')
 @section('content')
-<div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
-    <h4 class="mb-0">Operations Dashboard</h4>
-    <span class="text-muted">As of {{ now()->timezone('Asia/Dubai')->format('d M Y H:i') }} (Dubai time · GST)</span>
-</div>
-
-@if(auth()->user()?->hasAnyRole(['Manager','Admin','Accounting','Super Administrator']))
-<div class="card border-primary-subtle"><div class="card-header d-flex justify-content-between align-items-center"><div><h4 class="card-title mb-1">Pending Financial Approvals</h4><p class="small text-muted mb-0">Payments and corrections waiting for Manager approval.</p></div><a href="{{ route('admin.financial-approvals.index') }}" class="btn btn-primary">Review {{ $pendingFinancialApprovals->count() }}</a></div>
-<div class="card-body p-0"><div class="table-responsive"><table class="table align-middle mb-0"><thead class="table-light"><tr><th>Requested</th><th>Action</th><th>Booking</th><th>Requested by</th><th class="text-end">Amount</th></tr></thead><tbody>
-@forelse($pendingFinancialApprovals as $approval)<tr><td>{{ $approval->requested_at?->timezone('Asia/Dubai')->format('d M H:i') }}</td><td>{{ $approval->type_label }}<small class="d-block text-primary">{{ $approval->approval_no }}</small></td><td>{{ $approval->booking?->booking_reference }}<small class="d-block text-muted">{{ $approval->invoice?->invoice_number }}</small></td><td>{{ $approval->requester?->name }}</td><td class="text-end">@if(isset($approval->payload['amount']))AED {{ number_format((float)$approval->payload['amount'],2) }}@else—@endif</td></tr>@empty<tr><td colspan="5" class="text-center text-muted py-3">No financial requests are waiting.</td></tr>@endforelse
-</tbody></table></div></div></div>
-@endif
-
-<div class="card border-warning-subtle">
-    <div class="card-header d-flex flex-wrap align-items-center justify-content-between gap-2">
-        <div>
-            <h4 class="card-title mb-1">Checkout Follow-up</h4>
-            <p class="text-muted small mb-0">Bookings due within three days and overdue stays remain here until checkout, cancellation, or renewal is confirmed.</p>
-        </div>
-        <span class="badge bg-warning-subtle text-warning fs-13">{{ $expiringBookings->count() }} requiring follow-up</span>
-    </div>
-    <div class="card-body p-0">
-        <div class="table-responsive">
-            <table class="table align-middle table-hover mb-0">
-                <thead class="bg-light-subtle"><tr><th>Checkout</th><th>Guest</th><th>Unit</th><th>Booking</th><th>Status</th><th class="text-end">Contact & Action</th></tr></thead>
-                <tbody>
-                @forelse($expiringBookings as $booking)
-                    @php
-                        $followUpCheckout = $booking->follow_up_checkout ?? $booking->check_out;
-                        $daysLeft = today()->diffInDays($followUpCheckout, false);
-                        $phone = preg_replace('/\D+/', '', (string) $booking->guest_phone);
-                        $unit = $booking->property?->name ?? 'Unit';
-                        $building = $booking->property?->building?->building_name ?? $booking->property?->building?->name;
-                        $stayName = trim($unit.($building ? ' - '.$building : ''));
-                        $extensionMessage = rawurlencode("Hello {$booking->guest_name}, this is PATTERN Vacation Homes. Your booking {$booking->booking_reference} for {$stayName} is scheduled to end on {$followUpCheckout?->format('d M Y')}. Would you like to extend your stay? Please reply so we can confirm availability and prepare the extension invoice.");
-                        $checkoutMessage = rawurlencode("Hello {$booking->guest_name}, this is PATTERN Vacation Homes. Please confirm your scheduled checkout for booking {$booking->booking_reference} at {$stayName} on {$followUpCheckout?->format('d M Y')}. Kindly reply with your expected checkout time.");
-                    @endphp
-                    <tr>
-                        <td><strong>{{ $followUpCheckout?->format('d M Y') }}</strong><small class="d-block text-muted">{{ $booking->check_out_time ? \Carbon\Carbon::parse($booking->check_out_time)->format('H:i') : '11:00' }}</small></td>
-                        <td><span class="fw-semibold">{{ $booking->guest_name }}</span><small class="d-block text-muted">{{ $booking->guest_phone }}</small></td>
-                        <td>{{ $unit }}<small class="d-block text-muted">{{ $building ?: 'No building' }}</small></td>
-                        <td><a href="{{ route('admin.booking.show', $booking) }}">{{ $booking->booking_reference }}</a></td>
-                        <td>
-                            <span class="badge {{ $daysLeft <= 0 ? 'bg-danger-subtle text-danger' : 'bg-warning-subtle text-warning' }}">{{ $daysLeft < 0 ? 'Checkout '.abs($daysLeft).' '.Str::plural('day', abs($daysLeft)).' overdue' : ($daysLeft === 0 ? 'Checkout due today' : 'Checkout in '.$daysLeft.' '.Str::plural('day', $daysLeft)) }}</span>
-                            <small class="d-block text-muted mt-1">{{ str($booking->status)->replace('_', ' ')->headline() }}</small>
-                        </td>
-                        <td class="text-end text-nowrap">
-                            @if($phone)
-                                <a class="btn btn-sm btn-light" href="tel:+{{ $phone }}" title="Call guest"><i class="ri-phone-line"></i></a>
-                                <a class="btn btn-sm btn-outline-success" target="_blank" rel="noopener" href="https://wa.me/{{ $phone }}?text={{ $extensionMessage }}"><i class="ri-whatsapp-line me-1"></i>Ask extension</a>
-                                <a class="btn btn-sm btn-outline-primary" target="_blank" rel="noopener" href="https://wa.me/{{ $phone }}?text={{ $checkoutMessage }}"><i class="ri-checkbox-circle-line me-1"></i>Confirm checkout</a>
-                            @else
-                                <span class="text-danger small">Phone missing</span>
-                            @endif
-                        </td>
-                    </tr>
-                @empty
-                    <tr><td colspan="6" class="text-center text-muted py-4"><i class="ri-calendar-check-line fs-24 d-block mb-1"></i>No checkout follow-up is required.</td></tr>
-                @endforelse
-                </tbody>
-            </table>
-        </div>
-    </div>
-</div>
-
-<div class="card border-danger-subtle">
-    <div class="card-header d-flex flex-wrap align-items-center justify-content-between gap-2">
-        <div>
-            <h4 class="card-title mb-1">Pending Booking Invoices</h4>
-            <p class="text-muted small mb-0">Unpaid invoices appear three days before their due date and remain here until fully paid.</p>
-        </div>
-        <span class="badge bg-danger-subtle text-danger fs-13">{{ $pendingInvoices->count() }} pending</span>
-    </div>
-    <div class="card-body p-0">
-        <div class="table-responsive">
-            <table class="table align-middle table-hover mb-0">
-                <thead class="bg-light-subtle"><tr><th>Due Date</th><th>Invoice</th><th>Guest</th><th>Unit</th><th class="text-end">Balance &amp; Action</th></tr></thead>
-                <tbody>
-                @forelse($pendingInvoices as $invoice)
-                    @php
-                        $invoiceFollowUpDate = $invoice->due_date ?? $invoice->period_from;
-                        $invoiceDays = today()->diffInDays($invoiceFollowUpDate, false);
-                        $invoiceBooking = $invoice->booking;
-                    @endphp
-                    <tr>
-                        <td><strong>{{ $invoiceFollowUpDate?->format('d M Y') }}</strong><span class="badge d-block mt-1 {{ $invoiceDays < 0 ? 'bg-danger-subtle text-danger' : 'bg-warning-subtle text-warning' }}">{{ $invoiceDays < 0 ? abs($invoiceDays).' '.Str::plural('day', abs($invoiceDays)).' overdue' : ($invoiceDays === 0 ? 'Due today' : 'Due in '.$invoiceDays.' '.Str::plural('day', $invoiceDays)) }}</span>@if(!$invoice->due_date)<small class="d-block text-muted mt-1">Period start</small>@endif</td>
-                        <td><strong>{{ $invoice->invoice_number }}</strong><small class="d-block text-muted">{{ $invoice->type_label }} · {{ $invoice->period_from?->format('d M') }} – {{ $invoice->period_to?->format('d M Y') }}</small></td>
-                        <td>{{ $invoiceBooking?->guest_name }}<small class="d-block text-muted">{{ $invoiceBooking?->booking_reference }}</small></td>
-                        <td>{{ $invoiceBooking?->property?->name ?? 'Unit' }}<small class="d-block text-muted">{{ $invoiceBooking?->property?->building?->building_name ?? 'No building' }}</small></td>
-                        <td class="text-end"><strong class="text-danger">AED {{ number_format($invoice->balance_due, 2) }}</strong>@if($invoiceBooking)<div class="mt-1"><a href="{{ route('admin.booking.show', $invoiceBooking) }}" class="btn btn-sm btn-primary">Open &amp; Record Payment</a></div>@endif</td>
-                    </tr>
-                @empty
-                    <tr><td colspan="5" class="text-center text-muted py-4"><i class="ri-bill-line fs-24 d-block mb-1"></i>No booking invoices require payment follow-up.</td></tr>
-                @endforelse
-                </tbody>
-            </table>
-        </div>
-    </div>
-</div>
-
-<div class="row">
-    <div class="col-md-6 col-xl-3">
-        <div class="card">
-            <div class="card-body">
-                <div class="d-flex align-items-center justify-content-between">
-                    <div>
-                        <p class="text-muted mb-2">Properties</p>
-                        <h3 class="text-dark fw-bold mb-0">{{ number_format($totalProperties) }}</h3>
-                    </div>
-                    <div class="avatar-md bg-light bg-opacity-50 rounded">
-                        <iconify-icon icon="solar:buildings-2-broken" class="fs-32 text-primary avatar-title"></iconify-icon>
-                    </div>
-                </div>
-                <p class="small text-muted mt-3 mb-0">Live Occupied/Vacant figures are shown in the Current Occupancy card.</p>
-            </div>
-        </div>
-    </div>
-
-    <div class="col-md-6 col-xl-3">
-        <div class="card">
-            <div class="card-body">
-                <div class="d-flex align-items-center justify-content-between">
-                    <div>
-                        <p class="text-muted mb-2">Users</p>
-                        <h3 class="text-dark fw-bold mb-0">{{ number_format($totalRegisteredUsers) }}</h3>
-                    </div>
-                    <div class="avatar-md bg-light bg-opacity-50 rounded">
-                        <iconify-icon icon="solar:users-group-two-rounded-broken" class="fs-32 text-primary avatar-title"></iconify-icon>
-                    </div>
-                </div>
-                <div class="d-flex flex-wrap gap-2 mt-3">
-                    <span class="badge bg-light text-dark">Landlords {{ number_format($landlordCount) }}</span>
-                    <span class="badge bg-light text-dark">Agents {{ number_format($agentCount) }}</span>
-                    <span class="badge bg-light text-dark">Tenants {{ number_format($tenantCount) }}</span>
-                    <span class="badge bg-light text-dark">Maintainers {{ number_format($maintainerCount) }}</span>
-                    <span class="badge bg-light text-dark">Other roles {{ number_format($otherUsers) }}</span>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="col-md-6 col-xl-3">
-        <div class="card">
-            <div class="card-body">
-                <div class="d-flex align-items-center justify-content-between">
-                    <div>
-                        <p class="text-muted mb-2">DTCM Expiring</p>
-                        <h3 class="text-dark fw-bold mb-0">{{ number_format($upcomingDtcmExpiry) }}</h3>
-                    </div>
-                    <div class="avatar-md bg-light bg-opacity-50 rounded">
-                        <iconify-icon icon="solar:calendar-mark-broken" class="fs-32 text-danger avatar-title"></iconify-icon>
-                    </div>
-                </div>
-                <p class="text-muted mb-0 mt-3">Latest wallet permits: today through {{ today()->addDays(30)->format('d M Y') }}</p>
-                <a href="{{ route('admin.property.dtcm-permits') }}" class="small">View permit list</a>
-            </div>
-        </div>
-    </div>
-
-    <div class="col-md-6 col-xl-3">
-        <div class="card">
-            <div class="card-body">
-                <div class="d-flex align-items-center justify-content-between">
-                    <div>
-                        <p class="text-muted mb-2">Current Occupancy</p>
-                        <h3 class="text-dark fw-bold mb-0">
-                            {{ $occupancyPercent }}%
-                        </h3>
-                    </div>
-                    <div class="avatar-md bg-light bg-opacity-50 rounded">
-                        <iconify-icon icon="solar:chart-2-broken" class="fs-32 text-success avatar-title"></iconify-icon>
-                    </div>
-                </div>
-                <div class="progress mt-3" style="height: 10px;">
-                    <div class="progress-bar bg-success" role="progressbar" aria-valuenow="{{ $occupancyPercent }}" aria-valuemin="0" aria-valuemax="100" style="width: {{ $occupancyPercent }}%"></div>
-                </div>
-                <div class="d-flex flex-wrap gap-2 mt-3">
-                    <span class="badge bg-success-subtle text-success fs-13">Occupied {{ number_format($occupiedUnits) }}</span>
-                    <span class="badge bg-warning-subtle text-warning fs-13">Empty {{ number_format($emptyUnits) }}</span>
-                </div>
-                <p class="small text-muted mt-2 mb-0">Out of {{ $totalProperties }} units. Future reservations are excluded.</p>
-            </div>
-        </div>
-    </div>
-</div>
-
-<div class="row">
-    @foreach (['Arrivals due today' => $arrivalsToday, 'Departures due today' => $departuresToday, 'Overdue checkouts' => $overdueDepartures] as $label => $count)
-        <div class="col-md-4"><div class="card"><div class="card-body">
-            <p class="text-muted mb-2">{{ $label }}</p><h3 class="mb-0">{{ number_format($count) }}</h3>
-        </div></div></div>
-    @endforeach
-</div>
-<div class="row">
-    <div class="col-xl-8">
-        <div class="card">
-            <div class="card-header d-flex align-items-center justify-content-between">
-                <h4 class="card-title mb-0">Recent Properties</h4>
-                <a href="{{ route('admin.property.index') }}" class="btn btn-sm btn-outline-primary">View All</a>
-            </div>
-            <div class="card-body p-0">
-                <div class="table-responsive">
-                    <table class="table align-middle table-hover mb-0">
-                        <thead class="bg-light-subtle">
-                            <tr>
-                                <th>Property</th>
-                                <th>Status</th>
-                                <th>Listed Rent (AED)</th>
-                                <th>DTCM Expiry</th>
-                                <th class="text-end">Action</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @forelse ($recentProperties as $property)
-                                <tr>
-                                    <td class="fw-medium">{{ $property->name }}<small class="d-block text-muted">{{ $property->building?->building_name ?? 'No building' }}</small></td>
-                                    <td>
-                                        <span class="badge {{ in_array($property->status, ['booked', 'rented']) ? 'bg-success-subtle text-success' : 'bg-warning-subtle text-warning' }}">
-                                            {{ str($property->status)->replace('_', ' ')->headline() }}
-                                        </span>
-                                    </td>
-                                    <td>{{ $property->rent !== null ? number_format($property->rent, 2) : 'N/A' }}</td>
-                                    <td>{{ $property->wallet_expiry ? \Carbon\Carbon::parse($property->wallet_expiry)->format('d M Y') : 'No wallet expiry' }}</td>
-                                    <td class="text-end">
-                                        <a href="{{ route('admin.property.show', $property->id) }}" class="btn btn-sm btn-light">
-                                            <iconify-icon icon="solar:eye-broken" class="align-middle fs-18"></iconify-icon>
-                                        </a>
-                                    </td>
-                                </tr>
-                            @empty
-                                <tr>
-                                    <td colspan="5" class="text-center text-muted py-4">No properties found.</td>
-                                </tr>
-                            @endforelse
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="col-xl-4">
-        <div class="card">
-            <div class="card-header">
-                <h4 class="card-title mb-0">Quick Actions</h4>
-            </div>
-            <div class="card-body d-grid gap-2">
-                <a href="{{ route('admin.property.create') }}" class="btn btn-primary">Add Property</a>
-                <a href="{{ route('admin.landlord.create') }}" class="btn btn-outline-primary">Add Landlord</a>
-                <a href="{{ route('admin.agent.create') }}" class="btn btn-outline-primary">Add Agent</a>
-                <a href="{{ route('admin.tenant.create') }}" class="btn btn-outline-primary">Add Tenant</a>
-            </div>
-        </div>
-    </div>
-</div>
+@php
+    $attentionTotal = $expiringBookings->count() + $pendingInvoices->count() + $pendingFinancialApprovals->count() + $upcomingDtcmExpiry;
+    $dubaiNow = now()->timezone('Asia/Dubai');
+@endphp
+<style>
+:root{--ops-green:#006b4f;--ops-emerald:#008a5a;--ops-bright:#00a36c;--ops-mint:#eaf5ef;--ops-soft:#f4faf7;--ops-ink:#111827;--ops-muted:#64748b;--ops-line:#dfe9e4;--ops-amber:#e89a24;--ops-red:#d94a4a}
+.ops-dashboard{color:var(--ops-ink)}.ops-hero{position:relative;overflow:hidden;border-radius:24px;padding:28px 30px;color:#fff;background:linear-gradient(120deg,#004d3b,#007a55,#00a36c);background-size:200% 200%;animation:opsGradient 12s ease infinite;box-shadow:0 18px 50px rgba(0,107,79,.22)}
+.ops-hero:before,.ops-hero:after{content:"";position:absolute;border-radius:50%;background:rgba(255,255,255,.09);pointer-events:none}.ops-hero:before{width:280px;height:280px;right:-80px;top:-160px}.ops-hero:after{width:190px;height:190px;right:190px;bottom:-145px}.ops-hero>*{position:relative;z-index:1}.ops-eyebrow{font-size:.72rem;letter-spacing:.14em;text-transform:uppercase;font-weight:800;opacity:.8}.ops-hero h2{font-size:clamp(1.55rem,3vw,2.35rem);font-weight:800}.ops-hero-actions{display:flex;gap:9px;flex-wrap:wrap}.ops-hero .btn{border-radius:12px;font-weight:700}.ops-btn-white{background:#fff;color:var(--ops-green);border:0}.ops-btn-glass{color:#fff;border:1px solid rgba(255,255,255,.42);background:rgba(255,255,255,.11);backdrop-filter:blur(8px)}
+.ops-pulse{display:inline-flex;align-items:center;gap:7px;background:rgba(255,255,255,.13);padding:7px 11px;border-radius:99px}.ops-pulse:before{content:"";width:8px;height:8px;border-radius:50%;background:#9fffd1;box-shadow:0 0 0 0 rgba(159,255,209,.7);animation:opsPulse 2s infinite}.ops-kpis{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:14px;margin:18px 0}.ops-kpi,.ops-card{background:#fff;border:1px solid var(--ops-line);border-radius:18px;box-shadow:0 8px 28px rgba(20,71,55,.055);transition:transform .22s ease,box-shadow .22s ease,border-color .22s ease}.ops-kpi:hover,.ops-card:hover{transform:translateY(-3px);box-shadow:0 15px 35px rgba(20,71,55,.11);border-color:#b9d9ca}.ops-kpi{padding:18px;animation:opsRise .5s both}.ops-kpi:nth-child(2){animation-delay:.05s}.ops-kpi:nth-child(3){animation-delay:.1s}.ops-kpi:nth-child(4){animation-delay:.15s}.ops-kpi:nth-child(5){animation-delay:.2s}.ops-kpi:nth-child(6){animation-delay:.25s}.ops-kpi-icon{width:44px;height:44px;border-radius:13px;background:var(--ops-mint);color:var(--ops-emerald);display:grid;place-items:center;font-size:1.4rem;margin-bottom:14px}.ops-kpi.warning .ops-kpi-icon{background:#fff3df;color:var(--ops-amber)}.ops-kpi.danger .ops-kpi-icon{background:#fff0ef;color:var(--ops-red)}.ops-kpi small{color:var(--ops-muted);font-weight:600}.ops-kpi strong{display:block;font-size:1.65rem;line-height:1.15;margin-top:5px}.ops-kpi span{font-size:.72rem;color:var(--ops-muted)}
+.ops-grid{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(300px,.8fr);gap:16px}.ops-card{overflow:hidden;margin-bottom:16px}.ops-card-head{padding:18px 20px;border-bottom:1px solid var(--ops-line);display:flex;align-items:center;justify-content:space-between;gap:12px}.ops-card-head h4{font-size:1rem;font-weight:800;margin:0}.ops-card-head p{font-size:.78rem;color:var(--ops-muted);margin:3px 0 0}.ops-badge{border-radius:99px;padding:6px 10px;background:var(--ops-mint);color:var(--ops-green);font-size:.72rem;font-weight:800;white-space:nowrap}.ops-badge.warn{background:#fff3df;color:#a96400}.ops-badge.red{background:#fff0ef;color:var(--ops-red)}
+.ops-table{margin:0}.ops-table th{background:var(--ops-soft);color:#52645c;text-transform:uppercase;letter-spacing:.055em;font-size:.66rem;border:0;padding:11px 16px}.ops-table td{padding:13px 16px;border-color:#edf3f0;vertical-align:middle}.ops-table tbody tr{transition:background .18s}.ops-table tbody tr:hover{background:#f8fcfa}.ops-link{color:var(--ops-green);font-weight:750}.ops-empty{text-align:center;padding:32px!important;color:var(--ops-muted)!important}.ops-occupancy{padding:20px}.ops-ring{--value:0;position:relative;width:142px;height:142px;margin:5px auto 18px;border-radius:50%;display:grid;place-items:center;background:conic-gradient(var(--ops-bright) calc(var(--value)*1%),#e6f1ec 0)}.ops-ring:before{content:"";position:absolute;inset:12px;background:#fff;border-radius:50%}.ops-ring div{position:relative;text-align:center}.ops-ring strong{font-size:1.75rem;display:block}.ops-ring small{color:var(--ops-muted)}
+.ops-mini-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.ops-mini{padding:13px;border-radius:14px;background:var(--ops-soft)}.ops-mini strong{font-size:1.05rem;display:block}.ops-mini span{font-size:.7rem;color:var(--ops-muted)}.ops-actions{padding:14px;display:grid;grid-template-columns:1fr 1fr;gap:10px}.ops-action{min-height:86px;padding:13px;border:1px solid var(--ops-line);border-radius:14px;color:var(--ops-ink);display:flex;flex-direction:column;justify-content:space-between;transition:.2s}.ops-action i{font-size:1.35rem;color:var(--ops-emerald)}.ops-action strong{font-size:.8rem}.ops-action:hover{color:var(--ops-green);background:var(--ops-soft);border-color:#abd4c1;transform:translateY(-2px)}
+.ops-alert-list{padding:10px 14px}.ops-alert{display:flex;align-items:center;gap:12px;padding:11px 5px;border-bottom:1px solid #edf3f0;color:var(--ops-ink)}.ops-alert:last-child{border-bottom:0}.ops-alert-icon{width:38px;height:38px;border-radius:11px;display:grid;place-items:center;background:var(--ops-mint);color:var(--ops-green)}.ops-alert-icon.warn{background:#fff3df;color:var(--ops-amber)}.ops-alert-icon.red{background:#fff0ef;color:var(--ops-red)}.ops-alert strong{font-size:.82rem;display:block}.ops-alert small{color:var(--ops-muted)}.ops-alert-value{margin-left:auto;font-weight:850}.ops-card .btn-primary{background:var(--ops-green);border-color:var(--ops-green)}.ops-card .btn-outline-success{color:var(--ops-green);border-color:#77bca0}.ops-dashboard .text-success{color:var(--ops-emerald)!important}
+@keyframes opsGradient{0%,100%{background-position:0 50%}50%{background-position:100% 50%}}@keyframes opsRise{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}@keyframes opsPulse{70%{box-shadow:0 0 0 9px rgba(159,255,209,0)}100%{box-shadow:0 0 0 0 rgba(159,255,209,0)}}
+@media(max-width:1399px){.ops-kpis{grid-template-columns:repeat(3,1fr)}}@media(max-width:991px){.ops-grid{grid-template-columns:1fr}.ops-hero{padding:23px}.ops-kpis{grid-template-columns:repeat(2,1fr)}}@media(max-width:575px){.ops-kpis{gap:9px}.ops-kpi{padding:13px}.ops-kpi strong{font-size:1.3rem}.ops-hero-actions .btn{flex:1}.ops-card-head{align-items:flex-start}.ops-table td,.ops-table th{padding:11px}}@media(prefers-reduced-motion:reduce){.ops-hero,.ops-kpi,.ops-pulse:before{animation:none!important}.ops-kpi,.ops-card,.ops-action{transition:none!important}}
+</style>
+<div class="ops-dashboard">
+<section class="ops-hero"><div class="d-flex flex-wrap justify-content-between align-items-center gap-4"><div><div class="ops-eyebrow">PATTERN Vacation Homes · Operations</div><h2 class="mt-2 mb-2">Good {{ $dubaiNow->hour < 12 ? 'morning' : ($dubaiNow->hour < 18 ? 'afternoon' : 'evening') }}, {{ auth()->user()->name }}</h2><p class="mb-3 opacity-75">Everything requiring attention, in one clear command center.</p><span class="ops-pulse">Live RMS overview · {{ $dubaiNow->format('d M Y, H:i') }} GST</span></div><div class="ops-hero-actions"><a href="{{ route('admin.booking.create') }}" class="btn ops-btn-white"><i class="ri-add-circle-line me-1"></i>New Booking</a><a href="{{ route('admin.accounting.expenses') }}" class="btn ops-btn-glass"><i class="ri-receipt-line me-1"></i>Add Expense</a><a href="{{ route('admin.task.index') }}" class="btn ops-btn-glass"><i class="ri-task-line me-1"></i>Create Task</a></div></div></section>
+<section class="ops-kpis">@foreach([['Total Units',$totalProperties,'ri-building-2-line',''],['Occupied',$occupiedUnits,'ri-hotel-bed-line',''],['Available',$emptyUnits,'ri-home-smile-line',''],['Arrivals Today',$arrivalsToday,'ri-login-box-line',''],['Departures Today',$departuresToday,'ri-logout-box-line','warning'],['Overdue Checkouts',$overdueDepartures,'ri-alarm-warning-line','danger']] as [$label,$value,$icon,$class])<article class="ops-kpi {{ $class }}"><div class="ops-kpi-icon"><i class="{{ $icon }}"></i></div><small>{{ $label }}</small><strong data-count="{{ $value }}">{{ number_format($value) }}</strong><span>Updated live</span></article>@endforeach</section>
+<div class="ops-grid"><main>
+@if(auth()->user()?->hasAnyRole(['Manager','Admin','Accounting','Super Administrator']))<section class="ops-card"><header class="ops-card-head"><div><h4>Pending Financial Approvals</h4><p>Payments and corrections waiting for manager review.</p></div><a href="{{ route('admin.financial-approvals.index') }}" class="ops-badge">Review {{ $pendingFinancialApprovals->count() }}</a></header><div class="table-responsive"><table class="table ops-table"><thead><tr><th>Requested</th><th>Action</th><th>Booking</th><th>Requested by</th><th class="text-end">Amount</th></tr></thead><tbody>@forelse($pendingFinancialApprovals as $approval)<tr><td>{{ $approval->requested_at?->timezone('Asia/Dubai')->format('d M H:i') }}</td><td><strong>{{ $approval->type_label }}</strong><small class="d-block text-success">{{ $approval->approval_no }}</small></td><td>{{ $approval->booking?->booking_reference }}<small class="d-block text-muted">{{ $approval->invoice?->invoice_number }}</small></td><td>{{ $approval->requester?->name }}</td><td class="text-end fw-bold">{{ isset($approval->payload['amount']) ? 'AED '.number_format((float)$approval->payload['amount'],2) : '—' }}</td></tr>@empty<tr><td colspan="5" class="ops-empty">No financial requests are waiting.</td></tr>@endforelse</tbody></table></div></section>@endif
+<section class="ops-card"><header class="ops-card-head"><div><h4>Checkout Follow-up</h4><p>Due within three days and overdue stays requiring action.</p></div><span class="ops-badge warn">{{ $expiringBookings->count() }} requiring follow-up</span></header><div class="table-responsive"><table class="table ops-table"><thead><tr><th>Checkout</th><th>Guest & Unit</th><th>Booking</th><th>Status</th><th class="text-end">Actions</th></tr></thead><tbody>
+@forelse($expiringBookings as $booking)@php $followUpCheckout=$booking->follow_up_checkout??$booking->check_out;$daysLeft=today()->diffInDays($followUpCheckout,false);$phone=preg_replace('/\D+/','',(string)$booking->guest_phone);$unit=$booking->property?->name??'Unit';$building=$booking->property?->building?->building_name??$booking->property?->building?->name;$stayName=trim($unit.($building?' - '.$building:''));$extensionMessage=rawurlencode("Hello {$booking->guest_name}, this is PATTERN Vacation Homes. Your booking {$booking->booking_reference} for {$stayName} is scheduled to end on {$followUpCheckout?->format('d M Y')}. Would you like to extend your stay?");$checkoutMessage=rawurlencode("Hello {$booking->guest_name}, this is PATTERN Vacation Homes. Please confirm your scheduled checkout for booking {$booking->booking_reference} at {$stayName} on {$followUpCheckout?->format('d M Y')}.");@endphp<tr><td><strong>{{ $followUpCheckout?->format('d M Y') }}</strong><small class="d-block text-muted">{{ $booking->check_out_time ? \Carbon\Carbon::parse($booking->check_out_time)->format('H:i') : '11:00' }}</small></td><td><strong>{{ $booking->guest_name }}</strong><small class="d-block text-muted">{{ $unit }} · {{ $building ?: 'No building' }}</small></td><td><a class="ops-link" href="{{ route('admin.booking.show',$booking) }}">{{ $booking->booking_reference }}</a></td><td><span class="ops-badge {{ $daysLeft<=0?'red':'warn' }}">{{ $daysLeft<0?'Checkout '.abs($daysLeft).' '.Str::plural('day',abs($daysLeft)).' overdue':($daysLeft===0?'Checkout due today':'Checkout in '.$daysLeft.' '.Str::plural('day',$daysLeft)) }}</span></td><td class="text-end text-nowrap">@if($phone)<a class="btn btn-sm btn-light" href="tel:+{{ $phone }}"><i class="ri-phone-line"></i></a><a class="btn btn-sm btn-outline-success" target="_blank" href="https://wa.me/{{ $phone }}?text={{ $extensionMessage }}"><i class="ri-whatsapp-line"></i> Extend</a><a class="btn btn-sm btn-primary" target="_blank" href="https://wa.me/{{ $phone }}?text={{ $checkoutMessage }}">Confirm</a>@else<span class="text-danger small">Phone missing</span>@endif</td></tr>@empty<tr><td colspan="5" class="ops-empty"><i class="ri-calendar-check-line fs-24 d-block mb-1"></i>No checkout follow-up is required.</td></tr>@endforelse
+</tbody></table></div></section>
+<section class="ops-card"><header class="ops-card-head"><div><h4>Pending Booking Invoices</h4><p>Due soon and overdue balances requiring collection.</p></div><span class="ops-badge red">AED {{ number_format($pendingInvoiceBalance,2) }} outstanding</span></header><div class="table-responsive"><table class="table ops-table"><thead><tr><th>Due Date</th><th>Invoice / Guest</th><th>Unit</th><th class="text-end">Balance & Action</th></tr></thead><tbody>@forelse($pendingInvoices as $invoice)@php $invoiceFollowUpDate=$invoice->due_date??$invoice->period_from;$invoiceDays=today()->diffInDays($invoiceFollowUpDate,false);$invoiceBooking=$invoice->booking;@endphp<tr><td><strong>{{ $invoiceFollowUpDate?->format('d M Y') }}</strong><small class="d-block {{ $invoiceDays<0?'text-danger':'text-warning' }}">{{ $invoiceDays<0?abs($invoiceDays).' '.Str::plural('day',abs($invoiceDays)).' overdue':($invoiceDays===0?'Due today':'Due in '.$invoiceDays.' '.Str::plural('day',$invoiceDays)) }}</small></td><td><strong>{{ $invoice->invoice_number }}</strong><small class="d-block text-muted">{{ $invoiceBooking?->guest_name }} · {{ $invoiceBooking?->booking_reference }}</small></td><td>{{ $invoiceBooking?->property?->name??'Unit' }}<small class="d-block text-muted">{{ $invoiceBooking?->property?->building?->building_name??'No building' }}</small></td><td class="text-end"><strong class="text-danger">AED {{ number_format($invoice->balance_due,2) }}</strong>@if($invoiceBooking)<div><a class="ops-link small" href="{{ route('admin.booking.show',$invoiceBooking) }}">Open & Record Payment →</a></div>@endif</td></tr>@empty<tr><td colspan="4" class="ops-empty">No booking invoices require payment follow-up.</td></tr>@endforelse</tbody></table></div></section>
+<section class="ops-card"><header class="ops-card-head"><div><h4>Recent Properties</h4><p>Latest units added to the portfolio.</p></div><a href="{{ route('admin.property.index') }}" class="ops-badge">View all units</a></header><div class="table-responsive"><table class="table ops-table"><thead><tr><th>Property</th><th>Status</th><th>Listed Rent</th><th>DTCM Expiry</th><th></th></tr></thead><tbody>@forelse($recentProperties as $property)<tr><td><strong>{{ $property->name }}</strong><small class="d-block text-muted">{{ $property->building?->building_name??'No building' }}</small></td><td><span class="ops-badge">{{ str($property->status)->replace('_',' ')->headline() }}</span></td><td>{{ $property->rent!==null?'AED '.number_format($property->rent,2):'N/A' }}</td><td>{{ $property->wallet_expiry?\Carbon\Carbon::parse($property->wallet_expiry)->format('d M Y'):'No wallet expiry' }}</td><td><a href="{{ route('admin.property.show',$property) }}" class="btn btn-sm btn-light"><i class="ri-arrow-right-line"></i></a></td></tr>@empty<tr><td colspan="5" class="ops-empty">No properties found.</td></tr>@endforelse</tbody></table></div></section>
+</main><aside>
+<section class="ops-card"><header class="ops-card-head"><div><h4>Current Occupancy</h4><p>Live operational status</p></div><span class="ops-badge">{{ $totalProperties }} units</span></header><div class="ops-occupancy"><div class="ops-ring" style="--value:{{ $occupancyPercent }}"><div><strong>{{ $occupancyPercent }}%</strong><small>occupied</small></div></div><div class="ops-mini-grid"><div class="ops-mini"><strong class="text-success">Occupied {{ $occupiedUnits }}</strong><span>Checked in/live stays</span></div><div class="ops-mini"><strong>Empty {{ $emptyUnits }}</strong><span>Available units</span></div></div></div></section>
+<section class="ops-card"><header class="ops-card-head"><div><h4>Attention Required</h4><p>Priority queue across RMS</p></div><span class="ops-badge {{ $attentionTotal?'red':'' }}">{{ $attentionTotal }}</span></header><div class="ops-alert-list"><div class="ops-alert"><span class="ops-alert-icon red"><i class="ri-bill-line"></i></span><span><strong>Pending invoices</strong><small>AED {{ number_format($pendingInvoiceBalance,2) }}</small></span><span class="ops-alert-value">{{ $pendingInvoices->count() }}</span></div><div class="ops-alert"><span class="ops-alert-icon warn"><i class="ri-logout-box-line"></i></span><span><strong>Checkout follow-up</strong><small>Due or overdue stays</small></span><span class="ops-alert-value">{{ $expiringBookings->count() }}</span></div><a href="{{ route('admin.financial-approvals.index') }}" class="ops-alert"><span class="ops-alert-icon"><i class="ri-shield-check-line"></i></span><span><strong>Financial approvals</strong><small>Manager review</small></span><span class="ops-alert-value">{{ $pendingFinancialApprovals->count() }}</span></a><a href="{{ route('admin.property.dtcm-permits') }}" class="ops-alert"><span class="ops-alert-icon warn"><i class="ri-file-warning-line"></i></span><span><strong>DTCM expiring</strong><small>Within 30 days</small></span><span class="ops-alert-value">{{ $upcomingDtcmExpiry }}</span></a></div></section>
+<section class="ops-card"><header class="ops-card-head"><div><h4>Booking Overview</h4><p>Current RMS records</p></div></header><div class="ops-alert-list"><div class="ops-alert"><span class="ops-alert-icon"><i class="ri-calendar-check-line"></i></span><span><strong>Active bookings</strong><small>Confirmed and checked in</small></span><span class="ops-alert-value">{{ $activeBookings }}</span></div><a href="{{ route('admin.booking.checked-out') }}" class="ops-alert"><span class="ops-alert-icon"><i class="ri-archive-line"></i></span><span><strong>Checked-out archive</strong><small>Completed stays</small></span><span class="ops-alert-value">{{ $checkedOutBookings }}</span></a><div class="ops-alert"><span class="ops-alert-icon"><i class="ri-team-line"></i></span><span><strong>Registered users</strong><small>Owners, guests and staff</small></span><span class="ops-alert-value">{{ $totalRegisteredUsers }}</span></div></div></section>
+<section class="ops-card"><header class="ops-card-head"><div><h4>Quick Actions</h4><p>Common daily tasks</p></div></header><div class="ops-actions"><a href="{{ route('admin.booking.create') }}" class="ops-action"><i class="ri-calendar-event-line"></i><strong>Create Booking</strong></a><a href="{{ route('admin.property.create') }}" class="ops-action"><i class="ri-building-line"></i><strong>Add Property</strong></a><a href="{{ route('admin.landlord.create') }}" class="ops-action"><i class="ri-user-star-line"></i><strong>Add Landlord</strong></a><a href="{{ route('admin.accounting.owner-payouts') }}" class="ops-action"><i class="ri-exchange-dollar-line"></i><strong>Owner Payout</strong></a><a href="{{ route('admin.accounting.expenses') }}" class="ops-action"><i class="ri-receipt-line"></i><strong>Add Expense</strong></a><a href="{{ route('admin.booking.checked-out') }}" class="ops-action"><i class="ri-archive-line"></i><strong>Checkout Archive</strong></a></div></section>
+</aside></div></div>
+<script>document.addEventListener('DOMContentLoaded',function(){if(window.matchMedia('(prefers-reduced-motion: reduce)').matches)return;document.querySelectorAll('[data-count]').forEach(function(el){var target=parseInt(el.dataset.count||'0',10);if(!target)return;var start=performance.now(),duration=650;function tick(now){var p=Math.min((now-start)/duration,1);el.textContent=Math.floor(target*(1-Math.pow(1-p,3))).toLocaleString();if(p<1)requestAnimationFrame(tick)}requestAnimationFrame(tick)})});</script>
 @endsection
