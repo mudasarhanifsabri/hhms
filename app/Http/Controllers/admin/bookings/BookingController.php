@@ -621,6 +621,7 @@ class BookingController extends Controller
             'histories',
             'inspections.items',
             'invoices.payments.bankAccount',
+            'invoices.allPayments',
             'lockAccesses',
             'renewedFrom', 'renewals',
         ]);

@@ -437,7 +437,7 @@
     $commissionRate = $booking->agent_id ? (float) ($booking->agent_commission_percent ?? $booking->agent?->agent_commission ?? 0) : 0;
 @endphp
 @include('admin.bookings.partials.invoice-edit-modal')
-<div class="modal fade" id="invoiceDetails{{ $invoice->id }}" tabindex="-1" aria-hidden="true"><div class="modal-dialog"><div class="modal-content">
+<div class="modal fade" id="invoiceDetails{{ $invoice->id }}" tabindex="-1" aria-hidden="true"><div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable"><div class="modal-content">
     <div class="modal-header"><h5>{{ $invoice->type_label }} — {{ $invoice->invoice_number }}</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
     @php
         $invoiceFees = collect($invoice->fees ?? []);
@@ -476,6 +476,11 @@
     <p class="small text-warning mt-2">Period confirmation unavailable. Complete the software update and refresh the server route cache.</p>
     @endif
     @if($invoice->payments->isNotEmpty())<a class="btn btn-outline-success" href="{{ route('admin.booking-invoice.receipt', $invoice) }}">Receipt — Amount Paid</a>@else<p class="small text-muted mt-2">A receipt requires an itemised payment record.</p>@endif
+    @php($canDeleteExtension = $invoice->invoice_type === 'extension' && $invoice->status === 'unpaid' && $invoice->allPayments->isEmpty() && $booking->invoices->sortByDesc('period_to')->first()?->id === $invoice->id)
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mt-4 pt-3 border-top">
+        <small class="text-muted">@if($invoice->invoice_type !== 'extension')Original and renewal invoices are protected records.@elseif(!$canDeleteExtension)Deletion is locked because this is not the latest untouched unpaid extension.@elseDeleting restores checkout to the previous invoice period.@endif</small>
+        @if($canDeleteExtension)<form method="POST" action="{{ route('admin.booking-invoice.destroy', $invoice) }}" data-swal-confirm="The extension invoice will be deleted and checkout will return to the previous invoice boundary." data-swal-title="Delete extension invoice?" data-swal-icon="warning" data-swal-confirm-text="Delete extension">@csrf @method('DELETE')<button class="btn btn-outline-danger"><iconify-icon icon="solar:trash-bin-trash-broken" class="me-1"></iconify-icon>Delete Extension Invoice</button></form>@endif
+    </div>
     </div>
 </div></div></div>
 <div class="modal fade" id="paymentModal{{ $invoice->id }}" tabindex="-1" aria-hidden="true">
