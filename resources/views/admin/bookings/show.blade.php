@@ -498,6 +498,7 @@
     <p class="small text-warning mt-2">Period confirmation unavailable. Complete the software update and refresh the server route cache.</p>
     @endif
     @if($invoice->payments->isNotEmpty())<a class="btn btn-outline-success" href="{{ route('admin.booking-invoice.receipt', $invoice) }}">Receipt — Amount Paid</a>@else<p class="small text-muted mt-2">A receipt requires an itemised payment record.</p>@endif
+    <button type="button" class="btn btn-outline-warning" data-bs-dismiss="modal" data-bs-toggle="modal" data-bs-target="#correctInvoice{{ $invoice->id }}"><iconify-icon icon="solar:pen-new-square-broken" class="me-1 align-middle"></iconify-icon>Edit Invoice Charges</button>
     @php($isLatestExtension = $invoice->invoice_type === 'extension' && $booking->invoices->sortByDesc('period_to')->first()?->id === $invoice->id)
     @php($canDeleteExtension = $isLatestExtension && $invoice->status === 'unpaid' && $invoice->allPayments->isEmpty())
     <div class="mt-4 pt-3 border-top">

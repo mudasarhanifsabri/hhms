@@ -57,16 +57,15 @@ class BookingCorrectionController extends Controller
         DB::transaction(function () use ($invoice, $data) {
             $booking = Booking::whereKey($invoice->booking_id)->lockForUpdate()->firstOrFail();
             $invoice = BookingInvoice::whereKey($invoice->id)->lockForUpdate()->firstOrFail();
-            if ($invoice->payments()->exists() || $invoice->status !== 'unpaid' || BookingDepositEntry::where('booking_invoice_id', $invoice->id)->exists()) {
-                $this->fail('Only unpaid invoices without active payments or deposit activity can be edited. Reverse an incorrect eligible payment first; do not delete it.');
-            }
+            $hasPayments = $invoice->payments()->exists();
             $fees = $invoice->fees ?? [];
             foreach ($data['fees'] ?? [] as $label => $value) {
-                if (! array_key_exists($label, $fees)) {
+                if (! array_key_exists($label, $fees) && ! in_array($label, ['DTCM Fee', 'Cleaning Fee', 'Agency Fee', 'Other Fees', 'Security Deposit'], true)) {
                     $this->fail('Unknown invoice charge.');
                 }
                 $fees[$label] = (float) $value;
             }
+            $fees = collect($fees)->filter(fn ($value, $label) => (float) $value !== 0.0 || $label === 'Security Deposit')->all();
             $before = $invoice->only(['rent_amount', 'vat_rate', 'vat_included', 'vat_amount', 'fees', 'total_amount']);
             $included = (bool) ($data['vat_included'] ?? false);
             $entered = round((float) $data['rent_amount'], 2);
@@ -78,6 +77,19 @@ class BookingCorrectionController extends Controller
             $vat = $rentVat + $taxableFeeVat;
             $invoice->update(['rent_amount' => $rent, 'vat_rate' => $data['vat_rate'], 'vat_included' => $included,
                 'vat_amount' => $vat, 'fees' => $fees, 'total_amount' => round($rent + $vat + array_sum($fees), 2)]);
+            if ($hasPayments) {
+                $paid = (float) $invoice->payments()->sum('amount');
+                if (DepositWallet::cents($paid) > DepositWallet::cents($invoice->total_amount)) {
+                    $this->fail('The corrected invoice total cannot be lower than payments already received.');
+                }
+                if (! \App\Support\InvoiceAllocationRebuilder::rebuild($booking)) {
+                    $this->fail('Payment allocations cannot be rebuilt safely for this invoice. Reverse or reconcile the affected payment first.');
+                }
+                \App\Support\BookingPaymentSummary::sync($booking);
+                $invoice->refresh();
+                $paid = (float) BookingInvoicePayment::where('booking_invoice_id', $invoice->id)->whereNull('reversed_at')->sum('amount');
+                $invoice->update(['status' => $paid <= 0 ? 'unpaid' : ($paid >= (float) $invoice->total_amount ? 'paid' : 'partial')]);
+            }
             if ($invoice->invoice_type !== 'extension') {
                 $fee = round((float) $invoice->rent_amount * (float) $booking->management_fee_percent / 100, 2);
                 $booking->update(['rent_amount' => $invoice->rent_amount, 'vat_included' => $included, 'vat_amount' => $vat, 'total_amount' => $invoice->total_amount,

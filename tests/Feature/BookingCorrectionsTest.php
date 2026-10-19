@@ -9,6 +9,7 @@ use App\Models\LandlordAccountEntry;
 use App\Models\Property;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Request;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
@@ -36,7 +37,8 @@ class BookingCorrectionsTest extends TestCase
     private function pay($invoice, $bank, float $amount, float $rent, float $deposit = 0)
     {
         return $this->post(route('admin.booking-invoice.payment', $invoice), ['amount' => $amount, 'rent_amount' => $rent,
-            'deposit_amount' => $deposit, 'payment_date' => today()->toDateString(), 'payment_method' => 'Cash', 'bank_account_id' => $bank->id]);
+            'deposit_amount' => $deposit, 'payment_date' => today()->toDateString(), 'payment_method' => 'Cash',
+            'bank_account_id' => $bank->id, 'reference' => 'TEST-PAYMENT-REFERENCE']);
     }
 
     public function test_invoice_vat_toggle_matches_the_approved_examples_and_survives_reopening(): void
@@ -131,19 +133,49 @@ class BookingCorrectionsTest extends TestCase
         $this->get(route('admin.booking.history', $booking))->assertOk()->assertSee('Edit Payment Details');
     }
 
-    public function test_unpaid_invoice_can_be_corrected_but_paid_one_is_locked(): void
+    public function test_invoice_can_be_corrected_and_existing_payments_are_safely_reallocated(): void
     {
         [$booking, $invoice, $bank] = $this->setupInvoice();
         $data = ['rent_amount' => 2000, 'vat_rate' => 5, 'fees' => $invoice->fees, 'reason' => 'Correct agreed rent', 'current_password' => 'password'];
-        $this->put(route('admin.booking-invoice.correct', $invoice), array_replace($data, ['current_password' => 'wrong-password']))
-            ->assertSessionHasErrors('current_password');
-        $this->put(route('admin.booking-invoice.correct', $invoice), $data)->assertSessionHasNoErrors();
+        $execute = function (array $payload) use ($invoice) {
+            $request = Request::create(route('admin.booking-invoice.correct', $invoice), 'PUT', $payload);
+            $request->attributes->set('financial_approval_execution', true);
+            $request->setUserResolver(fn () => auth()->user());
+            app(\App\Http\Controllers\admin\bookings\BookingCorrectionController::class)->invoice($request, $invoice->fresh());
+        };
+        $execute($data);
         $this->assertEquals(2100, $invoice->fresh()->total_amount);
         $this->assertEquals(2000, $booking->fresh()->rent_amount);
         $this->assertEquals(0, LandlordAccountEntry::count());
-        $this->pay($invoice, $bank, 2100, 2000)->assertSessionHasNoErrors();
-        $this->put(route('admin.booking-invoice.correct', $invoice), $data)->assertSessionHasErrors('correction');
+        $paymentRequest = Request::create(route('admin.booking-invoice.payment', $invoice), 'POST', [
+            'amount' => 2100, 'payment_date' => today()->toDateString(), 'payment_method' => 'Cash',
+            'bank_account_id' => $bank->id, 'reference' => 'TEST-RECLASSIFICATION-PAYMENT',
+        ]);
+        $paymentRequest->attributes->set('financial_approval_execution', true);
+        $paymentRequest->setUserResolver(fn () => auth()->user());
+        app(\App\Http\Controllers\admin\bookings\BookingController::class)->recordInvoicePayment($paymentRequest, $invoice->fresh());
+        $execute(array_replace($data, [
+            'fees' => ['DTCM Fee' => 0, 'Cleaning Fee' => 0, 'Agency Fee' => 1050, 'Other Fees' => 0, 'Security Deposit' => 0],
+            'reason' => 'Reclassify other fee as agency fee',
+        ]));
+        $this->assertEquals(1050, $invoice->fresh()->fees['Agency Fee']);
+        $this->assertArrayNotHasKey('Other Fees', $invoice->fresh()->fees);
+        $this->assertEquals(3202.50, $invoice->fresh()->total_amount);
+        $this->assertEquals(2100, $invoice->payments()->sum('amount'));
+        $this->assertSame('partial', $invoice->fresh()->status);
         $this->get(route('admin.booking.history', $booking))->assertOk()->assertSee('Invoice Corrected');
+    }
+
+    public function test_invoice_popup_offers_standard_charge_reclassification_fields(): void
+    {
+        [$booking, $invoice] = $this->setupInvoice();
+        $invoice->update(['fees' => ['Other Fees' => 1050, 'Security Deposit' => 0], 'total_amount' => 2100]);
+
+        $this->get(route('admin.booking.show', $booking))->assertOk()
+            ->assertSee('Edit Invoice Charges')
+            ->assertSee('name="fees[Agency Fee]"', false)
+            ->assertSee('name="fees[Other Fees]"', false)
+            ->assertSee('To reclassify a fee');
     }
 
     public function test_reversal_preserves_history_reopens_balance_and_reverses_owner_and_bank(): void

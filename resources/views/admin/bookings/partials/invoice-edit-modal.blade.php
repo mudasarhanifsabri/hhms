@@ -19,7 +19,8 @@
                 <thead class="table-light"><tr><th>Charge</th><th style="width:155px" class="text-end">Net Amount</th><th class="text-center">VAT</th><th class="text-end">VAT Amount</th><th class="text-end">Line Total</th></tr></thead>
                 <tbody>
                     <tr><td>Rent</td><td class="text-end" data-preview="rent"></td><td class="text-center">{{ number_format((float)$invoice->vat_rate,2) }}%</td><td class="text-end" data-preview="rentVat"></td><td class="text-end fw-semibold" data-preview="rentTotal"></td></tr>
-                    @forelse($invoice->fees ?? [] as $label=>$amount)
+                    @php($editableInvoiceFees = collect(['DTCM Fee'=>0, 'Cleaning Fee'=>0, 'Agency Fee'=>0, 'Other Fees'=>0, 'Security Deposit'=>0])->merge($invoice->fees ?? []))
+                    @forelse($editableInvoiceFees as $label=>$amount)
                         @php($feeTaxable = $invoice->vat_scope === 'rent_cleaning_agency' && in_array($label, ['Cleaning Fee','Agency Fee']))
                         <tr data-fee-row>
                             <td><label class="mb-0" for="charge{{ $invoice->id }}-{{ $loop->index }}">{{ $label==='Security Deposit'?'Refundable security deposit':$label }}</label></td>
@@ -38,7 +39,7 @@
                 </tfoot>
             </table>
         </div>
-        <div class="alert alert-warning py-2 small"><strong>Protected financial correction.</strong> Enter rent only here. Deposit and other fees are separate. Your password and a written reason are required; the invoice remains unchanged until a different Admin or Accounting user approves.</div>
+        <div class="alert alert-warning py-2 small"><strong>Protected financial correction.</strong> To reclassify a fee, set the incorrect row to 0 and enter the same amount in the correct row. Agency and cleaning fees receive VAT according to this invoice's VAT scope. Your password and a written reason are required; the invoice remains unchanged until approved.</div>
         <label class="form-label" for="invoiceReason{{ $invoice->id }}">Reason for correction</label><textarea id="invoiceReason{{ $invoice->id }}" name="reason" class="form-control" rows="2" minlength="5" maxlength="1000" placeholder="Explain the change" required></textarea>
         <label class="form-label mt-3" for="invoicePassword{{ $invoice->id }}">Your Password</label>
         <input id="invoicePassword{{ $invoice->id }}" name="current_password" type="password" class="form-control" autocomplete="current-password" placeholder="Confirm your password" required>
