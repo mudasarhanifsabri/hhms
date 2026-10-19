@@ -56,6 +56,10 @@
                                 @endforeach
                             </select>
                             @error('agent_id')<span class="text-danger">{{ $message }}</span>@enderror
+                            <div class="d-flex flex-wrap align-items-center gap-2 mt-2">
+                                <button type="submit" name="action" value="agent_only" class="btn btn-outline-primary"><iconify-icon icon="solar:user-check-broken" class="me-1 align-middle"></iconify-icon>Save Agent Only</button>
+                                <small class="text-muted">Updates the assigned agent and commission report without changing stay dates or invoice charges.</small>
+                            </div>
                         </div>
                         <div class="col-lg-12"><label class="form-label" for="notes">History / Notes</label><textarea id="notes" name="notes" rows="3" class="form-control">{{ old('notes', $booking->notes) }}</textarea></div>
                     </div>

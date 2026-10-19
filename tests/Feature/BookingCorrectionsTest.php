@@ -178,6 +178,29 @@ class BookingCorrectionsTest extends TestCase
             ->assertSee('To reclassify a fee');
     }
 
+    public function test_agent_can_be_assigned_without_editing_multiple_scheduled_invoices(): void
+    {
+        [$booking, $invoice] = $this->setupInvoice();
+        $agent = User::factory()->create(['role' => 'agent', 'agent_commission' => 50]);
+        $copy = $invoice->replicate();
+        $copy->invoice_number = 'INV-SECOND-PERIOD';
+        $copy->invoice_type = 'extension';
+        $copy->period_from = '2026-10-10';
+        $copy->period_to = '2026-10-20';
+        $copy->save();
+
+        $this->put(route('admin.booking.update', $booking), [
+            'action' => 'agent_only',
+            'agent_id' => $agent->id,
+            'reason' => 'Assign the booking agent',
+        ])->assertSessionHasNoErrors()->assertRedirect(route('admin.booking.show', $booking));
+
+        $booking->refresh();
+        $this->assertEquals($agent->id, $booking->agent_id);
+        $this->assertEquals(50, $booking->agent_commission_percent);
+        $this->assertDatabaseHas('booking_histories', ['booking_id' => $booking->id, 'title' => 'Booking Agent Updated']);
+    }
+
     public function test_reversal_preserves_history_reopens_balance_and_reverses_owner_and_bank(): void
     {
         [$booking, $invoice, $bank] = $this->setupInvoice();

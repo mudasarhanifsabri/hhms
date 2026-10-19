@@ -324,6 +324,33 @@ class BookingController extends Controller
 
     public function update(Request $request, Booking $booking)
     {
+        if ($request->input('action') === 'agent_only') {
+            $data = $request->validate([
+                'agent_id' => 'nullable|exists:users,id',
+                'reason' => 'required|string|min:5|max:500',
+            ]);
+            DB::transaction(function () use ($booking, $data) {
+                $booking = Booking::whereKey($booking->id)->lockForUpdate()->firstOrFail();
+                $beforeAgent = $booking->agent?->name ?? 'No Agent';
+                $agent = filled($data['agent_id'] ?? null)
+                    ? User::where('role', 'agent')->whereKey($data['agent_id'])->firstOrFail()
+                    : null;
+                $booking->update([
+                    'agent_id' => $agent?->id,
+                    'agent_commission_percent' => $agent ? (float) $agent->agent_commission : 0,
+                ]);
+                if (BookingInvoicePayment::whereHas('invoice', fn ($query) => $query->where('booking_id', $booking->id))->whereNull('reversed_at')->exists()
+                    && ! \App\Support\InvoiceAllocationRebuilder::rebuild($booking)) {
+                    throw ValidationException::withMessages(['agent_id' => 'The agent cannot be changed because existing payment allocations require manual reconciliation.']);
+                }
+                $booking->histories()->create([
+                    'title' => 'Booking Agent Updated',
+                    'description' => $beforeAgent.' → '.($agent?->name ?? 'No Agent').' by '.auth()->user()->name.'. Reason: '.$data['reason'],
+                ]);
+            });
+
+            return redirect()->route('admin.booking.show', $booking)->with('success', 'Booking agent updated without changing any invoice or stay details.');
+        }
         if ($booking->invoices()->count() > 1) {
             throw ValidationException::withMessages(['invoice' => 'This booking has multiple scheduled invoices. Edit each unpaid invoice separately; changing stay dates or total booking charges here could invalidate paid periods.']);
         }
