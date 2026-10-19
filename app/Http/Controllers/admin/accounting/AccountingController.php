@@ -1137,6 +1137,7 @@ class AccountingController extends Controller
             'gross_amount'
         );
         $agencyFeeRows = BookingInvoicePayment::with([
+            'invoice.payments',
             'invoice.booking.agent',
             'invoice.booking.property.building',
         ])
@@ -1146,7 +1147,7 @@ class AccountingController extends Controller
             ->get()
             ->map(function (BookingInvoicePayment $payment) {
                 $allocation = $payment->allocation ?? [];
-                $agencyFee = round((float) ($allocation['agency'] ?? 0), 2);
+                $agencyFee = AgentCommission::agencyFee($payment);
                 if ($agencyFee <= 0) return null;
 
                 $booking = $payment->invoice?->booking;

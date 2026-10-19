@@ -19,14 +19,14 @@ class AgentController extends Controller
             ->get();
         $paidBookings = $bookings->where('invoice_status', 'paid');
         $commissionPercent = (float) (Auth::user()->agent_commission ?? 0);
-        $commissionRows = BookingInvoicePayment::with(['invoice.booking.property'])
+        $commissionRows = BookingInvoicePayment::with(['invoice.payments', 'invoice.booking.property'])
             ->whereNull('reversed_at')
             ->whereHas('invoice.booking', fn ($query) => $query->where('agent_id', Auth::id()))
             ->latest('payment_date')
             ->get()
             ->map(function (BookingInvoicePayment $payment) use ($commissionPercent) {
                 $allocation = $payment->allocation ?? [];
-                $agencyFee = round((float) ($allocation['agency'] ?? 0), 2);
+                $agencyFee = AgentCommission::agencyFee($payment);
                 if ($agencyFee <= 0) return null;
 
                 $booking = $payment->invoice?->booking;

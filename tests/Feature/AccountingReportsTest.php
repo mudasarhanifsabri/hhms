@@ -109,8 +109,8 @@ class AccountingReportsTest extends TestCase
         BookingInvoicePayment::create([
             'booking_invoice_id' => $invoice->id, 'payment_date' => '2026-09-15',
             'amount' => 1000, 'payment_method' => 'Bank Transfer',
-            'allocation' => ['agency' => 1000, 'agent_commission_percent' => 0,
-                'agent_commission' => 0, 'agency_company_share' => 1000],
+            'allocation' => ['agency' => 205, 'agent_commission_percent' => 0,
+                'agent_commission' => 0, 'agency_company_share' => 205],
         ]);
 
         $this->actingAs($admin)->get(route('admin.accounting.reports', [

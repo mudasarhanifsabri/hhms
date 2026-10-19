@@ -12,14 +12,19 @@ use Illuminate\Validation\ValidationException;
 
 class InvoiceSettlement
 {
-    public static function allocation(BookingInvoice $invoice, ?float $paymentAmount = null): array
+    public static function charges(BookingInvoice $invoice): array
     {
-        $parts = ['rent' => (float) $invoice->rent_amount, 'vat' => (float) $invoice->vat_amount,
+        return ['rent' => (float) $invoice->rent_amount, 'vat' => (float) $invoice->vat_amount,
             'deposit' => (float) (($invoice->fees ?? [])['Security Deposit'] ?? 0),
             'cleaning' => (float) (($invoice->fees ?? [])['Cleaning Fee'] ?? 0),
             'agency' => (float) (($invoice->fees ?? [])['Agency Fee'] ?? 0),
             'tourism' => (float) (($invoice->fees ?? [])['DTCM Fee'] ?? 0),
             'other' => (float) collect($invoice->fees ?? [])->except(['Security Deposit', 'Cleaning Fee', 'Agency Fee', 'DTCM Fee'])->sum()];
+    }
+
+    public static function allocation(BookingInvoice $invoice, ?float $paymentAmount = null): array
+    {
+        $parts = self::charges($invoice);
         if (DepositWallet::cents(array_sum($parts)) !== DepositWallet::cents($invoice->total_amount) || min($parts) < 0) {
             throw ValidationException::withMessages(['amount' => 'Invoice charges do not reconcile to its total. Correct the invoice before receiving payment.']);
         }

@@ -80,6 +80,7 @@ class AgentController extends Controller
         $selectedAgent = $agentId ? User::where('role', 'agent')->find($agentId) : null;
 
         $rows = BookingInvoicePayment::with([
+            'invoice.payments',
             'invoice.booking.agent',
             'invoice.booking.property.building',
         ])
@@ -90,7 +91,7 @@ class AgentController extends Controller
             ->get()
             ->map(function (BookingInvoicePayment $payment) {
                 $allocation = $payment->allocation ?? [];
-                $agencyFee = round((float) ($allocation['agency'] ?? 0), 2);
+                $agencyFee = AgentCommission::agencyFee($payment);
                 $booking = $payment->invoice?->booking;
                 if ($agencyFee <= 0 || ! $booking?->agent_id) return null;
 
