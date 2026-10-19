@@ -26,6 +26,19 @@ class AgentCommission
                 $item->id
             ));
 
+            $paidTotal = round((float) $payments->sum('amount'), 2);
+            if (DepositWallet::cents($paidTotal) >= DepositWallet::cents($invoice->total_amount)) {
+                $running = 0.0;
+                $completionPayment = $payments->first(function ($item) use ($invoice, &$running) {
+                    $running = round($running + (float) $item->amount, 2);
+                    return DepositWallet::cents($running) >= DepositWallet::cents($invoice->total_amount);
+                });
+
+                return $completionPayment?->is($payment)
+                    ? round((float) (($invoice->fees ?? [])['Agency Fee'] ?? 0), 2)
+                    : 0;
+            }
+
             foreach ($payments as $invoicePayment) {
                 $allocation = InvoiceSettlement::allocateAmounts($remaining, min((float) $invoicePayment->amount, array_sum($remaining)));
                 if ($invoicePayment->is($payment)) {
