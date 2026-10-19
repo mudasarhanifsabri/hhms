@@ -7,6 +7,7 @@ use App\Models\Booking;
 use App\Models\BookingInvoicePayment;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use App\Support\AgentCommission;
 
 class AgentController extends Controller
 {
@@ -29,14 +30,13 @@ class AgentController extends Controller
                 if ($agencyFee <= 0) return null;
 
                 $booking = $payment->invoice?->booking;
-                $rate = (float) ($allocation['agent_commission_percent']
-                    ?? $booking?->agent_commission_percent
-                    ?? $commissionPercent);
+                $split = AgentCommission::split($agencyFee, $booking, $allocation);
+                $rate = $split['rate'];
 
                 return [
                     'payment' => $payment, 'invoice' => $payment->invoice, 'booking' => $booking,
                     'agency_fee' => $agencyFee, 'rate' => $rate,
-                    'commission' => round((float) ($allocation['agent_commission'] ?? $agencyFee * $rate / 100), 2),
+                    'commission' => $split['agent_share'],
                 ];
             })
             ->filter()

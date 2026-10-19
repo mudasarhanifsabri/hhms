@@ -24,7 +24,7 @@ class InvoiceSettlementTest extends TestCase
         $owner = User::factory()->create(['role' => 'landlord']);
         $agent = User::factory()->create(['role' => 'agent', 'agent_commission' => 25]);
         $unit = Property::create(['landlord_id' => $owner->id, 'name' => 'Settlement Unit']);
-        $booking = Booking::create(['property_id' => $unit->id, 'agent_id' => $agent->id, 'booking_reference' => 'BK-SETTLE', 'invoice_number' => 'INV-SETTLE',
+        $booking = Booking::create(['property_id' => $unit->id, 'agent_id' => $agent->id, 'agent_commission_percent' => 0, 'booking_reference' => 'BK-SETTLE', 'invoice_number' => 'INV-SETTLE',
             'guest_name' => 'Guest', 'guest_email' => 'guest@example.com', 'guest_phone' => '123', 'guest_passport_id_no' => 'P123', 'check_in' => '2026-09-01', 'check_out' => '2026-09-30',
             'rent_amount' => 1000, 'owner_posting_basis' => 'receipts', 'management_fee_percent' => 10, 'status' => 'confirmed', 'invoice_status' => 'unpaid']);
         $invoice = BookingInvoice::create(['booking_id' => $booking->id, 'invoice_number' => 'INV-SETTLE', 'invoice_type' => 'original', 'issue_date' => '2026-09-01', 'period_from' => '2026-09-01', 'period_to' => '2026-09-30',

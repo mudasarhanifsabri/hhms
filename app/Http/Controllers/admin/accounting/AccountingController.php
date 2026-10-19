@@ -25,6 +25,7 @@ use App\Support\MediaStorage;
 use App\Support\AppSettings;
 use App\Support\OwnerStatementPdf;
 use App\Support\PdfRenderer;
+use App\Support\AgentCommission;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -1149,14 +1150,10 @@ class AccountingController extends Controller
                 if ($agencyFee <= 0) return null;
 
                 $booking = $payment->invoice?->booking;
-                $rate = (float) ($allocation['agent_commission_percent']
-                    ?? $booking?->agent_commission_percent
-                    ?? $booking?->agent?->agent_commission
-                    ?? 0);
-                $agentCommission = round((float) ($allocation['agent_commission']
-                    ?? ($booking?->agent_id ? $agencyFee * $rate / 100 : 0)), 2);
-                $companyShare = round((float) ($allocation['agency_company_share']
-                    ?? ($agencyFee - $agentCommission)), 2);
+                $split = AgentCommission::split($agencyFee, $booking, $allocation);
+                $rate = $split['rate'];
+                $agentCommission = $split['agent_share'];
+                $companyShare = $split['company_share'];
 
                 return [
                     'payment' => $payment, 'invoice' => $payment->invoice, 'booking' => $booking,

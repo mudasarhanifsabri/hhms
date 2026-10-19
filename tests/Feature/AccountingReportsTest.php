@@ -95,7 +95,7 @@ class AccountingReportsTest extends TestCase
         $agent = User::factory()->create(['role' => 'agent', 'name' => 'Commission Agent', 'agent_commission' => 20]);
         $property = Property::create(['landlord_id' => $owner->id, 'name' => 'Unit AG-101', 'status' => 'vacant']);
         $booking = Booking::create([
-            'property_id' => $property->id, 'agent_id' => $agent->id, 'agent_commission_percent' => 20,
+            'property_id' => $property->id, 'agent_id' => $agent->id, 'agent_commission_percent' => 0,
             'booking_reference' => 'BK-AGENCY-001', 'guest_name' => 'Agency Guest',
             'guest_email' => 'agency@example.com', 'guest_phone' => '+971500000010',
             'guest_passport_id_no' => 'PASS-AGENCY-1', 'check_in' => '2026-09-01',
@@ -109,8 +109,8 @@ class AccountingReportsTest extends TestCase
         BookingInvoicePayment::create([
             'booking_invoice_id' => $invoice->id, 'payment_date' => '2026-09-15',
             'amount' => 1000, 'payment_method' => 'Bank Transfer',
-            'allocation' => ['agency' => 1000, 'agent_commission_percent' => 20,
-                'agent_commission' => 200, 'agency_company_share' => 800],
+            'allocation' => ['agency' => 1000, 'agent_commission_percent' => 0,
+                'agent_commission' => 0, 'agency_company_share' => 1000],
         ]);
 
         $this->actingAs($admin)->get(route('admin.accounting.reports', [

@@ -12,6 +12,7 @@ use App\Models\Property;
 use App\Models\BookingInvoicePayment;
 use App\Support\MediaStorage;
 use App\Support\PdfRenderer;
+use App\Support\AgentCommission;
 use Illuminate\Http\Response;
 
 class AgentController extends Controller
@@ -93,12 +94,10 @@ class AgentController extends Controller
                 $booking = $payment->invoice?->booking;
                 if ($agencyFee <= 0 || ! $booking?->agent_id) return null;
 
-                $rate = (float) ($allocation['agent_commission_percent']
-                    ?? $booking->agent_commission_percent
-                    ?? $booking->agent?->agent_commission
-                    ?? 0);
-                $agentShare = round((float) ($allocation['agent_commission'] ?? ($agencyFee * $rate / 100)), 2);
-                $companyShare = round((float) ($allocation['agency_company_share'] ?? ($agencyFee - $agentShare)), 2);
+                $split = AgentCommission::split($agencyFee, $booking, $allocation);
+                $rate = $split['rate'];
+                $agentShare = $split['agent_share'];
+                $companyShare = $split['company_share'];
 
                 return compact('payment', 'booking', 'agencyFee', 'rate', 'agentShare', 'companyShare') + [
                     'invoice' => $payment->invoice,

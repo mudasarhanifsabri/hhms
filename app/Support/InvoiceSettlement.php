@@ -109,7 +109,7 @@ class InvoiceSettlement
     {
         $booking = $payment->invoice->booking;
         $parts = $payment->allocation;
-        $rate = (float) ($booking->agent_commission_percent ?? $booking->agent?->agent_commission ?? 0);
+        $rate = AgentCommission::rate($booking, $parts);
         if ($rate < 0 || $rate > 100 || (float) $booking->management_fee_percent < 0 || (float) $booking->management_fee_percent > 100) {
             throw ValidationException::withMessages(['amount' => 'Commission percentages must be between 0 and 100.']);
         }
