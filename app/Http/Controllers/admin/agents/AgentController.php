@@ -118,7 +118,7 @@ class AgentController extends Controller
                     fn (BookingInvoicePayment $invoicePayment) => AgentCommission::agencyFee($invoicePayment)
                 ), 2);
                 $booking = $payment->invoice?->booking;
-                $agent = AgentCommission::agent($booking);
+                $agent = AgentCommission::agent($booking, $allocation);
                 if ($agencyFee <= 0 || ! $agent) return null;
 
                 $split = AgentCommission::split($agencyFee, $booking, $allocation);

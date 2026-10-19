@@ -9,7 +9,7 @@ use Throwable;
 
 class AgentCommission
 {
-    public static function agent(?Booking $booking): ?User
+    public static function agent(?Booking $booking, array $allocation = []): ?User
     {
         $seen = [];
         while ($booking && ! in_array($booking->id, $seen, true)) {
@@ -20,7 +20,11 @@ class AgentCommission
             $booking = $booking->renewedFrom;
         }
 
-        return null;
+        $allocatedAgentId = $allocation['agent_id'] ?? null;
+
+        return $allocatedAgentId
+            ? User::where('role', 'agent')->find($allocatedAgentId)
+            : null;
     }
 
     public static function agencyFee(BookingInvoicePayment $payment): float
@@ -72,7 +76,7 @@ class AgentCommission
 
     public static function rate(?Booking $booking, array $allocation = []): float
     {
-        $agent = self::agent($booking);
+        $agent = self::agent($booking, $allocation);
         if (! $agent) {
             return 0;
         }

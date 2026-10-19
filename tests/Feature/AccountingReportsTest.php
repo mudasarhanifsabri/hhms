@@ -119,7 +119,7 @@ class AccountingReportsTest extends TestCase
                 'agent_commission' => 0, 'agency_company_share' => 795],
         ]);
         $archivedRenewal = Booking::create([
-            'property_id' => $property->id, 'renewed_from_booking_id' => $booking->id,
+            'property_id' => $property->id,
             'booking_reference' => 'BK-ARCHIVED-RENEWAL', 'invoice_number' => 'INV-ARCHIVED-RENEWAL', 'guest_name' => 'Archived Guest',
             'guest_email' => 'archived@example.com', 'guest_phone' => '+971500000011',
             'guest_passport_id_no' => 'PASS-ARCHIVED', 'check_in' => '2026-09-20',
@@ -132,7 +132,8 @@ class AccountingReportsTest extends TestCase
         ]);
         BookingInvoicePayment::create([
             'booking_invoice_id' => $archivedInvoice->id, 'payment_date' => '2026-09-20',
-            'amount' => 400, 'payment_method' => 'Bank Transfer', 'allocation' => ['agency' => 400],
+            'amount' => 400, 'payment_method' => 'Bank Transfer',
+            'allocation' => ['agency' => 400, 'agent_id' => $agent->id, 'agent_commission_percent' => 20],
         ]);
 
         $this->actingAs($admin)->get(route('admin.accounting.reports', [
