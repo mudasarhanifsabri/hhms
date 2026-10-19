@@ -339,13 +339,19 @@ class BookingController extends Controller
                     'agent_id' => $agent?->id,
                     'agent_commission_percent' => $agent ? (float) $agent->agent_commission : 0,
                 ]);
-                if (BookingInvoicePayment::whereHas('invoice', fn ($query) => $query->where('booking_id', $booking->id))->whereNull('reversed_at')->exists()
-                    && ! \App\Support\InvoiceAllocationRebuilder::rebuild($booking)) {
-                    throw ValidationException::withMessages(['agent_id' => 'The agent cannot be changed because existing payment allocations require manual reconciliation.']);
+                $hasPayments = BookingInvoicePayment::whereHas('invoice', fn ($query) => $query->where('booking_id', $booking->id))->whereNull('reversed_at')->exists();
+                $allocationsRebuilt = ! $hasPayments;
+                if ($hasPayments) {
+                    try {
+                        $allocationsRebuilt = \App\Support\InvoiceAllocationRebuilder::rebuild($booking);
+                    } catch (ValidationException) {
+                        $allocationsRebuilt = false;
+                    }
                 }
                 $booking->histories()->create([
                     'title' => 'Booking Agent Updated',
-                    'description' => $beforeAgent.' → '.($agent?->name ?? 'No Agent').' by '.auth()->user()->name.'. Reason: '.$data['reason'],
+                    'description' => $beforeAgent.' → '.($agent?->name ?? 'No Agent').' by '.auth()->user()->name.'. Reason: '.$data['reason']
+                        .($allocationsRebuilt ? '' : ' Legacy payment ledger allocations were left unchanged; the agent assignment and commission report use the corrected booking agent.'),
                 ]);
             });
 

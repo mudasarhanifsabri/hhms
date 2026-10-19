@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\AccountingEntry;
 use App\Models\BankAccount;
 use App\Models\Booking;
+use App\Models\BookingInvoicePayment;
 use App\Models\LandlordAccountEntry;
 use App\Models\Property;
 use App\Models\User;
@@ -199,6 +200,31 @@ class BookingCorrectionsTest extends TestCase
         $this->assertEquals($agent->id, $booking->agent_id);
         $this->assertEquals(50, $booking->agent_commission_percent);
         $this->assertDatabaseHas('booking_histories', ['booking_id' => $booking->id, 'title' => 'Booking Agent Updated']);
+    }
+
+    public function test_agent_assignment_is_not_blocked_by_a_legacy_unallocated_payment(): void
+    {
+        [$booking, $invoice, $bank] = $this->setupInvoice();
+        $agent = User::factory()->create(['role' => 'agent', 'agent_commission' => 40]);
+        BookingInvoicePayment::create([
+            'booking_invoice_id' => $invoice->id,
+            'payment_date' => '2026-10-01',
+            'amount' => 500,
+            'payment_method' => 'Legacy',
+            'bank_account_id' => $bank->id,
+            'reference' => 'LEGACY-UNALLOCATED',
+            'allocation' => null,
+        ]);
+
+        $this->put(route('admin.booking.update', $booking), [
+            'action' => 'agent_only',
+            'agent_id' => $agent->id,
+            'reason' => 'Recover missing legacy agent',
+        ])->assertSessionHasNoErrors()->assertRedirect(route('admin.booking.show', $booking));
+
+        $this->assertEquals($agent->id, $booking->fresh()->agent_id);
+        $history = $booking->histories()->where('title', 'Booking Agent Updated')->firstOrFail();
+        $this->assertStringContainsString('Legacy payment ledger allocations were left unchanged', $history->description);
     }
 
     public function test_reversal_preserves_history_reopens_balance_and_reverses_owner_and_bank(): void
