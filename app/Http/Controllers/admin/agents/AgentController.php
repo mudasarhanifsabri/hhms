@@ -54,7 +54,8 @@ class AgentController extends Controller
     {
         $report = $this->commissionReportData($request);
         $agentName = $report['selectedAgent']?->name ?? 'all-agents';
-        $filename = 'agent-commission-'.Str::slug($agentName).'-'.$report['from']->format('Y-m-d').'-'.$report['to']->format('Y-m-d').'.pdf';
+        $period = $report['scope'] === 'all' ? 'all-dates' : $report['month']->format('Y-m');
+        $filename = 'agent-commission-'.Str::slug($agentName).'-'.$period.'.pdf';
 
         return PdfRenderer::downloadView('admin.pdf.agents.commission-report', $report, $filename, [
             'format' => 'A4-L',
@@ -70,11 +71,17 @@ class AgentController extends Controller
         $validated = $request->validate([
             'agent' => ['nullable', 'exists:users,id'],
             'agent_id' => ['nullable', 'exists:users,id'],
+            'scope' => ['nullable', 'in:month,all'],
+            'month' => ['nullable', 'date_format:Y-m'],
             'from' => ['nullable', 'date'],
             'to' => ['nullable', 'date', 'after_or_equal:from'],
         ]);
-        $from = ! empty($validated['from']) ? \Carbon\Carbon::parse($validated['from'])->startOfDay() : now()->startOfMonth();
-        $to = ! empty($validated['to']) ? \Carbon\Carbon::parse($validated['to'])->endOfDay() : now()->endOfMonth();
+        $scope = $validated['scope'] ?? 'month';
+        $month = ! empty($validated['month'])
+            ? \Carbon\Carbon::createFromFormat('Y-m', $validated['month'])->startOfMonth()
+            : (! empty($validated['from']) ? \Carbon\Carbon::parse($validated['from'])->startOfMonth() : now()->startOfMonth());
+        $from = $month->copy()->startOfMonth();
+        $to = $month->copy()->endOfMonth();
         $agentId = $request->query('agent', $request->query('agent_id'));
         $agents = User::where('role', 'agent')->orderBy('name')->get();
         $selectedAgent = $agentId ? User::where('role', 'agent')->find($agentId) : null;
@@ -85,9 +92,20 @@ class AgentController extends Controller
             'invoice.booking.property.building',
         ])
             ->whereNull('reversed_at')
-            ->whereBetween('payment_date', [$from->toDateString(), $to->toDateString()])
+            ->when($scope === 'month', function ($query) use ($from, $to) {
+                $query->whereHas('invoice', function ($invoice) use ($from, $to) {
+                    $invoice->where(function ($datedInvoice) use ($from, $to) {
+                        $datedInvoice->where(function ($original) use ($from, $to) {
+                            $original->where('invoice_type', 'original')
+                                ->whereHas('booking', fn ($booking) => $booking->whereBetween('check_in', [$from->toDateString(), $to->toDateString()]));
+                        })->orWhere(function ($laterPeriod) use ($from, $to) {
+                            $laterPeriod->whereIn('invoice_type', ['extension', 'renewal'])
+                                ->whereBetween('period_from', [$from->toDateString(), $to->toDateString()]);
+                        });
+                    });
+                });
+            })
             ->when($agentId, fn ($query) => $query->whereHas('invoice.booking', fn ($booking) => $booking->where('agent_id', $agentId)))
-            ->orderBy('payment_date')
             ->get()
             ->map(function (BookingInvoicePayment $payment) {
                 $allocation = $payment->allocation ?? [];
@@ -99,14 +117,18 @@ class AgentController extends Controller
                 $rate = $split['rate'];
                 $agentShare = $split['agent_share'];
                 $companyShare = $split['company_share'];
+                $periodStart = $payment->invoice?->invoice_type === 'original'
+                    ? $booking->check_in
+                    : ($payment->invoice?->period_from ?? $booking->check_in);
 
-                return compact('payment', 'booking', 'agencyFee', 'rate', 'agentShare', 'companyShare') + [
+                return compact('payment', 'booking', 'agencyFee', 'rate', 'agentShare', 'companyShare', 'periodStart') + [
                     'invoice' => $payment->invoice,
                     'agent' => $booking->agent,
                     'property' => $booking->property,
                 ];
             })
             ->filter()
+            ->sortBy(fn ($row) => $row['periodStart']?->format('Y-m-d') ?? '')
             ->values();
 
         $totals = [
@@ -125,7 +147,7 @@ class AgentController extends Controller
             ];
         })->values();
 
-        return compact('agents', 'selectedAgent', 'agentId', 'from', 'to', 'rows', 'totals', 'byAgent');
+        return compact('agents', 'selectedAgent', 'agentId', 'scope', 'month', 'from', 'to', 'rows', 'totals', 'byAgent');
     }
 
     public function show($id)

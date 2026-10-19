@@ -129,14 +129,19 @@ class AccountingReportsTest extends TestCase
         ]))->assertOk()->assertDownload('agency-report-2026-09-01-to-2026-09-30.pdf');
 
         $this->actingAs($admin)->get(route('admin.agent.commission-report', [
-            'agent' => (string) $agent->id, 'from' => '2026-09-01', 'to' => '2026-09-30',
+            'agent' => (string) $agent->id, 'scope' => 'month', 'month' => '2026-09',
         ]))->assertOk()->assertSee('Agent Commission Report')->assertSee('Commission Agent')
+            ->assertSee('Check-in / period month')->assertSee('September 2026 check-ins and new periods')
             ->assertSee('Unit AG-101')->assertSee('BK-AGENCY-001')
             ->assertSee('AED 1,000.00')->assertSee('AED 200.00')->assertSee('AED 800.00');
 
         $this->actingAs($admin)->get(route('admin.agent.commission-report.pdf', [
-            'agent' => (string) $agent->id, 'from' => '2026-09-01', 'to' => '2026-09-30',
-        ]))->assertOk()->assertDownload('agent-commission-commission-agent-2026-09-01-2026-09-30.pdf');
+            'agent' => (string) $agent->id, 'scope' => 'month', 'month' => '2026-09',
+        ]))->assertOk()->assertDownload('agent-commission-commission-agent-2026-09.pdf');
+
+        $this->actingAs($admin)->get(route('admin.agent.commission-report', [
+            'agent' => (string) $agent->id, 'scope' => 'all',
+        ]))->assertOk()->assertSee('All booking periods')->assertSee('BK-AGENCY-001');
 
         $this->actingAs($agent)->get(route('agent.dashboard'))
             ->assertOk()->assertSee('My Agency Fee Report')
