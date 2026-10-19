@@ -89,6 +89,7 @@ class AgentController extends Controller
         $rows = BookingInvoicePayment::with([
             'invoice.payments',
             'invoice.booking.agent',
+            'invoice.booking.renewedFrom.agent',
             'invoice.booking.property.building',
         ])
             ->whereNull('reversed_at')
@@ -105,7 +106,6 @@ class AgentController extends Controller
                     });
                 });
             })
-            ->when($agentId, fn ($query) => $query->whereHas('invoice.booking', fn ($booking) => $booking->where('agent_id', $agentId)))
             ->get()
             ->groupBy('booking_invoice_id')
             ->map(function ($invoicePayments) {
@@ -118,7 +118,8 @@ class AgentController extends Controller
                     fn (BookingInvoicePayment $invoicePayment) => AgentCommission::agencyFee($invoicePayment)
                 ), 2);
                 $booking = $payment->invoice?->booking;
-                if ($agencyFee <= 0 || ! $booking?->agent_id) return null;
+                $agent = AgentCommission::agent($booking);
+                if ($agencyFee <= 0 || ! $agent) return null;
 
                 $split = AgentCommission::split($agencyFee, $booking, $allocation);
                 $rate = $split['rate'];
@@ -130,11 +131,12 @@ class AgentController extends Controller
 
                 return compact('payment', 'booking', 'agencyFee', 'rate', 'agentShare', 'companyShare', 'periodStart') + [
                     'invoice' => $payment->invoice,
-                    'agent' => $booking->agent,
+                    'agent' => $agent,
                     'property' => $booking->property,
                 ];
             })
             ->filter()
+            ->when($agentId, fn ($reportRows) => $reportRows->filter(fn ($row) => (string) $row['agent']->id === (string) $agentId))
             ->sortBy(fn ($row) => $row['periodStart']?->format('Y-m-d') ?? '')
             ->values();
 

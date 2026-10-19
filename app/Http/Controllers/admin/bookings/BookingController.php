@@ -519,8 +519,8 @@ class BookingController extends Controller
 
         $payload = [
             'property_id' => $booking->property_id,
-            'agent_id' => $booking->agent_id,
-            'agent_commission_percent' => $booking->agent_commission_percent,
+            'agent_id' => \App\Support\AgentCommission::agent($booking)?->id,
+            'agent_commission_percent' => \App\Support\AgentCommission::rate($booking),
             'guest_name' => $booking->guest_name,
             'guest_email' => $booking->guest_email,
             'guest_phone' => $booking->guest_phone,

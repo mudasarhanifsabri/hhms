@@ -4,10 +4,25 @@ namespace App\Support;
 
 use App\Models\Booking;
 use App\Models\BookingInvoicePayment;
+use App\Models\User;
 use Throwable;
 
 class AgentCommission
 {
+    public static function agent(?Booking $booking): ?User
+    {
+        $seen = [];
+        while ($booking && ! in_array($booking->id, $seen, true)) {
+            $seen[] = $booking->id;
+            if ($booking->agent_id) {
+                return $booking->agent;
+            }
+            $booking = $booking->renewedFrom;
+        }
+
+        return null;
+    }
+
     public static function agencyFee(BookingInvoicePayment $payment): float
     {
         $invoice = $payment->invoice;
@@ -57,14 +72,21 @@ class AgentCommission
 
     public static function rate(?Booking $booking, array $allocation = []): float
     {
-        if (! $booking?->agent_id) {
+        $agent = self::agent($booking);
+        if (! $agent) {
             return 0;
+        }
+
+        $source = $booking;
+        while ($source && ! $source->agent_id) {
+            $source = $source->renewedFrom;
         }
 
         foreach ([
             $allocation['agent_commission_percent'] ?? null,
-            $booking->agent_commission_percent,
-            $booking->agent?->agent_commission,
+            $booking?->agent_commission_percent,
+            $source?->agent_commission_percent,
+            $agent->agent_commission,
         ] as $candidate) {
             $rate = (float) ($candidate ?? 0);
             if ($rate > 0) {
