@@ -77,13 +77,16 @@ class BookingCorrectionController extends Controller
             $vat = $rentVat + $taxableFeeVat;
             $invoice->update(['rent_amount' => $rent, 'vat_rate' => $data['vat_rate'], 'vat_included' => $included,
                 'vat_amount' => $vat, 'fees' => $fees, 'total_amount' => round($rent + $vat + array_sum($fees), 2)]);
+            $legacyAllocationWarning = false;
             if ($hasPayments) {
                 $paid = (float) $invoice->payments()->sum('amount');
                 if (DepositWallet::cents($paid) > DepositWallet::cents($invoice->total_amount)) {
                     $this->fail('The corrected invoice total cannot be lower than payments already received.');
                 }
-                if (! \App\Support\InvoiceAllocationRebuilder::rebuild($booking)) {
-                    $this->fail('Payment allocations cannot be rebuilt safely for this invoice. Reverse or reconcile the affected payment first.');
+                try {
+                    $legacyAllocationWarning = ! \App\Support\InvoiceAllocationRebuilder::rebuild($booking);
+                } catch (ValidationException) {
+                    $legacyAllocationWarning = true;
                 }
                 \App\Support\BookingPaymentSummary::sync($booking);
                 $invoice->refresh();
@@ -107,7 +110,8 @@ class BookingCorrectionController extends Controller
                     LandlordAccountEntry::recalculateBalancesFor($id);
                 }
             }
-            $booking->histories()->create(['title' => 'Invoice Corrected', 'description' => $invoice->invoice_number.' by '.auth()->user()->name.'. Reason: '.$data['reason'].' | Before: '.json_encode($before).' | After: '.json_encode($invoice->only(array_keys($before)))]);
+            $booking->histories()->create(['title' => 'Invoice Corrected', 'description' => $invoice->invoice_number.' by '.auth()->user()->name.'. Reason: '.$data['reason'].' | Before: '.json_encode($before).' | After: '.json_encode($invoice->only(array_keys($before)))
+                .($legacyAllocationWarning ? ' | Legacy payment ledger allocations were preserved because no compatible posted receipt was available.' : '')]);
         });
 
         return back()->with('success', 'Invoice corrected; linked booking amounts were synchronized.');

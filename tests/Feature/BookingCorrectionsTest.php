@@ -6,6 +6,7 @@ use App\Models\AccountingEntry;
 use App\Models\BankAccount;
 use App\Models\Booking;
 use App\Models\BookingInvoicePayment;
+use App\Models\FinancialApprovalRequest;
 use App\Models\LandlordAccountEntry;
 use App\Models\Property;
 use App\Models\User;
@@ -225,6 +226,37 @@ class BookingCorrectionsTest extends TestCase
         $this->assertEquals($agent->id, $booking->fresh()->agent_id);
         $history = $booking->histories()->where('title', 'Booking Agent Updated')->firstOrFail();
         $this->assertStringContainsString('Legacy payment ledger allocations were left unchanged', $history->description);
+    }
+
+    public function test_legacy_payment_does_not_block_invoice_approval_and_request_reason_is_visible(): void
+    {
+        [$booking, $invoice, $bank] = $this->setupInvoice();
+        BookingInvoicePayment::create([
+            'booking_invoice_id' => $invoice->id, 'payment_date' => '2026-10-01', 'amount' => 500,
+            'payment_method' => 'Legacy', 'bank_account_id' => $bank->id, 'reference' => 'LEGACY-INVOICE-EDIT',
+            'allocation' => null,
+        ]);
+        $payload = [
+            'rent_amount' => 1000, 'vat_rate' => 5, 'vat_included' => 0,
+            'fees' => ['Agency Fee' => 100, 'Other Fees' => 0, 'Security Deposit' => 0],
+            'reason' => 'Move the wrongly entered other fee to agency fee',
+        ];
+        $request = Request::create(route('admin.booking-invoice.correct', $invoice), 'PUT', $payload);
+        $request->attributes->set('financial_approval_execution', true);
+        $request->setUserResolver(fn () => auth()->user());
+        app(\App\Http\Controllers\admin\bookings\BookingCorrectionController::class)->invoice($request, $invoice->fresh());
+
+        $this->assertEquals(100, $invoice->fresh()->fees['Agency Fee']);
+        $this->assertSame('partial', $invoice->fresh()->status);
+        $this->assertStringContainsString('Legacy payment ledger allocations were preserved', $booking->histories()->where('title', 'Invoice Corrected')->firstOrFail()->description);
+
+        FinancialApprovalRequest::create([
+            'type' => 'invoice_edit', 'status' => 'pending', 'booking_id' => $booking->id,
+            'booking_invoice_id' => $invoice->id, 'payload' => $payload,
+            'request_reason' => $payload['reason'], 'requested_by' => auth()->id(), 'requested_at' => now(),
+        ]);
+        $this->get(route('admin.financial-approvals.index'))->assertOk()
+            ->assertSee('Requester reason')->assertSee($payload['reason']);
     }
 
     public function test_reversal_preserves_history_reopens_balance_and_reverses_owner_and_bank(): void
