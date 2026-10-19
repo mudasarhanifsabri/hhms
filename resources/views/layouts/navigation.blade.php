@@ -152,6 +152,7 @@
                         <li class="sub-nav-item"><a class="sub-nav-link" href="{{ route('admin.agent.index') }}">List View</a></li>
                         <li class="sub-nav-item"><a class="sub-nav-link" href="{{ route('admin.agent.grid') }}">Grid View</a></li>
                         <li class="sub-nav-item"><a class="sub-nav-link" href="{{ route('admin.agent.create') }}">Add Agent</a></li>
+                        <li class="sub-nav-item"><a class="sub-nav-link" href="{{ route('admin.agent.commission-report') }}">Commission Report</a></li>
                     </ul>
                 </div>
             </li>

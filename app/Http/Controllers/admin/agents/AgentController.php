@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use App\Models\User;
 use App\Models\Property;
+use App\Models\BookingInvoicePayment;
 use App\Support\MediaStorage;
 use App\Support\PdfRenderer;
 use Illuminate\Http\Response;
@@ -39,6 +40,92 @@ class AgentController extends Controller
         $totalAgents = User::where('role', 'agent')->count();
 
         return response()->view('admin.agents.showgrid', compact('agents', 'totalAgents', 'perPage'));
+    }
+
+    public function commissionReport(Request $request)
+    {
+        $report = $this->commissionReportData($request);
+
+        return view('admin.agents.commission-report', $report);
+    }
+
+    public function commissionReportPdf(Request $request)
+    {
+        $report = $this->commissionReportData($request);
+        $agentName = $report['selectedAgent']?->name ?? 'all-agents';
+        $filename = 'agent-commission-'.Str::slug($agentName).'-'.$report['from']->format('Y-m-d').'-'.$report['to']->format('Y-m-d').'.pdf';
+
+        return PdfRenderer::downloadView('admin.pdf.agents.commission-report', $report, $filename, [
+            'format' => 'A4-L',
+            'margin_left' => 8,
+            'margin_right' => 8,
+            'margin_top' => 10,
+            'margin_bottom' => 12,
+        ]);
+    }
+
+    private function commissionReportData(Request $request): array
+    {
+        $validated = $request->validate([
+            'agent' => ['nullable', 'exists:users,id'],
+            'agent_id' => ['nullable', 'exists:users,id'],
+            'from' => ['nullable', 'date'],
+            'to' => ['nullable', 'date', 'after_or_equal:from'],
+        ]);
+        $from = ! empty($validated['from']) ? \Carbon\Carbon::parse($validated['from'])->startOfDay() : now()->startOfMonth();
+        $to = ! empty($validated['to']) ? \Carbon\Carbon::parse($validated['to'])->endOfDay() : now()->endOfMonth();
+        $agentId = $request->query('agent', $request->query('agent_id'));
+        $agents = User::where('role', 'agent')->orderBy('name')->get();
+        $selectedAgent = $agentId ? User::where('role', 'agent')->find($agentId) : null;
+
+        $rows = BookingInvoicePayment::with([
+            'invoice.booking.agent',
+            'invoice.booking.property.building',
+        ])
+            ->whereNull('reversed_at')
+            ->whereBetween('payment_date', [$from->toDateString(), $to->toDateString()])
+            ->when($agentId, fn ($query) => $query->whereHas('invoice.booking', fn ($booking) => $booking->where('agent_id', $agentId)))
+            ->orderBy('payment_date')
+            ->get()
+            ->map(function (BookingInvoicePayment $payment) {
+                $allocation = $payment->allocation ?? [];
+                $agencyFee = round((float) ($allocation['agency'] ?? 0), 2);
+                $booking = $payment->invoice?->booking;
+                if ($agencyFee <= 0 || ! $booking?->agent_id) return null;
+
+                $rate = (float) ($allocation['agent_commission_percent']
+                    ?? $booking->agent_commission_percent
+                    ?? $booking->agent?->agent_commission
+                    ?? 0);
+                $agentShare = round((float) ($allocation['agent_commission'] ?? ($agencyFee * $rate / 100)), 2);
+                $companyShare = round((float) ($allocation['agency_company_share'] ?? ($agencyFee - $agentShare)), 2);
+
+                return compact('payment', 'booking', 'agencyFee', 'rate', 'agentShare', 'companyShare') + [
+                    'invoice' => $payment->invoice,
+                    'agent' => $booking->agent,
+                    'property' => $booking->property,
+                ];
+            })
+            ->filter()
+            ->values();
+
+        $totals = [
+            'payments' => $rows->count(),
+            'bookings' => $rows->pluck('booking.id')->unique()->count(),
+            'agency_fee' => $rows->sum('agencyFee'),
+            'agent_share' => $rows->sum('agentShare'),
+            'company_share' => $rows->sum('companyShare'),
+        ];
+        $byAgent = $rows->groupBy('agent.id')->map(function ($agentRows) {
+            return [
+                'agent' => $agentRows->first()['agent'],
+                'bookings' => $agentRows->pluck('booking.id')->unique()->count(),
+                'agency_fee' => $agentRows->sum('agencyFee'),
+                'agent_share' => $agentRows->sum('agentShare'),
+            ];
+        })->values();
+
+        return compact('agents', 'selectedAgent', 'agentId', 'from', 'to', 'rows', 'totals', 'byAgent');
     }
 
     public function show($id)

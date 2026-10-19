@@ -172,6 +172,8 @@ Route::get('/agents', [AgentController::class, 'index'])->name('agent.index');
 Route::get('/agents/grid', [AgentController::class, 'showGrid'])->name('agent.grid');
 Route::get('/agents/create', [AgentController::class, 'create'])->name('agent.create');
 Route::post('/agents/store', [AgentController::class, 'store'])->name('agent.store');
+Route::get('/agents/commission-report', [AgentController::class, 'commissionReport'])->name('agent.commission-report');
+Route::get('/agents/commission-report/pdf', [AgentController::class, 'commissionReportPdf'])->name('agent.commission-report.pdf');
 Route::get('/agents/{id}', [AgentController::class, 'show'])->name('agent.show');
 Route::delete('/agents/{id}', [AgentController::class, 'destroy'])->name('agent.destroy');
 Route::put('/agents/{id}', [AgentController::class, 'update'])->name('agent.update');
