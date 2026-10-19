@@ -107,9 +107,16 @@ class AgentController extends Controller
             })
             ->when($agentId, fn ($query) => $query->whereHas('invoice.booking', fn ($booking) => $booking->where('agent_id', $agentId)))
             ->get()
-            ->map(function (BookingInvoicePayment $payment) {
+            ->groupBy('booking_invoice_id')
+            ->map(function ($invoicePayments) {
+                $payment = $invoicePayments->sortBy([
+                    ['payment_date', 'asc'],
+                    ['created_at', 'asc'],
+                ])->last();
                 $allocation = $payment->allocation ?? [];
-                $agencyFee = AgentCommission::agencyFee($payment);
+                $agencyFee = round((float) $invoicePayments->sum(
+                    fn (BookingInvoicePayment $invoicePayment) => AgentCommission::agencyFee($invoicePayment)
+                ), 2);
                 $booking = $payment->invoice?->booking;
                 if ($agencyFee <= 0 || ! $booking?->agent_id) return null;
 

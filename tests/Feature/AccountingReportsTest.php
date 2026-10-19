@@ -108,9 +108,15 @@ class AccountingReportsTest extends TestCase
         ]);
         BookingInvoicePayment::create([
             'booking_invoice_id' => $invoice->id, 'payment_date' => '2026-09-15',
-            'amount' => 1000, 'payment_method' => 'Bank Transfer',
+            'amount' => 500, 'payment_method' => 'Bank Transfer',
             'allocation' => ['agency' => 205, 'agent_commission_percent' => 0,
                 'agent_commission' => 0, 'agency_company_share' => 205],
+        ]);
+        BookingInvoicePayment::create([
+            'booking_invoice_id' => $invoice->id, 'payment_date' => '2026-09-16',
+            'amount' => 500, 'payment_method' => 'Bank Transfer',
+            'allocation' => ['agency' => 795, 'agent_commission_percent' => 0,
+                'agent_commission' => 0, 'agency_company_share' => 795],
         ]);
 
         $this->actingAs($admin)->get(route('admin.accounting.reports', [
@@ -128,12 +134,13 @@ class AccountingReportsTest extends TestCase
             'report' => 'agency', 'date_from' => '2026-09-01', 'date_to' => '2026-09-30',
         ]))->assertOk()->assertDownload('agency-report-2026-09-01-to-2026-09-30.pdf');
 
-        $this->actingAs($admin)->get(route('admin.agent.commission-report', [
+        $commissionReport = $this->actingAs($admin)->get(route('admin.agent.commission-report', [
             'agent' => (string) $agent->id, 'scope' => 'month', 'month' => '2026-09',
         ]))->assertOk()->assertSee('Agent Commission Report')->assertSee('Commission Agent')
             ->assertSee('Check-in / period month')->assertSee('September 2026 check-ins and new periods')
             ->assertSee('Unit AG-101')->assertSee('BK-AGENCY-001')
             ->assertSee('AED 1,000.00')->assertSee('AED 200.00')->assertSee('AED 800.00');
+        $this->assertSame(1, substr_count($commissionReport->getContent(), 'BK-AGENCY-001'));
 
         $this->actingAs($admin)->get(route('admin.agent.commission-report.pdf', [
             'agent' => (string) $agent->id, 'scope' => 'month', 'month' => '2026-09',
