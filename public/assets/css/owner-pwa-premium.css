@@ -12,8 +12,10 @@
 .owner-app button,.owner-app summary,.owner-app select{min-height:44px}
 .oa-screen{-webkit-overflow-scrolling:touch;scrollbar-width:none}.oa-screen::-webkit-scrollbar{display:none}
 .oa-period-filter{display:grid;gap:8px;margin-bottom:12px}.oa-period-filter .oa-tabs{padding-bottom:2px;display:grid;grid-template-columns:1fr 1fr}.oa-period-filter .oa-tabs button{border-radius:12px}
-.oa-period-filter label{display:grid;grid-template-columns:auto 1fr;align-items:center;gap:10px;color:var(--muted);font-size:11px;font-weight:700}.oa-period-filter select{width:100%;border:1px solid var(--line);border-radius:12px;background:#fff;color:var(--ink);padding:0 12px;font-weight:700}
+.oa-period-filter label{display:grid;grid-template-columns:minmax(0,auto) minmax(0,1fr);align-items:center;gap:10px;min-width:0;color:var(--muted);font-size:11px;font-weight:700}.oa-period-filter label>span{white-space:nowrap}.oa-period-filter select{display:block;width:100%;max-width:100%;min-width:0;border:1px solid var(--line);border-radius:12px;background:#fff;color:var(--ink);padding:0 12px;font-weight:700}
 .oa-transaction{background:#fff;border:1px solid var(--line);border-radius:16px;overflow:hidden;box-shadow:0 6px 18px rgba(21,43,75,.035)}
 .oa-transaction summary{display:flex;align-items:center;gap:10px;padding:12px;cursor:pointer;list-style:none}.oa-transaction summary::-webkit-details-marker{display:none}.oa-transaction summary:active{background:#f7f9fc}.oa-disclosure{color:var(--muted);font-size:19px;transition:transform .2s ease}.oa-transaction[open] .oa-disclosure{transform:rotate(180deg)}
 .oa-transaction-details{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:12px;border-top:1px solid var(--line);background:#f8fafc}.oa-transaction-details div{min-width:0}.oa-transaction-details span,.oa-transaction-details strong{display:block}.oa-transaction-details span{color:var(--muted);font-size:10px;margin-bottom:4px}.oa-transaction-details strong{font-size:11px;overflow-wrap:anywhere}.oa-transaction-details div:first-child{grid-column:1/-1}
 [dir="rtl"] .oa-transaction-details,[dir="rtl"] .oa-period-filter{text-align:right}
+html,body,.owner-app{max-width:100%;overflow-x:hidden}
+@media(max-width:380px){.oa-period-filter label{grid-template-columns:1fr}.oa-period-filter label>span{padding-inline:2px}.oa-period-filter select{height:48px}}

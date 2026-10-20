@@ -14,8 +14,8 @@
     <link rel="manifest" href="{{ asset('owner-manifest.webmanifest') }}">
     <link rel="apple-touch-icon" href="{{ asset('assets/images/pwa-icon-192.png') }}">
     <link rel="stylesheet" href="{{ asset('assets/css/icons.min.css') }}">
-    <link rel="stylesheet" href="{{ asset('assets/css/owner-pwa.css') }}?v=20260908-2">
-    <link rel="stylesheet" href="{{ asset('assets/css/owner-pwa-premium.css') }}?v=20261020-1">
+    <link rel="stylesheet" href="{{ asset('assets/css/owner-pwa.css') }}?v=20261020-2">
+    <link rel="stylesheet" href="{{ asset('assets/css/owner-pwa-premium.css') }}?v=20261020-2">
     <link rel="stylesheet" href="{{ asset('assets/css/owner-pwa-rtl.css') }}?v=20260908-2">
 </head>
 <body>
