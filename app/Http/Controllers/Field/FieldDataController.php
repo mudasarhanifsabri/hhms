@@ -58,12 +58,11 @@ class FieldDataController extends Controller
     {
         abort_unless((string) $task->assigned_to === (string) $request->user()->id, 403);
         abort_unless($task->isInspectionTask(), 404);
-        // Only create a missing draft through the existing maintainer workflow.
-        // Completed inspections must remain readable by the app after submit.
-        if (! $task->inspection()->exists()) {
-            app(MaintainerController::class)->inspectionForm($task);
-        }
-        $inspection = $task->inspection()->with('items')->firstOrFail();
+        // Admin creates the inspection header when assigning the task. Older app
+        // builds therefore often find an existing header with zero checklist
+        // rows. Always run the idempotent checklist initializer before returning
+        // the draft so both the PWA and field API receive the same room checks.
+        $inspection = app(MaintainerController::class)->ensureInspectionForTask($task);
         $draft = json_decode($inspection->draft_payload ?? '{}', true) ?: [];
 
         return response()->json([

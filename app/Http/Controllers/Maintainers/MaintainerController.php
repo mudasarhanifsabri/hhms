@@ -525,7 +525,7 @@ class MaintainerController extends Controller
         return $item;
     }
 
-    private function ensureInspectionForTask(BookingTask $task): BookingInspection
+    public function ensureInspectionForTask(BookingTask $task): BookingInspection
     {
         $task->loadMissing(['booking.property', 'property', 'inspection.items']);
         $property = $task->booking?->property ?: $task->property;
@@ -540,11 +540,11 @@ class MaintainerController extends Controller
             'selected_areas' => array_keys($this->inspectionTemplateForTask($task)),
         ]);
 
-        if (empty($inspection->selected_areas)) {
+        if ($inspection->status === 'draft' && empty($inspection->selected_areas)) {
             $inspection->update(['selected_areas' => array_keys($this->inspectionTemplateForTask($task))]);
         }
 
-        if ($inspection->items()->count() === 0) {
+        if ($inspection->status === 'draft' && $inspection->items()->count() === 0) {
             $sort = 1;
             foreach ($this->inspectionTemplateForTask($task) as $area => $items) {
                 foreach ($items as $item) {

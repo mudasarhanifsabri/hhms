@@ -36,8 +36,12 @@ class UnitInventoryTest extends TestCase
         $this->actingAs($employee)
             ->getJson('/field/api/bootstrap')->assertOk()->assertJsonPath('user.role', 'maintainer');
         $this->getJson('/field/api/tasks')->assertOk()->assertJsonPath('tasks.0.id', $task->id);
+        $this->assertSame(0, $task->inspection()->firstOrFail()->items()->count());
         $this->getJson('/field/api/tasks/'.$task->id.'/inspection')->assertOk()
-            ->assertJsonPath('task.id', $task->id)->assertJsonStructure(['inspection' => ['items', 'inventory', 'revision']]);
+            ->assertJsonPath('task.id', $task->id)
+            ->assertJsonPath('inspection.items.0.area', 'Living Room')
+            ->assertJsonStructure(['inspection' => ['items', 'inventory', 'revision']]);
+        $this->assertGreaterThan(0, $task->inspection()->firstOrFail()->items()->count());
 
         $other = User::factory()->create(['role' => 'maintainer', 'is_active' => true]);
         $this->actingAs($other)->getJson('/field/api/tasks/'.$task->id)->assertForbidden();
