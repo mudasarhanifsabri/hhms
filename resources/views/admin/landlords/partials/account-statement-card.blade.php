@@ -224,8 +224,10 @@
                             <option value="" data-owner-recipients="{{ collect([['name' => $landlord->name, 'email' => $landlord->email]])->toJson() }}">All units</option>
                             @foreach($relatedProperties as $property)
                                 @php
-                                    $unitOwners = $property->ownerShares->pluck('owner')->filter()->prepend($property->landlord)->filter()->unique('id')->values()
-                                        ->map(fn ($owner) => ['name' => $owner->name, 'email' => $owner->email]);
+                                    $unitOwners = $property->ownerShares->pluck('owner')->filter()
+                                        ->prepend($property->landlord)->prepend($landlord)->filter()->unique('id')->values()
+                                        ->map(fn ($owner) => ['name' => $owner->name, 'email' => trim((string) $owner->email)])
+                                        ->filter(fn ($owner) => filter_var($owner['email'], FILTER_VALIDATE_EMAIL))->values();
                                 @endphp
                                 <option value="{{ $property->id }}" data-owner-recipients="{{ $unitOwners->toJson() }}" @selected(($filters['property_id'] ?? '')===$property->id)>{{ $property->name }} - {{ $property->building?->building_name ?? 'No building' }}</option>
                             @endforeach

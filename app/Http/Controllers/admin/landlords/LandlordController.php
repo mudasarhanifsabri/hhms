@@ -235,9 +235,6 @@ class LandlordController extends Controller
             'date_to' => 'nullable|date|after_or_equal:date_from',
             'property_id' => 'nullable|exists:properties,id',
         ]);
-        if (in_array($validated['recipient_mode'], ['owner', 'both'], true) && ! filter_var($landlord->email, FILTER_VALIDATE_EMAIL)) {
-            return back()->withErrors(['recipient_mode' => 'This owner does not have a valid email address. Choose Custom email.'])->withInput();
-        }
         $selectedProperty = null;
         if (! empty($validated['property_id']) && ! $this->ownerUnitsQuery($landlord->id)->where('id', $validated['property_id'])->exists()) {
             return back()->withErrors(['property_id' => 'Please select one of this owner units.'])->withInput();
@@ -247,19 +244,35 @@ class LandlordController extends Controller
         }
 
         $purpose = $validated['purpose'] === 'Custom' ? $validated['custom_purpose'] : $validated['purpose'];
-        $recipient = $validated['recipient_mode'] === 'custom' ? $validated['custom_email'] : $landlord->email;
-        $ccRecipients = collect();
+        $registeredRecipients = collect([$landlord]);
 
         // A unit-specific statement belongs to every registered owner of that unit.
         // Do not apply this to an all-units statement because it could disclose another unit's finances.
         if ($selectedProperty && in_array($validated['recipient_mode'], ['owner', 'both'], true)) {
-            $ccRecipients = $selectedProperty->ownerShares->pluck('owner')
+            $registeredRecipients = $selectedProperty->ownerShares->pluck('owner')
                 ->filter()
                 ->prepend($selectedProperty->landlord)
                 ->filter()
-                ->pluck('email')
-                ->filter(fn ($email) => filter_var($email, FILTER_VALIDATE_EMAIL));
+                ->prepend($landlord);
         }
+
+        $registeredRecipients = $registeredRecipients
+            ->pluck('email')
+            ->map(fn ($email) => strtolower(trim((string) $email)))
+            ->filter(fn ($email) => filter_var($email, FILTER_VALIDATE_EMAIL))
+            ->unique()
+            ->values();
+
+        if (in_array($validated['recipient_mode'], ['owner', 'both'], true) && $registeredRecipients->isEmpty()) {
+            return back()->withErrors(['recipient_mode' => 'No registered owner of this unit has a valid email address. Choose Custom email.'])->withInput();
+        }
+
+        $recipient = $validated['recipient_mode'] === 'custom'
+            ? strtolower(trim($validated['custom_email']))
+            : $registeredRecipients->first();
+        $ccRecipients = $validated['recipient_mode'] === 'custom'
+            ? collect()
+            : $registeredRecipients->skip(1)->values();
         if ($validated['recipient_mode'] === 'both') {
             $ccRecipients->push($validated['custom_email']);
         }
@@ -892,7 +905,7 @@ private function statementMonthsFor(string $landlordId, ?string $propertyId = nu
 
 private function ownerUnitsQuery(string $landlordId)
 {
-    return Property::with(['building', 'ownerShares.owner'])
+    return Property::with(['building', 'landlord', 'ownerShares.owner'])
         ->where(function ($query) use ($landlordId) {
             $query->where('landlord_id', $landlordId)
                 ->orWhereHas('ownerShares', fn ($shareQuery) => $shareQuery->where('owner_id', $landlordId));

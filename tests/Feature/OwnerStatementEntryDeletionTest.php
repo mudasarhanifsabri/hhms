@@ -191,6 +191,40 @@ class OwnerStatementEntryDeletionTest extends TestCase
             ->assertSee('Monthly Statement');
     }
 
+    public function test_shared_owner_profile_email_is_used_for_its_unit_statement(): void
+    {
+        Queue::fake();
+        $admin = User::factory()->create(['role' => 'admin']);
+        $primary = User::factory()->create(['role' => 'landlord', 'email' => 'primary@example.com']);
+        $sharedOwner = User::factory()->create(['role' => 'landlord', 'email' => 'shared-owner@example.com']);
+        $property = Property::create(['landlord_id' => $primary->id, 'name' => 'Shared Unit 123', 'status' => 'vacant']);
+        PropertyOwnerShare::create([
+            'property_id' => $property->id,
+            'owner_id' => $sharedOwner->id,
+            'share_percent' => 50,
+            'is_primary' => false,
+        ]);
+
+        $this->actingAs($admin)->get(route('admin.landlord.account-statement', [
+            $sharedOwner,
+            'property_id' => $property->id,
+        ]))->assertOk()->assertSee('shared-owner@example.com')->assertSee('primary@example.com');
+
+        $this->post(route('admin.landlord.account-statement.email', $sharedOwner), [
+            'recipient_mode' => 'owner',
+            'purpose' => 'Monthly Statement',
+            'date_from' => '2026-10-01',
+            'date_to' => '2026-10-31',
+            'property_id' => $property->id,
+        ])->assertRedirect()->assertSessionHasNoErrors()->assertSessionHas('success');
+
+        Queue::assertPushed(SendOwnerStatementEmail::class, fn (SendOwnerStatementEmail $job) =>
+            $job->recipient === 'shared-owner@example.com'
+            && $job->ccRecipients === ['primary@example.com']
+            && $job->propertyId === $property->id
+        );
+    }
+
     public function test_same_owner_statement_cannot_be_queued_twice(): void
     {
         Queue::fake();
