@@ -107,7 +107,9 @@ class LandlordController extends Controller
             $statementMonthDate = now('Asia/Dubai')->startOfMonth();
         }
         $statementMonth = $statementMonthDate->format('Y-m');
-        $statementMonths = $allEntries->pluck('entry_date')
+        $statementMonths = collect($allEntries
+            ->map(fn ($entry) => $entry->statement_date)
+            ->all())
             ->filter()
             ->map(fn ($date) => $date->format('Y-m'))
             ->push(now('Asia/Dubai')->format('Y-m'))
@@ -116,7 +118,7 @@ class LandlordController extends Controller
             ->values();
         $entries = $statementScope === 'all'
             ? $allEntries
-            : $allEntries->filter(fn ($entry) => $entry->entry_date?->format('Y-m') === $statementMonth)->values();
+            : $allEntries->filter(fn ($entry) => $entry->statement_date?->format('Y-m') === $statementMonth)->values();
         $expenses = Expense::with(['property.building', 'vendor'])
             ->where('landlord_id', $owner->id)
             ->where('owner_billable', true)
@@ -145,7 +147,11 @@ class LandlordController extends Controller
         $payouts = $entries->where('type', 'payout');
         $credits = (float) $entries->where('direction', 'credit')->sum('amount');
         $debits = (float) $entries->where('direction', 'debit')->sum('amount');
-        $balance = $credits - $debits;
+        $balance = $statementScope === 'all'
+            ? $credits - $debits
+            : (float) $allEntries
+                ->filter(fn ($entry) => $entry->statement_date?->lte($statementMonthDate->copy()->endOfMonth()))
+                ->sum(fn ($entry) => $entry->direction === 'credit' ? (float) $entry->amount : -(float) $entry->amount);
         $now = now('Asia/Dubai');
         $monthStart = $now->copy()->startOfMonth()->startOfDay();
         $monthEnd = $now->copy()->addMonthNoOverflow()->startOfMonth()->startOfDay();
@@ -155,7 +161,9 @@ class LandlordController extends Controller
             && $booking->check_in->lt($monthEnd)
             && $booking->check_out->gt($monthStart));
         $monthlyRevenue = (float) $entries->where('type', 'rent_income')->sum('amount');
-        $monthlyExpenses = (float) $entries->where('direction', 'debit')->where('type', '!=', 'management_fee')->sum('amount');
+        $monthlyExpenses = (float) $entries->where('direction', 'debit')
+            ->whereNotIn('type', ['management_fee', 'payout', 'owner_loan'])
+            ->sum('amount');
         $managementFees = (float) $entries->where('type', 'management_fee')->sum('amount');
         $occupiedNights = $monthBookings->sum(function ($booking) use ($monthStart, $monthEnd) {
             $overlapStart = $booking->check_in->gt($monthStart) ? $booking->check_in->copy()->startOfDay() : $monthStart->copy();

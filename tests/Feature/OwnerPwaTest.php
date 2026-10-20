@@ -44,7 +44,10 @@ class OwnerPwaTest extends TestCase
             $month->assertOk()->assertSee('Live Occupied Unit')->assertSee('Live Vacant Unit')
                 ->assertSee('Occupied')->assertSee('Vacant')->assertSee('Monthly')
                 ->assertSee('OCTOBER OWNER PAYOUT')->assertDontSee('SEPTEMBER OWNER ENTRY')
-                ->assertSee('Owner Payout Transfer')->assertSee('Balance after transaction');
+                ->assertSee('Owner Payout Transfer')->assertSee('Balance after transaction')
+                ->assertSeeInOrder(['Net payable', 'AED 750.00'])
+                ->assertSeeInOrder(['Owner expenses', 'AED 0.00'])
+                ->assertSeeInOrder(['Total debits', 'AED 250.00']);
 
             $this->actingAs($owner)->get(route('landlord.app', ['statement_scope' => 'all']))
                 ->assertOk()->assertSee('SEPTEMBER OWNER ENTRY')->assertSee('OCTOBER OWNER PAYOUT')->assertSee('All time');
