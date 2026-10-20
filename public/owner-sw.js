@@ -1,4 +1,4 @@
-const CACHE='pattern-owner-v4';
+const CACHE='pattern-owner-v5';
 const SHELL=['/owner-offline.html','/owner-manifest.webmanifest','/assets/css/owner-pwa.css','/assets/css/owner-pwa-premium.css','/assets/js/owner-pwa.js','/assets/js/owner-pwa-premium.js','/assets/css/icons.min.css'];
 self.addEventListener('install',event=>event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(SHELL)).then(()=>self.skipWaiting())));
 self.addEventListener('activate',event=>event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(key=>key!==CACHE).map(key=>caches.delete(key)))).then(()=>self.clients.claim())));
@@ -10,8 +10,11 @@ self.addEventListener('fetch',event=>{
   }
   const path=new URL(event.request.url).pathname;
   if(!path.startsWith('/assets/')&&path!=='/owner-manifest.webmanifest') return;
-  event.respondWith(caches.match(event.request).then(cached=>cached||fetch(event.request).then(response=>{
-    if(response.ok){const copy=response.clone();caches.open(CACHE).then(cache=>cache.put(event.request,copy));}
-    return response;
-  })));
+  event.respondWith(caches.match(event.request).then(cached=>{
+    const refreshed=fetch(event.request).then(response=>{
+      if(response.ok){const copy=response.clone();caches.open(CACHE).then(cache=>cache.put(event.request,copy));}
+      return response;
+    });
+    return cached||refreshed;
+  }));
 });

@@ -18,6 +18,7 @@ use App\Support\RmsStatementCutoff;
 use App\Support\MediaStorage;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 
 class LandlordController extends Controller
@@ -76,11 +77,46 @@ class LandlordController extends Controller
             ->latest('check_in')
             ->get();
         $this->addOwnerBookingFigures($bookings);
-        $entries = LandlordAccountEntry::with('property.building')
+        $today = now('Asia/Dubai')->startOfDay();
+        $occupiedPropertyIds = $bookings
+            ->filter(fn ($booking) => ! in_array($booking->status, ['cancelled', 'canceled', 'checked_out', 'completed'], true)
+                && $booking->check_in?->copy()->startOfDay()->lte($today)
+                && $booking->check_out?->copy()->startOfDay()->gt($today))
+            ->pluck('property_id')
+            ->unique();
+        $properties->each(fn ($property) => $property->setAttribute(
+            'owner_occupancy_label',
+            $occupiedPropertyIds->contains($property->id) ? 'Occupied' : 'Vacant'
+        ));
+
+        $allEntries = LandlordAccountEntry::with(['property.building', 'bankAccount', 'creator', 'bookingInvoice'])
             ->where('landlord_id', $owner->id)
             ->visibleOnOwnerStatement()
             ->statementOrder()
             ->get();
+        $ownerRunningBalance = 0.0;
+        $allEntries->each(function ($entry) use (&$ownerRunningBalance) {
+            $ownerRunningBalance += $entry->direction === 'credit' ? (float) $entry->amount : -(float) $entry->amount;
+            $entry->setAttribute('owner_running_balance', round($ownerRunningBalance, 2));
+        });
+        $statementScope = $request->input('statement_scope') === 'month' ? 'month' : 'all';
+        $requestedMonth = (string) $request->input('statement_month', now('Asia/Dubai')->format('Y-m'));
+        try {
+            $statementMonthDate = Carbon::createFromFormat('!Y-m', $requestedMonth, 'Asia/Dubai');
+        } catch (\Throwable) {
+            $statementMonthDate = now('Asia/Dubai')->startOfMonth();
+        }
+        $statementMonth = $statementMonthDate->format('Y-m');
+        $statementMonths = $allEntries->pluck('entry_date')
+            ->filter()
+            ->map(fn ($date) => $date->format('Y-m'))
+            ->push(now('Asia/Dubai')->format('Y-m'))
+            ->unique()
+            ->sortDesc()
+            ->values();
+        $entries = $statementScope === 'all'
+            ? $allEntries
+            : $allEntries->filter(fn ($entry) => $entry->entry_date?->format('Y-m') === $statementMonth)->values();
         $expenses = Expense::with(['property.building', 'vendor'])
             ->where('landlord_id', $owner->id)
             ->where('owner_billable', true)
@@ -110,7 +146,7 @@ class LandlordController extends Controller
         $credits = (float) $entries->where('direction', 'credit')->sum('amount');
         $debits = (float) $entries->where('direction', 'debit')->sum('amount');
         $balance = $credits - $debits;
-        $now = now();
+        $now = now('Asia/Dubai');
         $monthStart = $now->copy()->startOfMonth()->startOfDay();
         $monthEnd = $now->copy()->addMonthNoOverflow()->startOfMonth()->startOfDay();
         $monthBookings = $bookings->filter(fn ($booking) => $booking->check_in
@@ -118,9 +154,9 @@ class LandlordController extends Controller
             && ! in_array($booking->status, ['cancelled', 'canceled'], true)
             && $booking->check_in->lt($monthEnd)
             && $booking->check_out->gt($monthStart));
-        $monthlyRevenue = (float) $entries->where('type', 'rent_income')->filter(fn ($entry) => $entry->entry_date?->isSameMonth($now))->sum('amount');
-        $monthlyExpenses = (float) $entries->where('direction', 'debit')->where('type', '!=', 'management_fee')->filter(fn ($entry) => $entry->entry_date?->isSameMonth($now))->sum('amount');
-        $managementFees = (float) $entries->where('type', 'management_fee')->filter(fn ($entry) => $entry->entry_date?->isSameMonth($now))->sum('amount');
+        $monthlyRevenue = (float) $entries->where('type', 'rent_income')->sum('amount');
+        $monthlyExpenses = (float) $entries->where('direction', 'debit')->where('type', '!=', 'management_fee')->sum('amount');
+        $managementFees = (float) $entries->where('type', 'management_fee')->sum('amount');
         $occupiedNights = $monthBookings->sum(function ($booking) use ($monthStart, $monthEnd) {
             $overlapStart = $booking->check_in->gt($monthStart) ? $booking->check_in->copy()->startOfDay() : $monthStart->copy();
             $overlapEnd = $booking->check_out->lt($monthEnd) ? $booking->check_out->copy()->startOfDay() : $monthEnd->copy();
@@ -133,14 +169,26 @@ class LandlordController extends Controller
         return view('landlord.app.index', compact(
             'owner', 'properties', 'bookings', 'entries', 'expenses', 'utilityBills',
             'tasks', 'documents', 'unitDocuments', 'notifications', 'payouts', 'credits', 'debits',
-            'balance', 'monthlyRevenue', 'monthlyExpenses', 'managementFees', 'occupancy'
+            'balance', 'monthlyRevenue', 'monthlyExpenses', 'managementFees', 'occupancy',
+            'statementScope', 'statementMonth', 'statementMonthDate', 'statementMonths'
         ));
     }
 
     public function statementPdf(Request $request)
     {
         $landlord = $request->user();
-        $data = OwnerStatementPdf::data($landlord, $request->input('date_from'), $request->input('date_to'), $request->input('property_id'));
+        $dateFrom = $request->input('date_from');
+        $dateTo = $request->input('date_to');
+        if ($request->input('statement_scope') !== 'all' && $request->filled('statement_month')) {
+            try {
+                $month = Carbon::createFromFormat('!Y-m', (string) $request->input('statement_month'), 'Asia/Dubai');
+                $dateFrom = $month->copy()->startOfMonth()->toDateString();
+                $dateTo = $month->copy()->endOfMonth()->toDateString();
+            } catch (\Throwable) {
+                // Keep explicit date inputs when an invalid month is supplied.
+            }
+        }
+        $data = OwnerStatementPdf::data($landlord, $dateFrom, $dateTo, $request->input('property_id'));
 
         return PdfRenderer::downloadView('admin.landlords.pdf.account-statement', $data, 'owner-statement-'.Str::slug($landlord->name).'.pdf', ['format' => 'A4']);
     }

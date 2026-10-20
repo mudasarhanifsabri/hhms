@@ -19,6 +19,40 @@ class OwnerPwaTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_owner_app_filters_statements_shows_live_unit_statuses_and_transaction_balances(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-10-20 12:00:00', 'Asia/Dubai'));
+
+        try {
+            $owner = User::factory()->create(['role' => 'landlord']);
+            $occupied = Property::create(['landlord_id' => $owner->id, 'name' => 'Live Occupied Unit', 'status' => 'vacant']);
+            $vacant = Property::create(['landlord_id' => $owner->id, 'name' => 'Live Vacant Unit', 'status' => 'rented']);
+            Booking::create([
+                'property_id' => $occupied->id, 'booking_reference' => 'BK-OWNER-LIVE', 'invoice_number' => 'INV-OWNER-LIVE',
+                'guest_name' => 'Current Guest', 'guest_email' => 'current@example.com', 'guest_phone' => '0500000000',
+                'guest_passport_id_no' => 'LIVE-1', 'check_in' => '2026-10-01', 'check_out' => '2026-10-31',
+                'rent_amount' => 1000, 'total_amount' => 1000, 'status' => 'checked_in',
+            ]);
+            foreach ([
+                ['entry_date' => '2026-09-10', 'type' => 'adjustment_credit', 'direction' => 'credit', 'amount' => 1000, 'description' => 'SEPTEMBER OWNER ENTRY'],
+                ['entry_date' => '2026-10-10', 'type' => 'payout', 'direction' => 'debit', 'amount' => 250, 'description' => 'OCTOBER OWNER PAYOUT'],
+            ] as $entry) {
+                LandlordAccountEntry::create($entry + ['landlord_id' => $owner->id, 'property_id' => $occupied->id]);
+            }
+
+            $month = $this->actingAs($owner)->get(route('landlord.app', ['statement_scope' => 'month', 'statement_month' => '2026-10']));
+            $month->assertOk()->assertSee('Live Occupied Unit')->assertSee('Live Vacant Unit')
+                ->assertSee('Occupied')->assertSee('Vacant')->assertSee('Monthly')
+                ->assertSee('OCTOBER OWNER PAYOUT')->assertDontSee('SEPTEMBER OWNER ENTRY')
+                ->assertSee('Owner Payout Transfer')->assertSee('Balance after transaction');
+
+            $this->actingAs($owner)->get(route('landlord.app', ['statement_scope' => 'all']))
+                ->assertOk()->assertSee('SEPTEMBER OWNER ENTRY')->assertSee('OCTOBER OWNER PAYOUT')->assertSee('All time');
+        } finally {
+            Carbon::setTestNow();
+        }
+    }
+
     public function test_owner_statement_uses_company_contact_details_from_settings(): void
     {
         AppSettings::setMany([
