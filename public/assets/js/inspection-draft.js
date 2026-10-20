@@ -41,23 +41,38 @@ document.addEventListener('DOMContentLoaded', async () => {
         list.replaceChildren();
         const saved = JSON.parse(picker.dataset.saved);
         const queued = [...pending.values()].filter(p => p.item === picker.dataset.itemId);
-        [...saved.map(p => ({url:p.url, label:'Saved'})), ...queued.map(() => ({label:'Waiting to upload'}))].forEach(p => {
-            const box = document.createElement('div'), caption = document.createElement('small');
+        [...saved.map(p => ({...p, label:'Saved', saved:true})), ...queued.map(p => ({...p, label:'Waiting to upload', saved:false}))].forEach(p => {
+            const box = document.createElement('div'), caption = document.createElement('small'), remove = document.createElement('button');
+            box.style.position='relative';
             const icon = document.createElement(p.url ? 'a' : 'span');
             icon.className='d-flex align-items-center justify-content-center border rounded';
             icon.style.width='80px';icon.style.height='80px';icon.textContent=p.url ? 'View photo' : 'Photo';
             if (p.url) {icon.href=p.url;icon.target='_blank';icon.rel='noopener';}
+            remove.type='button';remove.className='btn btn-danger btn-sm';remove.setAttribute('aria-label','Delete this photo');remove.title='Delete photo';
+            remove.innerHTML='<i class="ri-delete-bin-line"></i>';remove.style.cssText='position:absolute;right:-7px;top:-7px;border-radius:50%;width:30px;height:30px;padding:0;z-index:2';
+            remove.addEventListener('click',async()=>{
+                remove.disabled=true;
+                if(!p.saved){pending.delete(p.id);if(db) await request('delete',p.id);render(picker);setStatus('Selected photo removed.');return;}
+                try{
+                    setStatus('Deleting photo…','busy');
+                    const body=new FormData();body.append('item_id',picker.dataset.itemId);body.append('path',p.path);
+                    await send(form.dataset.photoDeleteUrl,body,'DELETE');
+                    picker.dataset.saved=JSON.stringify(JSON.parse(picker.dataset.saved).filter(photo=>photo.path!==p.path));
+                    render(picker);setStatus('Photo deleted.');
+                }catch(error){remove.disabled=false;setStatus(error.message,'error');}
+            });
             box.append(icon);
+            box.append(remove);
             caption.textContent=p.label; caption.style.display='block'; box.append(caption); list.append(box);
         });
         picker.querySelector('[data-photo-message]').textContent = saved.length+' saved · '+queued.length+' waiting';
     }
-    async function send(url, body) {
+    async function send(url, body, method = 'POST') {
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 45000);
         let response;
         try {
-            response = await fetch(url, {method:'POST',headers:{'X-CSRF-TOKEN':token,Accept:'application/json'},body,signal:controller.signal});
+            response = await fetch(url, {method,headers:{'X-CSRF-TOKEN':token,Accept:'application/json'},body,signal:controller.signal});
         } catch(error) {
             throw new Error(error.name === 'AbortError' ? 'Upload timed out. Tap Retry upload.' : 'Connection lost. Tap Retry upload.');
         } finally {clearTimeout(timeout);}

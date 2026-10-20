@@ -23,6 +23,7 @@ Route::middleware(['auth', 'role:maintainer'])->prefix('maintainer')->name('main
     Route::get('/tasks/{task}/inspection', [MaintainerController::class, 'inspectionForm'])->name('task.inspection.form');
     Route::post('/tasks/{task}/inspection/draft', [\App\Http\Controllers\Maintainers\InspectionDraftController::class, 'save'])->name('task.inspection.draft');
     Route::post('/tasks/{task}/inspection/photo', [\App\Http\Controllers\Maintainers\InspectionDraftController::class, 'photo'])->name('task.inspection.photo');
+    Route::delete('/tasks/{task}/inspection/photo', [\App\Http\Controllers\Maintainers\InspectionDraftController::class, 'deletePhoto'])->name('task.inspection.photo.delete');
     Route::post('/tasks/{task}/inspection', [MaintainerController::class, 'submitInspection'])->name('task.inspection.submit');
     Route::get('/tasks/{task}/complete', [MaintainerController::class, 'completeForm'])->name('task.complete.form');
     Route::post('/tasks/{task}/start', [MaintainerController::class, 'startTask'])->name('task.start');

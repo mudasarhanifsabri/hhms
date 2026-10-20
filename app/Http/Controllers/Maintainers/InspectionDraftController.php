@@ -8,6 +8,7 @@ use App\Models\BookingTask;
 use App\Support\MediaStorage;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 class InspectionDraftController extends Controller
 {
@@ -68,6 +69,36 @@ class InspectionDraftController extends Controller
     public function photo(Request $request, BookingTask $task)
     {
         return $this->savePhoto($request, $task);
+    }
+
+    public function deletePhoto(Request $request, BookingTask $task)
+    {
+        $data = $request->validate([
+            'item_id' => ['required', 'uuid'],
+            'path' => ['required', 'string', 'max:1000'],
+        ]);
+
+        $path = DB::transaction(function () use ($task, $data) {
+            $inspection = $this->locked($task);
+            $item = $inspection->items()->whereKey($data['item_id'])->firstOrFail();
+            $pictures = array_values((array) $item->pictures);
+            abort_unless(in_array($data['path'], $pictures, true), 404, 'Photo is not attached to this inspection item.');
+
+            $item->update([
+                'pictures' => array_values(array_filter($pictures, fn ($path) => $path !== $data['path'])),
+            ]);
+            DB::table('inspection_upload_tokens')
+                ->where('inspection_id', $inspection->id)
+                ->where('item_id', $item->id)
+                ->where('path', $data['path'])
+                ->delete();
+
+            return $data['path'];
+        });
+
+        Storage::disk(MediaStorage::disk())->delete(MediaStorage::path($path));
+
+        return response()->json(['deleted' => true, 'path' => $path]);
     }
 
     private function savePhoto(Request $request, BookingTask|BookingInspection $task)
