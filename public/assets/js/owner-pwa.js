@@ -1,5 +1,8 @@
 (()=>{
   const app=document.querySelector('[data-owner-app]');if(!app)return;
+  const syncVisibleHeight=()=>document.documentElement.style.setProperty('--owner-visible-height',`${Math.round(window.visualViewport?.height||window.innerHeight)}px`);
+  let viewportFrame;const scheduleVisibleHeight=()=>{cancelAnimationFrame(viewportFrame);viewportFrame=requestAnimationFrame(syncVisibleHeight);};
+  syncVisibleHeight();window.visualViewport?.addEventListener('resize',scheduleVisibleHeight,{passive:true});window.addEventListener('orientationchange',scheduleVisibleHeight,{passive:true});
   const screens=[...document.querySelectorAll('[data-screen]')];
   const welcome=document.querySelector('[data-owner-welcome]');
   const welcomeKey=`owner-welcome-v2:${app.dataset.ownerId||'current'}`;

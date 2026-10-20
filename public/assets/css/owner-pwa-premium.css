@@ -18,4 +18,7 @@
 .oa-transaction-details{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:12px;border-top:1px solid var(--line);background:#f8fafc}.oa-transaction-details div{min-width:0}.oa-transaction-details span,.oa-transaction-details strong{display:block}.oa-transaction-details span{color:var(--muted);font-size:10px;margin-bottom:4px}.oa-transaction-details strong{font-size:11px;overflow-wrap:anywhere}.oa-transaction-details div:first-child{grid-column:1/-1}
 [dir="rtl"] .oa-transaction-details,[dir="rtl"] .oa-period-filter{text-align:right}
 html,body,.owner-app{max-width:100%;overflow-x:hidden}
+.owner-app{height:var(--owner-visible-height,100dvh)}
+.oa-nav{bottom:calc(14px + env(safe-area-inset-bottom,0px))}
+.oa-screen{padding-bottom:calc(104px + env(safe-area-inset-bottom,0px))}
 @media(max-width:380px){.oa-period-filter label{grid-template-columns:1fr}.oa-period-filter label>span{padding-inline:2px}.oa-period-filter select{height:48px}}
