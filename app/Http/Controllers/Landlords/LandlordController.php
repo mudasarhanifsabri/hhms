@@ -291,15 +291,40 @@ class LandlordController extends Controller
     private function addOwnerBookingFigures($bookings): void
     {
         $ownerPayouts = LandlordAccountEntry::where('landlord_id', Auth::id())->where('type', 'payout')->get();
-        $bookings->each(function (Booking $booking) use ($ownerPayouts) {
+        $expectedByInvoice = $bookings->flatMap(function (Booking $booking) {
             $managementRate = (float) $booking->management_fee_percent;
-            $periods = $booking->invoices->sortBy('period_from')->values()->map(function ($invoice) use ($booking, $managementRate, $ownerPayouts) {
+
+            return $booking->invoices->map(function ($invoice) use ($booking, $managementRate) {
+                $rentCollected = round((float) $invoice->payments->sum('rent_amount'), 2);
+
+                return [
+                    'invoice_id' => $invoice->id,
+                    'property_id' => $booking->property_id,
+                    'amount' => round($rentCollected - ($rentCollected * $managementRate / 100), 2),
+                ];
+            });
+        });
+        $inferredPayoutInvoice = $ownerPayouts->filter(fn ($payout) => ! $payout->booking_invoice_id)
+            ->mapWithKeys(function ($payout) use ($expectedByInvoice) {
+                $candidates = $expectedByInvoice->filter(fn ($expected) => $expected['amount'] > 0
+                    && (! $payout->property_id || $expected['property_id'] === $payout->property_id)
+                    && abs($expected['amount'] - (float) $payout->amount) < 0.01);
+
+                return $candidates->count() === 1 ? [$payout->id => $candidates->first()['invoice_id']] : [];
+            });
+
+        $bookings->each(function (Booking $booking) use ($ownerPayouts, $inferredPayoutInvoice) {
+            $managementRate = (float) $booking->management_fee_percent;
+            $periods = $booking->invoices->sortBy('period_from')->values()->map(function ($invoice) use ($booking, $managementRate, $ownerPayouts, $inferredPayoutInvoice) {
                 $rentCollected = round((float) $invoice->payments->sum('rent_amount'), 2);
                 $managementFee = round($rentCollected * $managementRate / 100, 2);
                 $ownerNet = $rentCollected - $managementFee;
                 $invoicePayouts = $ownerPayouts->filter(function ($entry) use ($booking, $invoice) {
                     if ($entry->booking_invoice_id) {
                         return $entry->booking_invoice_id === $invoice->id;
+                    }
+                    if (isset($inferredPayoutInvoice[$entry->id])) {
+                        return $inferredPayoutInvoice[$entry->id] === $invoice->id;
                     }
                     if ($entry->property_id && $entry->property_id !== $booking->property_id) {
                         return false;
@@ -313,7 +338,7 @@ class LandlordController extends Controller
                 $rentExpected = (float) $invoice->rent_amount;
                 $dueDate = $invoice->period_to ?? $booking->check_out;
                 [$payoutStatus, $payoutClass] = match (true) {
-                    $ownerNet > 0 && $paidToOwner >= $ownerNet => ['Paid', 'green'],
+                    $ownerNet > 0 && $paidToOwner >= $ownerNet => ['Paid to Owner', 'green'],
                     $paidToOwner > 0 => ['Partially paid', 'warn'],
                     $rentCollected + 0.01 < $rentExpected => ['Awaiting guest payment', 'warn'],
                     $dueDate && $dueDate->isFuture() => ['Upcoming payout', 'info'],

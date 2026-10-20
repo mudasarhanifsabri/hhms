@@ -220,6 +220,14 @@ class OwnerPwaTest extends TestCase
         ])->assertSessionHasNoErrors();
         $this->actingAs($owner)->get(route('landlord.app'))->assertOk()
             ->assertSee('Paid')->assertSee('BANK-OWNER-001')->assertSee('Paid to owner');
+
+        LandlordAccountEntry::create([
+            'landlord_id' => $owner->id, 'property_id' => $unit->id, 'entry_date' => '2026-10-15',
+            'type' => 'payout', 'direction' => 'debit', 'amount' => 360,
+            'reference' => 'LEGACY-UNLINKED-EXTENSION-PAYOUT', 'description' => 'Owner transfer recorded before invoice allocation was available.',
+        ]);
+        $this->actingAs($owner)->get(route('landlord.app'))->assertOk()
+            ->assertSee('Paid to Owner')->assertSee('LEGACY-UNLINKED-EXTENSION-PAYOUT');
     }
 
     public function test_partial_booking_income_is_hidden_from_owner_statement_until_invoice_is_fully_paid(): void
