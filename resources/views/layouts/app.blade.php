@@ -42,6 +42,27 @@
     <link href="{{ $versionedAsset('assets/css/app.min.css') }}" rel="stylesheet" type="text/css" />
     <link href="{{ $versionedAsset('assets/css/maintainer-pwa.css') }}" rel="stylesheet" type="text/css" />
 
+    <style>
+        /* Keep the desktop footer in document flow so long tables and pagination
+           always finish above it. The vendor theme positions it absolutely. */
+        body:not(.maintainer-pwa-shell) .page-content {
+            display: flex;
+            flex-direction: column;
+            padding-bottom: 0;
+        }
+        body:not(.maintainer-pwa-shell) .page-content > .container-fluid {
+            flex: 1 0 auto;
+            width: 100%;
+        }
+        body:not(.maintainer-pwa-shell) .page-content > .footer {
+            position: static;
+            flex: 0 0 var(--bs-footer-height);
+            width: 100%;
+            min-height: var(--bs-footer-height);
+            margin-top: 1.25rem;
+        }
+    </style>
+
     <!-- Theme Config js (Require in all Page) -->
     <script src="{{ $versionedAsset('assets/js/config.min.js') }}"></script>
 
