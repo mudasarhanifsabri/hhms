@@ -1,4 +1,4 @@
-const CACHE_NAME = 'hhms-maintainer-v19';
+const CACHE_NAME = 'hhms-pwa-v20';
 const APP_SHELL = [
   '/',
   '/maintainer/tasks',
@@ -6,6 +6,10 @@ const APP_SHELL = [
   '/assets/css/icons.min.css',
   '/assets/css/app.min.css',
   '/assets/css/maintainer-pwa.css',
+  '/assets/css/admin-pwa.css',
+  '/assets/js/admin-pwa.js',
+  '/admin-manifest.webmanifest',
+  '/admin-offline.html',
   '/assets/js/vendor.js',
   '/assets/js/app.js',
   '/assets/images/logo-sm.png',
@@ -39,8 +43,9 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(request.url);
   const isStaticAsset = APP_SHELL.includes(url.pathname);
   const isMaintainerRoute = url.pathname.startsWith('/maintainer');
+  const isAdminRoute = url.pathname.startsWith('/admin');
 
-  if (!isStaticAsset && !isMaintainerRoute) {
+  if (!isStaticAsset && !isMaintainerRoute && !isAdminRoute) {
     event.respondWith(fetch(request));
     return;
   }
@@ -48,13 +53,13 @@ self.addEventListener('fetch', (event) => {
   event.respondWith(
     fetch(request)
       .then((response) => {
-        if (isStaticAsset || isMaintainerRoute) {
+        if (isStaticAsset || isMaintainerRoute || isAdminRoute) {
           const clone = response.clone();
           caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
         }
         return response;
       })
-      .catch(() => caches.match(request).then((cached) => cached || caches.match('/maintainer/tasks')))
+      .catch(() => caches.match(request).then((cached) => cached || caches.match(isAdminRoute ? '/admin-offline.html' : '/maintainer/tasks')))
   );
 });
 

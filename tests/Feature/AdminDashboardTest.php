@@ -15,6 +15,22 @@ class AdminDashboardTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_admin_pages_include_the_mobile_pwa_shell_and_navigation(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+
+        $this->actingAs($admin)->get(route('admin.dashboard'))
+            ->assertOk()
+            ->assertSee('admin-pwa-shell', false)
+            ->assertSee('admin-manifest.webmanifest', false)
+            ->assertSee('admin-mobile-nav', false)
+            ->assertSee('assets/css/admin-pwa.css', false)
+            ->assertSee('assets/js/admin-pwa.js', false)
+            ->assertSee('Bookings')
+            ->assertSee('Owners')
+            ->assertSee('Finance');
+    }
+
     public function test_dashboard_uses_live_bookings_and_latest_wallet_permits(): void
     {
         $this->travelTo(now()->setDate(2026, 9, 3)->startOfDay());

@@ -5,6 +5,7 @@
 <base href="{{ url('/') }}">
 @php
     $isMaintainerApp = auth()->check() && auth()->user()->role === 'maintainer';
+    $isAdminPwa = auth()->check() && ! in_array(auth()->user()->role, ['maintainer', 'landlord', 'tenant'], true);
     $appLogoUrl = \App\Support\MediaStorage::url(config('hhms.logo_path'));
     $appFaviconUrl = \App\Support\MediaStorage::url(config('hhms.favicon_path'));
     $versionedAsset = static function (string $path): string {
@@ -29,7 +30,7 @@
 
     <!-- App favicon -->
     <link rel="shortcut icon" href="{{ $appFaviconUrl ?: asset('assets/images/favicon.ico') }}">
-    <link rel="manifest" href="{{ asset('manifest.webmanifest') }}">
+    <link rel="manifest" href="{{ asset($isAdminPwa ? 'admin-manifest.webmanifest' : 'manifest.webmanifest') }}">
     <link rel="apple-touch-icon" href="{{ $appLogoUrl ?: asset('assets/images/logo-sm.png') }}">
 
     <!-- Vendor css (Require in all Page) -->
@@ -41,6 +42,7 @@
     <!-- App css (Require in all Page) -->
     <link href="{{ $versionedAsset('assets/css/app.min.css') }}" rel="stylesheet" type="text/css" />
     <link href="{{ $versionedAsset('assets/css/maintainer-pwa.css') }}" rel="stylesheet" type="text/css" />
+    @if($isAdminPwa)<link href="{{ $versionedAsset('assets/css/admin-pwa.css') }}" rel="stylesheet" type="text/css" />@endif
 
     <style>
         /* Keep the desktop footer in document flow so long tables and pagination
@@ -71,7 +73,7 @@
 
 </head>
 
-<body class="{{ $isMaintainerApp ? 'maintainer-pwa-shell' : '' }}">
+<body class="{{ $isMaintainerApp ? 'maintainer-pwa-shell' : ($isAdminPwa ? 'admin-pwa-shell' : '') }}">
 
             <!-- ========== Topbar Start ========== -->
 
@@ -185,12 +187,17 @@
          <!-- END Wrapper -->
      @endunless
 
+     @if($isAdminPwa)
+         @include('layouts.admin-mobile-nav')
+     @endif
+
      <!-- Vendor Javascript (Require in all Page) -->
      <script src="{{ $versionedAsset('assets/js/vendor.min.js') }}"></script>
 
      <!-- App Javascript (Require in all Page) -->
      <script src="{{ $versionedAsset('assets/js/app.min.js') }}"></script>
      <script src="{{ $versionedAsset('assets/js/pwa-register.js') }}"></script>
+     @if($isAdminPwa)<script src="{{ $versionedAsset('assets/js/admin-pwa.js') }}"></script>@endif
 
      @stack('scripts')
      @yield('script')
