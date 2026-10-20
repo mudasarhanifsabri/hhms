@@ -10,6 +10,8 @@ Route::middleware(['auth', 'role:maintainer'])->prefix('maintainer')->name('main
     Route::get('/tasks', [MaintainerController::class, 'tasks'])->name('task.index');
     Route::get('/tasks/live', [MaintainerController::class, 'liveTasks'])->name('task.live');
     Route::get('/tasks/grid', [MaintainerController::class, 'taskGrid'])->name('task.grid');
+    Route::get('/inspections/create', [MaintainerController::class, 'createInspection'])->name('inspection.create');
+    Route::post('/inspections', [MaintainerController::class, 'storeInspection'])->name('inspection.store');
     Route::get('/tasks/{task}', [MaintainerController::class, 'showTask'])->name('task.show');
     Route::post('/tasks/{task}/expense-request', [\App\Http\Controllers\Maintainers\TaskExpenseController::class, 'store'])->name('task.expense-request');
     Route::get('/tasks/{task}/accept', [MaintainerController::class, 'acceptForm'])->name('task.accept.form');

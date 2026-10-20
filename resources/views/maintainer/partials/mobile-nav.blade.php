@@ -8,7 +8,7 @@
         <i class="ri-list-check-2"></i>
         <span>Tasks</span>
     </a>
-    <a href="{{ route('maintainer.task.index', ['inspections_only' => 1]) }}" class="center">
+    <a href="{{ route('maintainer.inspection.create') }}" class="center {{ request()->routeIs('maintainer.inspection.*') ? 'active' : '' }}">
         <i class="ri-clipboard-line"></i>
         <span>Inspect</span>
     </a>

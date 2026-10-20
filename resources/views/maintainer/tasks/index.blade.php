@@ -33,7 +33,11 @@
     </div>
 
     <div class="pwa-content pwa-list-content">
-        @if(request()->boolean('inspections_only'))<h3>My Inspections</h3><p class="text-muted">Office requests assigned to you. Open a task to start its checklist.</p>@endif
+        @if(request()->boolean('inspections_only'))
+            <h3>My Inspections</h3>
+            <p class="text-muted">Office requests and inspections you create yourself.</p>
+            <a href="{{ route('maintainer.inspection.create') }}" class="pwa-primary-button purple mb-3"><i class="ri-add-circle-line me-2"></i> New Inspection</a>
+        @endif
         <form action="{{ route('maintainer.task.index') }}" method="GET" class="pwa-search-row">
             @if(request()->boolean('inspections_only'))<input type="hidden" name="inspections_only" value="1">@endif
             <div class="pwa-search">

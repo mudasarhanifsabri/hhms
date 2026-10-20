@@ -72,6 +72,52 @@ class UnitInventoryTest extends TestCase
         );
     }
 
+    public function test_maintainer_can_create_and_start_an_inspection_for_any_unit_without_admin(): void
+    {
+        $maintainer = User::factory()->create(['role' => 'maintainer', 'is_active' => true]);
+        $owner = User::factory()->create(['role' => 'landlord']);
+        $property = Property::create([
+            'landlord_id' => $owner->id,
+            'name' => '812',
+            'bedrooms' => 2,
+            'bathrooms' => 2,
+            'status' => 'rented',
+        ]);
+
+        $this->actingAs($maintainer)
+            ->get(route('maintainer.inspection.create'))
+            ->assertOk()
+            ->assertSee('No admin request needed')
+            ->assertSee('Unit 812');
+
+        $response = $this->post(route('maintainer.inspection.store'), [
+            'property_id' => $property->id,
+            'inspection_type' => 'check_out',
+            'priority' => 'high',
+            'due_date' => now('Asia/Dubai')->toDateString(),
+            'notes' => 'Guest reported damage before departure.',
+        ]);
+
+        $task = BookingTask::latest()->firstOrFail();
+        $response->assertSessionHasNoErrors()
+            ->assertRedirect(route('maintainer.task.inspection.form', $task));
+
+        $this->assertSame((string) $maintainer->id, (string) $task->assigned_to);
+        $this->assertSame((string) $maintainer->id, (string) $task->created_by);
+        $this->assertSame((string) $property->id, (string) $task->property_id);
+        $this->assertSame('checkout_inspection', $task->type);
+        $this->assertSame('in_progress', $task->status);
+        $this->assertNotNull($task->started_at);
+        $this->assertSame('check_out', $task->inspection()->firstOrFail()->type);
+        $this->assertGreaterThan(0, $task->inspection->items()->count());
+        $this->assertSame(2, $task->activities()->count());
+
+        $this->get(route('maintainer.task.inspection.form', $task))
+            ->assertOk()
+            ->assertSee('Rooms to inspect')
+            ->assertSee('Bedroom 2');
+    }
+
     public function test_inspection_draft_resumes_and_photos_are_idempotent(): void
     {
         extract($this->setupInventory());

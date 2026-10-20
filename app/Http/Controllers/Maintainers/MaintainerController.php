@@ -7,10 +7,13 @@ use App\Models\Booking;
 use App\Models\BookingInspection;
 use App\Models\BookingTask;
 use App\Models\BookingTaskCostItem;
+use App\Models\Property;
 use App\Support\MediaStorage;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class MaintainerController extends Controller
 {
@@ -68,6 +71,70 @@ class MaintainerController extends Controller
         $tasks = $this->assignedTaskQuery()->paginate($request->input('per_page', 12));
 
         return view('maintainer.tasks.grid', compact('tasks'));
+    }
+
+    public function createInspection()
+    {
+        $properties = Property::with('building')
+            ->orderBy('name')
+            ->get()
+            ->sortBy(fn (Property $property) => strtolower(($property->building?->name ?? '').' '.$property->name))
+            ->values();
+
+        return view('maintainer.tasks.create-inspection', compact('properties'));
+    }
+
+    public function storeInspection(Request $request)
+    {
+        $validated = $request->validate([
+            'property_id' => ['required', 'exists:properties,id'],
+            'inspection_type' => ['required', 'in:routine,check_in,check_out'],
+            'priority' => ['required', 'in:low,medium,high,urgent'],
+            'due_date' => ['required', 'date'],
+            'notes' => ['nullable', 'string', 'max:2000'],
+            'gps_latitude' => ['nullable', 'numeric'],
+            'gps_longitude' => ['nullable', 'numeric'],
+        ]);
+
+        $property = Property::with('building')->findOrFail($validated['property_id']);
+        $typeLabel = match ($validated['inspection_type']) {
+            'check_in' => 'Check-in',
+            'check_out' => 'Check-out',
+            default => 'Routine',
+        };
+
+        $task = DB::transaction(function () use ($request, $validated, $property, $typeLabel) {
+            $now = now();
+            $task = BookingTask::create([
+                'task_number' => 'TSK-'.strtoupper((string) Str::ulid()),
+                'property_id' => $property->id,
+                'assigned_to' => Auth::id(),
+                'created_by' => Auth::id(),
+                'type' => $validated['inspection_type'] === 'check_out' ? 'checkout_inspection' : 'inspection',
+                'category' => strtolower($typeLabel).' inspection',
+                'priority' => $validated['priority'],
+                'due_date' => $validated['due_date'],
+                'expected_completion_date' => $validated['due_date'],
+                'title' => $typeLabel.' inspection - '.($property->building?->name ?? 'Property').' / '.$property->name,
+                'description' => $validated['notes'] ?: 'Self-started by maintainer from the Task App.',
+                'status' => 'in_progress',
+                'progress' => 50,
+                'accepted_at' => $now,
+                'started_at' => $now,
+            ]);
+
+            $this->recordActivity($task, 'Created', 'Inspection created by maintainer from the Task App.', $request);
+            $this->recordActivity($task, 'Started', $validated['notes'] ?? 'Inspection checklist started immediately.', $request);
+            $inspection = $this->ensureInspectionForTask($task);
+            if ($validated['inspection_type'] !== $inspection->type) {
+                $inspection->update(['type' => $validated['inspection_type']]);
+            }
+
+            return $task;
+        });
+
+        return redirect()->route('maintainer.task.inspection.form', $task)
+            ->with('success', 'Inspection created. Complete the checklist for this unit.');
     }
 
     public function liveTasks()
