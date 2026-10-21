@@ -22,11 +22,11 @@
     <meta name="description" content="Holiday homes management dashboard for properties, landlords, tenants, agents, and maintainers." />
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-    <meta name="theme-color" content="#0b2f6b">
+    <meta name="theme-color" content="{{ $isMaintainerApp ? '#0a4167' : '#0b2f6b' }}">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="HHMS Maintainer">
+    <meta name="apple-mobile-web-app-title" content="Pattern Field">
 
     <!-- App favicon -->
     <link rel="shortcut icon" href="{{ $appFaviconUrl ?: asset('assets/images/favicon.ico') }}">
@@ -74,6 +74,15 @@
 </head>
 
 <body class="{{ $isMaintainerApp ? 'maintainer-pwa-shell' : ($isAdminPwa ? 'admin-pwa-shell' : '') }}">
+
+     @if($isMaintainerApp)
+     <div class="pwa-launch-splash" id="pwa-launch-splash" aria-hidden="true">
+         <div class="pwa-splash-orb one"></div><div class="pwa-splash-orb two"></div>
+         <div class="pwa-splash-logo"><img src="{{ $appLogoUrl ?: asset('assets/images/logo-sm.png') }}" alt="Pattern Vacation Homes"></div>
+         <h1>Pattern Field</h1><p>Fast work. Clear results.</p>
+         <span class="pwa-splash-loader"></span>
+     </div>
+     @endif
 
             <!-- ========== Topbar Start ========== -->
 
@@ -197,6 +206,21 @@
      <!-- App Javascript (Require in all Page) -->
      <script src="{{ $versionedAsset('assets/js/app.min.js') }}"></script>
      <script src="{{ $versionedAsset('assets/js/pwa-register.js') }}"></script>
+     @if($isMaintainerApp)
+     <script>
+       (() => {
+         const splash = document.getElementById('pwa-launch-splash');
+         if (!splash) return;
+         let seen = false;
+         try { seen = sessionStorage.getItem('hhms-bright-splash') === '1'; } catch (_) {}
+         if (seen) { splash.remove(); return; }
+         try { sessionStorage.setItem('hhms-bright-splash', '1'); } catch (_) {}
+         const close = () => { splash.classList.add('is-leaving'); setTimeout(() => splash.remove(), 360); };
+         window.addEventListener('load', () => setTimeout(close, 900), { once: true });
+         setTimeout(close, 2400);
+       })();
+     </script>
+     @endif
      @if($isAdminPwa)<script src="{{ $versionedAsset('assets/js/admin-pwa.js') }}"></script>@endif
 
      @stack('scripts')

@@ -2,43 +2,33 @@
 
 @section('content')
 <div class="pwa-screen pwa-home-screen">
-    <div class="pwa-hero">
-        @include('maintainer.partials.pwa-header', ['menu' => true, 'light' => true])
-        <div class="pwa-greeting">
-            <p>Good Morning</p>
-            <h2>{{ auth()->user()->name ?? 'Maintainer' }} <span>&#128075;</span></h2>
-        </div>
-        <div class="pwa-stats-card">
-            <div class="pwa-stat">
-                <span class="pwa-stat-icon blue"><i class="ri-tools-line"></i></span>
-                <strong>{{ $stats['total'] }}</strong>
-                <small>My Tasks</small>
-            </div>
-            <div class="pwa-stat">
-                <span class="pwa-stat-icon orange"><i class="ri-calendar-check-line"></i></span>
-                <strong>{{ $stats['in_progress'] }}</strong>
-                <small>In Progress</small>
-            </div>
-            <div class="pwa-stat">
-                <span class="pwa-stat-icon green"><i class="ri-check-line"></i></span>
-                <strong>{{ $stats['completed'] }}</strong>
-                <small>Completed</small>
-            </div>
-            <div class="pwa-stat">
-                <span class="pwa-stat-icon red"><i class="ri-time-line"></i></span>
-                <strong>{{ $stats['overdue'] }}</strong>
-                <small>Overdue</small>
-            </div>
-        </div>
-    </div>
+    <header class="pwa-bright-header">
+        <button type="button" class="pwa-brand-avatar" data-pwa-menu-open aria-label="Open menu">{{ strtoupper(substr(auth()->user()->name ?? 'M', 0, 1)) }}</button>
+        <div><h1>Hello, {{ explode(' ', auth()->user()->name ?? 'Maintainer')[0] }}</h1><p>Your field workspace</p></div>
+        <a href="{{ route('maintainer.notifications') }}" class="pwa-header-action" aria-label="Alerts"><i class="ri-notification-3-line"></i></a>
+    </header>
 
     <div class="pwa-content pwa-list-content">
+        <section class="pwa-bright-stats" aria-label="Task overview">
+            <div><strong>{{ $stats['total'] }}</strong><span>Today</span></div>
+            <div><strong>{{ $stats['completed'] }}</strong><span>Done</span></div>
+            <div><strong>{{ $stats['in_progress'] }}</strong><span>Active</span></div>
+        </section>
+        <a href="{{ route('maintainer.inspection.create') }}" class="pwa-create-inspection">
+            <i class="ri-checkbox-circle-line"></i><span><strong>Create inspection</strong><small>Choose any unit and start immediately</small></span><i class="ri-arrow-right-s-line"></i>
+        </a>
+        <h2 class="pwa-section-title">My workspace</h2>
+        <div class="pwa-workspace-links">
+            <a href="{{ route('maintainer.task.index', ['inspections_only' => 1]) }}"><i class="ri-file-list-3-line"></i><span><strong>My inspections</strong><small>Assigned checklists</small></span><i class="ri-arrow-right-s-line"></i></a>
+            <a href="{{ route('maintainer.task.index') }}"><i class="ri-clipboard-line"></i><span><strong>All tasks</strong><small>Maintenance and more</small></span><i class="ri-arrow-right-s-line"></i></a>
+        </div>
+        <h2 class="pwa-section-title">Recent activity</h2>
         @if(request()->boolean('inspections_only'))
             <h3>My Inspections</h3>
             <p class="text-muted">Office requests and inspections you create yourself.</p>
             <a href="{{ route('maintainer.inspection.create') }}" class="pwa-primary-button purple mb-3"><i class="ri-add-circle-line me-2"></i> New Inspection</a>
         @endif
-        <form action="{{ route('maintainer.task.index') }}" method="GET" class="pwa-search-row">
+        <form action="{{ route('maintainer.task.index') }}" method="GET" class="pwa-search-row pwa-compact-filters">
             @if(request()->boolean('inspections_only'))<input type="hidden" name="inspections_only" value="1">@endif
             <div class="pwa-search">
                 <i class="ri-search-line"></i>

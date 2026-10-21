@@ -1,20 +1,16 @@
 <div class="maintainer-bottom-nav d-md-none">
     @include('maintainer.partials.side-menu')
-    <a href="{{ route('maintainer.task.index') }}" class="{{ request()->routeIs('maintainer.dashboard') ? 'active' : '' }}">
+    <a href="{{ route('maintainer.task.index') }}" class="{{ request()->routeIs('maintainer.task.index') && !request()->boolean('inspections_only') ? 'active' : '' }}">
         <i class="ri-home-5-fill"></i>
         <span>Home</span>
     </a>
-    <a href="{{ route('maintainer.task.index') }}" class="{{ request()->routeIs('maintainer.task.*') ? 'active' : '' }}">
+    <a href="{{ route('maintainer.task.index') }}" class="{{ (request()->routeIs('maintainer.task.*') && !request()->routeIs('maintainer.task.index')) || request()->boolean('inspections_only') ? 'active' : '' }}">
         <i class="ri-list-check-2"></i>
         <span>Tasks</span>
     </a>
-    <a href="{{ route('maintainer.inspection.create') }}" class="center {{ request()->routeIs('maintainer.inspection.*') ? 'active' : '' }}">
-        <i class="ri-clipboard-line"></i>
-        <span>Inspect</span>
-    </a>
     <a href="{{ route('maintainer.notifications') }}" class="{{ request()->routeIs('maintainer.notifications') ? 'active' : '' }}">
-        <i class="ri-notification-3-line"></i>
-        <span>Notifications</span>
+        <i class="ri-notification-3-fill"></i>
+        <span>Alerts</span>
     </a>
     <a href="{{ route('maintainer.profile') }}" class="{{ request()->routeIs('maintainer.profile') ? 'active' : '' }}">
         <i class="ri-user-line"></i>

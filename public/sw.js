@@ -1,4 +1,4 @@
-const CACHE_NAME = 'hhms-pwa-v20';
+const CACHE_NAME = 'hhms-pwa-v21-bright';
 const APP_SHELL = [
   '/',
   '/maintainer/tasks',
@@ -6,6 +6,7 @@ const APP_SHELL = [
   '/assets/css/icons.min.css',
   '/assets/css/app.min.css',
   '/assets/css/maintainer-pwa.css',
+  '/manifest.webmanifest',
   '/assets/css/admin-pwa.css',
   '/assets/js/admin-pwa.js',
   '/admin-manifest.webmanifest',

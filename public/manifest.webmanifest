@@ -1,13 +1,13 @@
 {
-  "name": "Holiday Homes Maintainer",
-  "short_name": "HHMS Tasks",
-  "description": "Maintainer task manager for holiday homes operations.",
+  "name": "Pattern Field",
+  "short_name": "Pattern Field",
+  "description": "Pattern Vacation Homes field operations app.",
   "start_url": "/maintainer/tasks",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#f4f7fb",
-  "theme_color": "#0b2f6b",
+  "background_color": "#f6f9fa",
+  "theme_color": "#0a4167",
   "icons": [
     {
       "src": "/assets/images/pwa-icon-192.png",
@@ -30,9 +30,9 @@
       "icons": [{ "src": "/assets/images/pwa-icon-192.png", "sizes": "192x192" }]
     },
     {
-      "name": "Task Grid",
-      "short_name": "Grid",
-      "url": "/maintainer/tasks/grid",
+      "name": "Create Inspection",
+      "short_name": "Inspect",
+      "url": "/maintainer/inspections/create",
       "icons": [{ "src": "/assets/images/pwa-icon-192.png", "sizes": "192x192" }]
     }
   ]

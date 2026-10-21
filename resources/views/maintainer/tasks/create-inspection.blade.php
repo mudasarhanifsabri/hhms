@@ -9,14 +9,14 @@
             <div class="pwa-alert"><i class="ri-error-warning-line"></i><p>{{ $errors->first() }}</p></div>
         @endif
 
-        <div class="pwa-alert">
+        <div class="pwa-alert pwa-intro-note">
             <i class="ri-shield-check-line"></i>
             <p><strong>No admin request needed.</strong><br>Choose any unit and the Task App will assign the inspection to you, generate every room checklist, and open it immediately.</p>
         </div>
 
         <form action="{{ route('maintainer.inspection.store') }}" method="POST" class="pwa-form">
             @csrf
-            <div class="pwa-field">
+            <div class="pwa-field pwa-unit-picker">
                 <label for="property_id">Unit <b>*</b></label>
                 <select id="property_id" name="property_id" required>
                     <option value="">Choose building and unit</option>
@@ -31,10 +31,10 @@
 
             <div class="pwa-field">
                 <label>Inspection type <b>*</b></label>
-                <div class="pwa-segment">
-                    <label><input type="radio" name="inspection_type" value="routine" @checked(old('inspection_type', 'routine') === 'routine')><span>Routine</span></label>
-                    <label><input type="radio" name="inspection_type" value="check_in" @checked(old('inspection_type') === 'check_in')><span>Check-in</span></label>
-                    <label><input type="radio" name="inspection_type" value="check_out" @checked(old('inspection_type') === 'check_out')><span>Check-out</span></label>
+                <div class="pwa-segment pwa-type-cards">
+                    <label><input type="radio" name="inspection_type" value="routine" @checked(old('inspection_type', 'routine') === 'routine')><span><i class="ri-search-eye-line"></i><b>Routine</b><small>General unit check</small></span></label>
+                    <label><input type="radio" name="inspection_type" value="check_in" @checked(old('inspection_type') === 'check_in')><span><i class="ri-login-box-line"></i><b>Check-in</b><small>Before guest arrival</small></span></label>
+                    <label><input type="radio" name="inspection_type" value="check_out" @checked(old('inspection_type') === 'check_out')><span><i class="ri-logout-box-line"></i><b>Check-out</b><small>After guest leaves</small></span></label>
                 </div>
             </div>
 
