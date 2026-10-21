@@ -80,6 +80,7 @@ class FieldDataController extends Controller
                     'condition' => data_get($draft, 'items.'.$item->id.'.condition'),
                     'comment' => data_get($draft, 'items.'.$item->id.'.comment', $item->comment),
                     'photos' => collect($item->pictures ?: [])->map(fn ($path) => MediaStorage::url($path))->values(),
+                    'photo_paths' => array_values((array) $item->pictures),
                 ]),
                 'inventory' => collect(UnitInventory::snapshot($inspection))->map(fn ($row) => $row + [
                     'draft_found' => data_get($draft, 'inventory.'.$row['id'].'.found'),

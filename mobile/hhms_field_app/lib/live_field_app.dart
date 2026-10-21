@@ -461,7 +461,7 @@ class _LiveFieldScreenState extends State<LiveFieldScreen> {
           imageQuality: 72,
           maxWidth: 1600,
           maxHeight: 1600,
-          limit: 5,
+          limit: 10,
           requestFullMetadata: false,
         );
         return files.map((file) => Uri.file(file.path).toString()).toList();

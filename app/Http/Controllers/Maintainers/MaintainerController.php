@@ -335,7 +335,7 @@ class MaintainerController extends Controller
             }
 
             $pictures = (array) $item->pictures;
-            if (count($pictures)+count((array)$request->file("pictures.$itemId",[])) > 5) throw \Illuminate\Validation\ValidationException::withMessages(['pictures'=>'Maximum 5 photos per item.']);
+            if (count($pictures)+count((array)$request->file("pictures.$itemId",[])) > 10) throw \Illuminate\Validation\ValidationException::withMessages(['pictures'=>'Maximum 10 photos per item.']);
             if ($request->hasFile("pictures.$itemId")) {
                 foreach ((array) $request->file("pictures.$itemId") as $file) {
                     $pictures[] = $this->uploadOptimizedFile($file, 'booking_inspection_pictures');

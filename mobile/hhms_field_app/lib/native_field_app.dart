@@ -344,8 +344,8 @@ class _NativeFieldAppState extends State<NativeFieldApp> {
     );
     if (source == null) return;
     final item = _items.firstWhere((row) => row['id'].toString() == itemId);
-    final remaining = 5 - ((item['photos'] as List?)?.length ?? 0);
-    if (remaining <= 0) throw Exception('Maximum 5 photos per item.');
+    final remaining = 10 - ((item['photos'] as List?)?.length ?? 0);
+    if (remaining <= 0) throw Exception('Maximum 10 photos per item.');
 
     final List<XFile> files;
     if (source == ImageSource.gallery) {
@@ -374,6 +374,7 @@ class _NativeFieldAppState extends State<NativeFieldApp> {
     }
 
     final uploaded = <String>[];
+    final uploadedPaths = <String>[];
     for (final file in files) {
       final uploadId = const Uuid().v4();
       Map<String, dynamic>? response;
@@ -392,6 +393,8 @@ class _NativeFieldAppState extends State<NativeFieldApp> {
       }
       final url = response?['url']?.toString();
       if (url != null && url.isNotEmpty) uploaded.add(url);
+      final path = response?['path']?.toString();
+      if (path != null && path.isNotEmpty) uploadedPaths.add(path);
     }
     if (mounted && uploaded.isNotEmpty) {
       setState(() {
@@ -401,9 +404,42 @@ class _NativeFieldAppState extends State<NativeFieldApp> {
           ),
         );
         item['photos'] = [...photos, ...uploaded];
+        final paths = List<String>.from(
+          (item['photo_paths'] as List? ?? const []).map(
+            (value) => value.toString(),
+          ),
+        );
+        item['photo_paths'] = [...paths, ...uploadedPaths];
       });
     }
   });
+
+  Future<void> _deletePhoto(Map<String, dynamic> item, int index) =>
+      _run(() async {
+        final paths = List<String>.from(
+          (item['photo_paths'] as List? ?? const []).map(
+            (value) => value.toString(),
+          ),
+        );
+        if (index >= paths.length)
+          throw Exception('Refresh the inspection before deleting this photo.');
+        await widget.request(
+          'DELETE',
+          '/maintainer/tasks/$_taskId/inspection/photo',
+          {'item_id': item['id'].toString(), 'path': paths[index]},
+        );
+        if (mounted) {
+          setState(() {
+            final photos = List<dynamic>.from(
+              item['photos'] as List? ?? const [],
+            );
+            if (index < photos.length) photos.removeAt(index);
+            paths.removeAt(index);
+            item['photos'] = photos;
+            item['photo_paths'] = paths;
+          });
+        }
+      });
 
   Future<void> _submitInspection() => _run(() async {
     for (final item in _items) {
@@ -1063,7 +1099,10 @@ class _NativeFieldAppState extends State<NativeFieldApp> {
                   'Add photo (${(item['photos'] as List?)?.length ?? 0})',
                 ),
               ),
-              _photoStrip(item['photos']),
+              _photoStrip(
+                item['photos'],
+                onDelete: (index) => _deletePhoto(item, index),
+              ),
             ],
           ),
         );
@@ -1526,7 +1565,10 @@ class _NativeFieldAppState extends State<NativeFieldApp> {
     ],
   );
 
-  Widget _photoStrip(dynamic photos) {
+  Widget _photoStrip(
+    dynamic photos, {
+    Future<void> Function(int index)? onDelete,
+  }) {
     if (photos is! List || photos.isEmpty) return const SizedBox.shrink();
     return SizedBox(
       height: 78,
@@ -1538,30 +1580,56 @@ class _NativeFieldAppState extends State<NativeFieldApp> {
           final url = Uri.parse(
             _origin,
           ).resolve(photos[index].toString()).toString();
-          return InkWell(
-            onTap: () => showDialog<void>(
-              context: context,
-              builder: (context) => Dialog(
-                child: InteractiveViewer(
+          return Stack(
+            clipBehavior: Clip.none,
+            children: [
+              InkWell(
+                onTap: () => showDialog<void>(
+                  context: context,
+                  builder: (context) => Dialog(
+                    child: InteractiveViewer(
+                      child: Image.network(
+                        url,
+                        errorBuilder: (_, _, _) =>
+                            const Center(child: Text('Photo unavailable')),
+                      ),
+                    ),
+                  ),
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
                   child: Image.network(
                     url,
+                    width: 78,
+                    height: 78,
+                    fit: BoxFit.cover,
                     errorBuilder: (_, _, _) =>
-                        const Center(child: Text('Photo unavailable')),
+                        const Icon(Icons.broken_image_outlined, size: 40),
                   ),
                 ),
               ),
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(10),
-              child: Image.network(
-                url,
-                width: 78,
-                height: 78,
-                fit: BoxFit.cover,
-                errorBuilder: (_, _, _) =>
-                    const Icon(Icons.broken_image_outlined, size: 40),
-              ),
-            ),
+              if (onDelete != null)
+                Positioned(
+                  right: -7,
+                  top: -7,
+                  child: Material(
+                    color: Colors.red,
+                    shape: const CircleBorder(),
+                    child: IconButton(
+                      constraints: const BoxConstraints.tightFor(
+                        width: 30,
+                        height: 30,
+                      ),
+                      padding: EdgeInsets.zero,
+                      iconSize: 17,
+                      color: Colors.white,
+                      tooltip: 'Delete photo',
+                      onPressed: () => onDelete(index),
+                      icon: const Icon(Icons.delete_outline),
+                    ),
+                  ),
+                ),
+            ],
           );
         },
       ),
