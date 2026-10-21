@@ -325,20 +325,51 @@ class _NativeFieldAppState extends State<NativeFieldApp> {
     final source = await showModalBottomSheet<ImageSource>(
       context: context,
       builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.photo_camera_outlined),
-              title: const Text('Camera'),
-              onTap: () => Navigator.pop(context, ImageSource.camera),
-            ),
-            ListTile(
-              leading: const Icon(Icons.photo_library_outlined),
-              title: const Text('Gallery'),
-              onTap: () => Navigator.pop(context, ImageSource.gallery),
-            ),
-          ],
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(18, 4, 18, 22),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Add photo evidence',
+                style: TextStyle(
+                  color: _navy,
+                  fontSize: 19,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: 5),
+              const Text(
+                'Choose camera or select multiple images from your gallery.',
+                style: TextStyle(color: _muted, fontSize: 12),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: _photoSourceCard(
+                      context,
+                      ImageSource.camera,
+                      Icons.photo_camera_rounded,
+                      'Camera',
+                      'Take a new photo',
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _photoSourceCard(
+                      context,
+                      ImageSource.gallery,
+                      Icons.collections_rounded,
+                      'Gallery',
+                      'Select up to 20',
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -413,6 +444,43 @@ class _NativeFieldAppState extends State<NativeFieldApp> {
       });
     }
   });
+
+  Widget _photoSourceCard(
+    BuildContext sheetContext,
+    ImageSource source,
+    IconData icon,
+    String title,
+    String subtitle,
+  ) => Material(
+    color: Colors.white,
+    borderRadius: BorderRadius.circular(16),
+    child: InkWell(
+      borderRadius: BorderRadius.circular(16),
+      onTap: () => Navigator.pop(sheetContext, source),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 18),
+        child: Column(
+          children: [
+            Container(
+              width: 46,
+              height: 46,
+              decoration: BoxDecoration(
+                color: _mint,
+                borderRadius: BorderRadius.circular(13),
+              ),
+              child: Icon(icon, color: _teal),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              title,
+              style: const TextStyle(color: _navy, fontWeight: FontWeight.w900),
+            ),
+            Text(subtitle, style: const TextStyle(color: _muted, fontSize: 10)),
+          ],
+        ),
+      ),
+    ),
+  );
 
   Future<void> _deletePhoto(Map<String, dynamic> item, int index) =>
       _run(() async {
@@ -1764,47 +1832,80 @@ class _NativeFieldAppState extends State<NativeFieldApp> {
 
   List<Widget> _selfInspection() {
     final properties = _maps(_options['properties']);
+    final selected = properties.where(
+      (property) => property['id'].toString() == _selectedProperty,
+    );
+    final selectedProperty = selected.isEmpty ? null : selected.first;
     return [
-      _notice(
-        Icons.verified_user_rounded,
-        'Start without admin approval. Your room checklist is created instantly and assigned to you.',
-      ),
-      const SizedBox(height: 16),
-      DropdownButtonFormField<String>(
-        initialValue: _selectedProperty,
-        decoration: const InputDecoration(
-          labelText: 'Building and unit',
-          prefixIcon: Icon(Icons.apartment_rounded),
+      Container(
+        padding: const EdgeInsets.all(13),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
         ),
-        items: properties
-            .map(
-              (property) => DropdownMenuItem(
-                value: property['id'].toString(),
-                child: Text(
-                  '${property['building'] ?? 'No building'} · Unit ${property['name']}',
-                  overflow: TextOverflow.ellipsis,
-                ),
+        child: DropdownButtonFormField<String>(
+          initialValue: _selectedProperty,
+          decoration: InputDecoration(
+            labelText: 'SELECTED UNIT',
+            prefixIcon: Container(
+              margin: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: _mint,
+                borderRadius: BorderRadius.circular(10),
               ),
-            )
-            .toList(),
-        onChanged: (value) => setState(() => _selectedProperty = value),
-      ),
-      const SizedBox(height: 14),
-      DropdownButtonFormField<String>(
-        initialValue: _selectedType,
-        decoration: const InputDecoration(
-          labelText: 'Inspection type',
-          prefixIcon: Icon(Icons.fact_check_rounded),
+              child: const Icon(Icons.apartment_rounded, color: _teal),
+            ),
+          ),
+          hint: const Text('Choose building and unit'),
+          items: properties
+              .map(
+                (property) => DropdownMenuItem(
+                  value: property['id'].toString(),
+                  child: Text(
+                    '${property['name']} · ${property['building'] ?? 'No building'}',
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              )
+              .toList(),
+          onChanged: (value) => setState(() => _selectedProperty = value),
         ),
-        items: const [
-          DropdownMenuItem(value: 'routine', child: Text('Routine')),
-          DropdownMenuItem(value: 'check_in', child: Text('Check-in')),
-          DropdownMenuItem(value: 'check_out', child: Text('Check-out')),
-        ],
-        onChanged: (value) =>
-            setState(() => _selectedType = value ?? 'routine'),
       ),
-      const SizedBox(height: 14),
+      if (selectedProperty != null)
+        Padding(
+          padding: const EdgeInsets.fromLTRB(4, 8, 4, 0),
+          child: Text(
+            'Unit ${selectedProperty['name']} · ${selectedProperty['building'] ?? ''}',
+            style: const TextStyle(color: _muted, fontSize: 11),
+          ),
+        ),
+      const SizedBox(height: 22),
+      _heading('Choose inspection'),
+      Row(
+        children: [
+          _inspectionTypeCard(
+            'check_in',
+            'Check-in',
+            'Guest arrival',
+            Icons.login_rounded,
+          ),
+          const SizedBox(width: 8),
+          _inspectionTypeCard(
+            'check_out',
+            'Check-out',
+            'Departure',
+            Icons.logout_rounded,
+          ),
+          const SizedBox(width: 8),
+          _inspectionTypeCard(
+            'routine',
+            'Routine',
+            'General check',
+            Icons.manage_search_rounded,
+          ),
+        ],
+      ),
+      const SizedBox(height: 18),
       _field('Inspection date', _secondary, hint: 'YYYY-MM-DD'),
       _field(
         'Reason / notes',
@@ -1825,6 +1926,53 @@ class _NativeFieldAppState extends State<NativeFieldApp> {
         }, 'inspections');
       }),
     ];
+  }
+
+  Widget _inspectionTypeCard(
+    String value,
+    String title,
+    String subtitle,
+    IconData icon,
+  ) {
+    final selected = _selectedType == value;
+    return Expanded(
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: () => setState(() => _selectedType = value),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 14),
+          decoration: BoxDecoration(
+            color: selected ? _mint : Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: selected ? _teal : const Color(0xFFDCE5E8),
+              width: selected ? 1.5 : 1,
+            ),
+          ),
+          child: Column(
+            children: [
+              Icon(icon, color: selected ? _teal : _navy),
+              const SizedBox(height: 8),
+              Text(
+                title,
+                style: TextStyle(
+                  color: selected ? _teal : _navy,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              Text(
+                subtitle,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(color: _muted, fontSize: 9),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   List<Widget> _opsReview() => [

@@ -117,6 +117,7 @@ class _LiveFieldScreenState extends State<LiveFieldScreen> {
   bool _native = false;
   bool _loginPage = false;
   bool _loginSubmitted = false;
+  bool _showSplash = true;
   String? _loginError;
   final _email = TextEditingController();
   final _password = TextEditingController();
@@ -136,6 +137,9 @@ class _LiveFieldScreenState extends State<LiveFieldScreen> {
   @override
   void initState() {
     super.initState();
+    Timer(const Duration(milliseconds: 1700), () {
+      if (mounted) setState(() => _showSplash = false);
+    });
     unawaited(
       _notificationChannel.invokeMethod<void>('requestNotificationPermission'),
     );
@@ -563,132 +567,230 @@ class _LiveFieldScreenState extends State<LiveFieldScreen> {
   }
 
   @override
-  Widget build(BuildContext context) => PopScope(
-    canPop: false,
-    onPopInvokedWithResult: (didPop, result) {
-      if (!didPop) unawaited(_back());
-    },
-    child: _native && _user != null
-        ? Stack(
-            children: [
-              Opacity(
-                opacity: 0,
-                child: IgnorePointer(child: WebViewWidget(controller: _web)),
-              ),
-              NativeFieldApp(
-                user: _user!,
-                request: _api,
-                upload: _upload,
-                onNewTask: _showNewTaskAlarm,
-                signOut: () async {
-                  await _notificationChannel.invokeMethod<void>(
-                    'stopTaskAlarm',
-                  );
-                  await _api('POST', '/logout');
-                  await _web.loadRequest(Uri.parse('$_baseUrl/login'));
-                  if (mounted) {
-                    setState(() {
-                      _native = false;
-                      _user = null;
-                    });
-                  }
-                },
-              ),
-            ],
-          )
-        : _loginPage
-        ? Stack(
-            children: [
-              Opacity(
-                opacity: 0,
-                child: IgnorePointer(child: WebViewWidget(controller: _web)),
-              ),
-              _nativeLogin(),
-            ],
-          )
-        : Scaffold(
-            appBar: AppBar(
-              backgroundColor: _navy,
-              foregroundColor: Colors.white,
-              titleSpacing: 12,
-              title: Row(
-                children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(4),
-                    child: Image.asset(
-                      'assets/brand-mark.png',
-                      width: 25,
-                      height: 25,
+  Widget build(BuildContext context) {
+    if (_showSplash) return _brightSplash();
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop) unawaited(_back());
+      },
+      child: _native && _user != null
+          ? Stack(
+              children: [
+                Opacity(
+                  opacity: 0,
+                  child: IgnorePointer(child: WebViewWidget(controller: _web)),
+                ),
+                NativeFieldApp(
+                  user: _user!,
+                  request: _api,
+                  upload: _upload,
+                  onNewTask: _showNewTaskAlarm,
+                  signOut: () async {
+                    await _notificationChannel.invokeMethod<void>(
+                      'stopTaskAlarm',
+                    );
+                    await _api('POST', '/logout');
+                    await _web.loadRequest(Uri.parse('$_baseUrl/login'));
+                    if (mounted) {
+                      setState(() {
+                        _native = false;
+                        _user = null;
+                      });
+                    }
+                  },
+                ),
+              ],
+            )
+          : _loginPage
+          ? Stack(
+              children: [
+                Opacity(
+                  opacity: 0,
+                  child: IgnorePointer(child: WebViewWidget(controller: _web)),
+                ),
+                _nativeLogin(),
+              ],
+            )
+          : Scaffold(
+              appBar: AppBar(
+                backgroundColor: _navy,
+                foregroundColor: Colors.white,
+                titleSpacing: 12,
+                title: Row(
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: Image.asset(
+                        'assets/brand-mark.png',
+                        width: 25,
+                        height: 25,
+                      ),
                     ),
+                    const SizedBox(width: 10),
+                    Text(
+                      _title,
+                      style: const TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+                actions: [
+                  IconButton(
+                    tooltip: 'Home',
+                    icon: const Icon(Icons.home_outlined),
+                    onPressed: () =>
+                        _web.loadRequest(Uri.parse('$_baseUrl/dashboard')),
                   ),
-                  const SizedBox(width: 10),
-                  Text(
-                    _title,
-                    style: const TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w700,
-                    ),
+                  IconButton(
+                    tooltip: 'Refresh',
+                    icon: const Icon(Icons.refresh),
+                    onPressed: () => _web.reload(),
                   ),
                 ],
               ),
-              actions: [
-                IconButton(
-                  tooltip: 'Home',
-                  icon: const Icon(Icons.home_outlined),
-                  onPressed: () =>
-                      _web.loadRequest(Uri.parse('$_baseUrl/dashboard')),
-                ),
-                IconButton(
-                  tooltip: 'Refresh',
-                  icon: const Icon(Icons.refresh),
-                  onPressed: () => _web.reload(),
-                ),
-              ],
-            ),
-            body: Stack(
-              children: [
-                WebViewWidget(controller: _web),
-                if (_loading)
-                  LinearProgressIndicator(
-                    value: _progress > 0 ? _progress / 100 : null,
-                    color: _teal,
-                  ),
-                if (_failed)
-                  Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(28),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(
-                            Icons.wifi_off_rounded,
-                            color: _navy,
-                            size: 44,
-                          ),
-                          const SizedBox(height: 14),
-                          const Text(
-                            'Cannot reach HHMS',
-                            style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
+              body: Stack(
+                children: [
+                  WebViewWidget(controller: _web),
+                  if (_loading)
+                    LinearProgressIndicator(
+                      value: _progress > 0 ? _progress / 100 : null,
+                      color: _teal,
+                    ),
+                  if (_failed)
+                    Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(28),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.wifi_off_rounded,
+                              color: _navy,
+                              size: 44,
                             ),
-                          ),
-                          const SizedBox(height: 8),
-                          const Text(
-                            'Check your internet connection and try again.',
-                            textAlign: TextAlign.center,
-                          ),
-                          const SizedBox(height: 16),
-                          FilledButton(
-                            onPressed: () => _web.reload(),
-                            child: const Text('Try again'),
-                          ),
-                        ],
+                            const SizedBox(height: 14),
+                            const Text(
+                              'Cannot reach HHMS',
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            const Text(
+                              'Check your internet connection and try again.',
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 16),
+                            FilledButton(
+                              onPressed: () => _web.reload(),
+                              child: const Text('Try again'),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
+                ],
+              ),
+            ),
+    );
+  }
+
+  Widget _brightSplash() => Scaffold(
+    body: Container(
+      width: double.infinity,
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Color(0xFF087A92), Color(0xFF00A58E)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+      child: Stack(
+        children: [
+          Positioned(
+            top: -105,
+            left: -35,
+            child: Container(
+              width: 330,
+              height: 330,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white24),
+              ),
+            ),
+          ),
+          Positioned(
+            top: -55,
+            left: 15,
+            child: Container(
+              width: 230,
+              height: 230,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white24),
+              ),
+            ),
+          ),
+          Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 96,
+                  height: 96,
+                  padding: const EdgeInsets.all(18),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(26),
+                    boxShadow: const [
+                      BoxShadow(color: Color(0x29062D4F), blurRadius: 26),
+                    ],
                   ),
+                  child: Image.asset('assets/brand-mark.png'),
+                ),
+                const SizedBox(height: 26),
+                const Text(
+                  'PATTERN',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 26,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 5,
+                  ),
+                ),
+                const SizedBox(height: 7),
+                const Text(
+                  'MAINTAINER',
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 3,
+                  ),
+                ),
+                const SizedBox(height: 54),
+                const Text(
+                  'Fast inspections. Clear results.',
+                  style: TextStyle(color: Colors.white70, fontSize: 13),
+                ),
+                const SizedBox(height: 18),
+                const SizedBox(
+                  width: 96,
+                  child: LinearProgressIndicator(
+                    minHeight: 3,
+                    color: Colors.white,
+                    backgroundColor: Colors.white24,
+                  ),
+                ),
               ],
             ),
           ),
+        ],
+      ),
+    ),
   );
 }
