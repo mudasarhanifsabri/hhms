@@ -768,7 +768,7 @@ class PreviewScreen extends StatelessWidget {
           ),
           const SizedBox(height: 7),
           const Text(
-            'Up to 10 photos per item · JPG, PNG or WebP',
+            'Up to 20 photos per item · JPG, PNG or WebP',
             style: TextStyle(color: muted),
           ),
           const SizedBox(height: 17),

@@ -134,8 +134,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         picker.querySelectorAll('[data-photo-pick]').forEach(input=>input.addEventListener('change',async()=>{
             const originalFiles=[...input.files];input.value='';
             const count=JSON.parse(picker.dataset.saved).length+[...pending.values()].filter(p=>p.item===picker.dataset.itemId).length;
-            if(count+originalFiles.length>10||originalFiles.some(f=>f.size>10*1024*1024||!['image/jpeg','image/png','image/webp'].includes(f.type))){
-                picker.querySelector('[data-photo-message]').textContent='Maximum 10 JPG/PNG/WebP photos per item, 10 MB each.';setStatus('Photo could not be added. Use a JPG, PNG or WebP under 10 MB.', 'error');return;
+            if(count+originalFiles.length>20||originalFiles.some(f=>f.size>10*1024*1024||!['image/jpeg','image/png','image/webp'].includes(f.type))){
+                picker.querySelector('[data-photo-message]').textContent='Maximum 20 JPG/PNG/WebP photos per item, 10 MB each.';setStatus('Photo could not be added. Use a JPG, PNG or WebP under 10 MB.', 'error');return;
             }
             setStatus('Uploading photos…', 'busy');
             for(const file of originalFiles){

@@ -128,6 +128,17 @@ class FieldDataController extends Controller
         ]);
     }
 
+    public function maintainerInspectionOptions()
+    {
+        return response()->json([
+            'properties' => Property::with('building')->orderBy('name')->get()->map(fn ($property) => [
+                'id' => $property->id,
+                'name' => $property->name,
+                'building' => $property->building?->building_name,
+            ])->values(),
+        ]);
+    }
+
     private function taskData(BookingTask $task): array
     {
         $property = $task->booking?->property ?: $task->property;

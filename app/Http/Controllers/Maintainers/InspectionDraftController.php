@@ -114,7 +114,7 @@ class InspectionDraftController extends Controller
 
                 return response()->json(['path' => $token->path, 'url' => MediaStorage::url($token->path)]);
             }
-            abort_if(count((array) $item->pictures) >= 10, 422, 'Maximum 10 photos per item.');
+            abort_if(count((array) $item->pictures) >= 20, 422, 'Maximum 20 photos per item.');
             $path = MediaStorage::store($request->file('photo'), 'booking_inspection_pictures');
             $item->update(['pictures' => array_merge((array) $item->pictures, [$path])]);
             DB::table('inspection_upload_tokens')->insert(['id' => $data['upload_id'], 'inspection_id' => $inspection->id, 'item_id' => $item->id, 'path' => $path, 'created_at' => now(), 'updated_at' => now()]);

@@ -133,6 +133,14 @@ class MaintainerController extends Controller
             return $task;
         });
 
+        if ($request->expectsJson()) {
+            return response()->json([
+                'created' => true,
+                'task_id' => $task->id,
+                'inspection_id' => $task->inspection()->value('id'),
+            ], 201);
+        }
+
         return redirect()->route('maintainer.task.inspection.form', $task)
             ->with('success', 'Inspection created. Complete the checklist for this unit.');
     }
@@ -335,7 +343,7 @@ class MaintainerController extends Controller
             }
 
             $pictures = (array) $item->pictures;
-            if (count($pictures)+count((array)$request->file("pictures.$itemId",[])) > 10) throw \Illuminate\Validation\ValidationException::withMessages(['pictures'=>'Maximum 10 photos per item.']);
+            if (count($pictures)+count((array)$request->file("pictures.$itemId",[])) > 20) throw \Illuminate\Validation\ValidationException::withMessages(['pictures'=>'Maximum 20 photos per item.']);
             if ($request->hasFile("pictures.$itemId")) {
                 foreach ((array) $request->file("pictures.$itemId") as $file) {
                     $pictures[] = $this->uploadOptimizedFile($file, 'booking_inspection_pictures');

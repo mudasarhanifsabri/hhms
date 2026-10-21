@@ -344,8 +344,8 @@ class _NativeFieldAppState extends State<NativeFieldApp> {
     );
     if (source == null) return;
     final item = _items.firstWhere((row) => row['id'].toString() == itemId);
-    final remaining = 10 - ((item['photos'] as List?)?.length ?? 0);
-    if (remaining <= 0) throw Exception('Maximum 10 photos per item.');
+    final remaining = 20 - ((item['photos'] as List?)?.length ?? 0);
+    if (remaining <= 0) throw Exception('Maximum 20 photos per item.');
 
     final List<XFile> files;
     if (source == ImageSource.gallery) {
@@ -421,8 +421,9 @@ class _NativeFieldAppState extends State<NativeFieldApp> {
             (value) => value.toString(),
           ),
         );
-        if (index >= paths.length)
+        if (index >= paths.length) {
           throw Exception('Refresh the inspection before deleting this photo.');
+        }
         await widget.request(
           'DELETE',
           '/maintainer/tasks/$_taskId/inspection/photo',
@@ -506,6 +507,23 @@ class _NativeFieldAppState extends State<NativeFieldApp> {
       setState(() {
         _options = response;
         _page = 'ops_request';
+      });
+    }
+  });
+
+  Future<void> _openSelfInspection() => _run(() async {
+    final response = await widget.request(
+      'GET',
+      '/field/api/inspection-options',
+    );
+    if (mounted) {
+      setState(() {
+        _options = response;
+        _selectedProperty = null;
+        _selectedType = 'routine';
+        _secondary.text = DateTime.now().toIso8601String().substring(0, 10);
+        _text.clear();
+        _page = 'self_inspection';
       });
     }
   });
@@ -766,6 +784,7 @@ class _NativeFieldAppState extends State<NativeFieldApp> {
     'notifications': 'Notifications',
     'profile': 'Profile',
     'ops_request': 'Request inspection',
+    'self_inspection': 'Create inspection',
     'ops_review': 'Review inspection',
     'ops_inventory': 'Approve inventory',
   };
@@ -797,6 +816,7 @@ class _NativeFieldAppState extends State<NativeFieldApp> {
     'notifications' => _notifications(),
     'profile' => _profile(),
     'ops_request' => _opsRequest(),
+    'self_inspection' => _selfInspection(),
     'ops_review' => _opsReview(),
     'ops_inventory' => _opsInventory(),
     _ => [_notice(Icons.info_outline, 'Loading…')],
@@ -831,6 +851,13 @@ class _NativeFieldAppState extends State<NativeFieldApp> {
         Icons.assignment_outlined,
         _admin ? _openRequest : () => _go('tasks'),
       ),
+      if (!_admin)
+        _tile(
+          'Create inspection',
+          'Choose any unit and start now',
+          Icons.add_task_outlined,
+          _openSelfInspection,
+        ),
       _heading('Recent activity'),
       ...(_admin ? _inspections : _tasks)
           .take(3)
@@ -1438,6 +1465,65 @@ class _NativeFieldAppState extends State<NativeFieldApp> {
           'description': _text.text,
         }, 'inspections'),
       ),
+    ];
+  }
+
+  List<Widget> _selfInspection() {
+    final properties = _maps(_options['properties']);
+    return [
+      _notice(
+        Icons.verified_user_outlined,
+        'No admin request is needed. The inspection will be assigned to you and its room checklist will be created immediately.',
+      ),
+      const SizedBox(height: 16),
+      DropdownButtonFormField<String>(
+        initialValue: _selectedProperty,
+        decoration: const InputDecoration(labelText: 'Building and unit'),
+        items: properties
+            .map(
+              (property) => DropdownMenuItem(
+                value: property['id'].toString(),
+                child: Text(
+                  '${property['building'] ?? 'No building'} · Unit ${property['name']}',
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            )
+            .toList(),
+        onChanged: (value) => setState(() => _selectedProperty = value),
+      ),
+      const SizedBox(height: 14),
+      DropdownButtonFormField<String>(
+        initialValue: _selectedType,
+        decoration: const InputDecoration(labelText: 'Inspection type'),
+        items: const [
+          DropdownMenuItem(value: 'routine', child: Text('Routine')),
+          DropdownMenuItem(value: 'check_in', child: Text('Check-in')),
+          DropdownMenuItem(value: 'check_out', child: Text('Check-out')),
+        ],
+        onChanged: (value) =>
+            setState(() => _selectedType = value ?? 'routine'),
+      ),
+      const SizedBox(height: 14),
+      _field('Inspection date', _secondary, hint: 'YYYY-MM-DD'),
+      _field(
+        'Reason / notes',
+        _text,
+        hint: 'Why are you inspecting this unit?',
+        lines: 3,
+      ),
+      _button('Create & start inspection', () async {
+        if (_selectedProperty == null) {
+          throw Exception('Choose a unit first.');
+        }
+        await _post('/maintainer/inspections', {
+          'property_id': _selectedProperty,
+          'inspection_type': _selectedType,
+          'priority': 'medium',
+          'due_date': _secondary.text,
+          'notes': _text.text,
+        }, 'inspections');
+      }),
     ];
   }
 

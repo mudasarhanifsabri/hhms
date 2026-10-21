@@ -10,6 +10,7 @@ Route::middleware('auth')->prefix('field/api')->group(function () {
         Route::get('/tasks', [FieldDataController::class, 'tasks']);
         Route::get('/tasks/{task}', [FieldDataController::class, 'task']);
         Route::get('/tasks/{task}/inspection', [FieldDataController::class, 'inspection']);
+        Route::get('/inspection-options', [FieldDataController::class, 'maintainerInspectionOptions']);
     });
 
     Route::middleware(['role:admin', 'admin.permission'])->name('admin.inspection.field.')->group(function () {
