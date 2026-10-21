@@ -20,11 +20,11 @@ typedef FieldUpload =
       Map<String, XFile>? extras,
     ]);
 
-const _navy = Color(0xFF143248);
-const _teal = Color(0xFF12A99A);
-const _muted = Color(0xFF748895);
-const _paper = Color(0xFFF4F7F5);
-const _mint = Color(0xFFE5F5F1);
+const _navy = Color(0xFF0A4167);
+const _teal = Color(0xFF00A58E);
+const _muted = Color(0xFF718391);
+const _paper = Color(0xFFF6F9FA);
+const _mint = Color(0xFFE1F8F2);
 const _origin = 'https://rms.pattern.ae';
 
 class NativeFieldApp extends StatefulWidget {
@@ -606,14 +606,14 @@ class _NativeFieldAppState extends State<NativeFieldApp> {
         surfaceTintColor: Colors.white,
         foregroundColor: _navy,
         elevation: 0,
-        toolbarHeight: 72,
+        toolbarHeight: 68,
         shape: const Border(
           bottom: BorderSide(color: Color(0xFFE5ECEE), width: 1),
         ),
         leadingWidth: 62,
         leading: rootPage
             ? Padding(
-                padding: const EdgeInsets.fromLTRB(16, 14, 6, 14),
+                padding: const EdgeInsets.fromLTRB(16, 12, 6, 12),
                 child: Container(
                   padding: const EdgeInsets.all(7),
                   decoration: BoxDecoration(
@@ -830,15 +830,17 @@ class _NativeFieldAppState extends State<NativeFieldApp> {
               .where((e) => !['completed', 'closed'].contains(e['status']))
               .length;
     return [
-      Row(
-        children: [
-          _metric('$total', _admin ? 'Inspections' : 'Assigned tasks'),
-          const SizedBox(width: 12),
-          _metric('$active', _admin ? 'Awaiting review' : 'Active'),
-        ],
-      ),
-      const SizedBox(height: 20),
-      _heading(_admin ? 'Operations' : 'Your work'),
+      _homeSummary(total, active),
+      const SizedBox(height: 14),
+      if (!_admin)
+        _actionCard(
+          'Create inspection',
+          'Choose any unit and start immediately',
+          Icons.add_task_rounded,
+          _openSelfInspection,
+          primary: true,
+        ),
+      _heading(_admin ? 'Operations' : 'My workspace'),
       _tile(
         _admin ? 'Inspection queue' : 'My inspections',
         _admin ? 'Reports and approvals' : 'Assigned checklists',
@@ -851,25 +853,184 @@ class _NativeFieldAppState extends State<NativeFieldApp> {
         Icons.assignment_outlined,
         _admin ? _openRequest : () => _go('tasks'),
       ),
-      if (!_admin)
-        _tile(
-          'Create inspection',
-          'Choose any unit and start now',
-          Icons.add_task_outlined,
-          _openSelfInspection,
-        ),
       _heading('Recent activity'),
       ...(_admin ? _inspections : _tasks)
           .take(3)
-          .map(
-            (item) => _tile(
-              item['number']?.toString() ?? '',
-              item['property']?.toString() ?? '',
-              Icons.schedule_outlined,
-              () => _admin ? _openReview(item) : _openTask(item),
+          .map((item) => _compactActivity(item)),
+    ];
+  }
+
+  Widget _homeSummary(int total, int active) {
+    final completed = (total - active).clamp(0, total);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 16),
+      decoration: BoxDecoration(
+        color: _navy,
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Row(
+        children: [
+          _summaryStat('$total', _admin ? 'Reports' : 'Today'),
+          _summaryDivider(),
+          _summaryStat('$completed', 'Done'),
+          _summaryDivider(),
+          _summaryStat('$active', _admin ? 'Review' : 'Active'),
+        ],
+      ),
+    );
+  }
+
+  Widget _summaryStat(String value, String label) => Expanded(
+    child: Column(
+      children: [
+        Text(
+          value,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 24,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        Text(
+          label,
+          style: const TextStyle(color: Color(0xFFB8D2DF), fontSize: 11),
+        ),
+      ],
+    ),
+  );
+
+  Widget _summaryDivider() => Container(
+    width: 1,
+    height: 34,
+    color: Colors.white.withValues(alpha: .18),
+  );
+
+  Widget _compactActivity(Map<String, dynamic> item) {
+    final urgent =
+        item['priority'] == 'urgent' ||
+        item['status_label']?.toString().toLowerCase() == 'overdue';
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 9),
+      child: Material(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(15),
+        clipBehavior: Clip.antiAlias,
+        child: Row(
+          children: [
+            Container(
+              width: 4,
+              height: 68,
+              color: urgent ? const Color(0xFFEF746C) : _teal,
+            ),
+            Expanded(
+              child: ListTile(
+                minTileHeight: 68,
+                leading: Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    color: urgent ? const Color(0xFFFFECEA) : _mint,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    _admin
+                        ? Icons.fact_check_rounded
+                        : Icons.assignment_rounded,
+                    color: urgent ? const Color(0xFFCF4D43) : _teal,
+                  ),
+                ),
+                title: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      item['number']?.toString() ?? 'Inspection',
+                      style: const TextStyle(
+                        color: _teal,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    Text(
+                      item['title']?.toString().isNotEmpty == true
+                          ? item['title'].toString()
+                          : 'Inspection',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: _navy,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ),
+                subtitle: Text(
+                  '${item['building'] ?? ''} · Unit ${item['property'] ?? '—'}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: _muted, fontSize: 11),
+                ),
+                trailing: const Icon(
+                  Icons.chevron_right_rounded,
+                  color: _muted,
+                ),
+                onTap: () => _admin ? _openReview(item) : _openTask(item),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _roomProgress(String room) {
+    final roomItems = _items.where((item) => item['area'] == room).toList();
+    final completed = roomItems.where((item) {
+      final id = item['id'].toString();
+      return (_conditions[id] ?? item['condition']) != null;
+    }).length;
+    final ratio = roomItems.isEmpty ? 0.0 : completed / roomItems.length;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 13),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(15),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  room,
+                  style: const TextStyle(
+                    color: _navy,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              Text(
+                '$completed / ${roomItems.length}',
+                style: const TextStyle(
+                  color: _teal,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: LinearProgressIndicator(
+              value: ratio,
+              minHeight: 7,
+              color: _teal,
+              backgroundColor: const Color(0xFFE4ECEF),
             ),
           ),
-    ];
+        ],
+      ),
+    );
   }
 
   List<Widget> _taskList(bool onlyInspections) {
@@ -1082,11 +1243,28 @@ class _NativeFieldAppState extends State<NativeFieldApp> {
     }
     final room = _rooms[_roomIndex.clamp(0, _rooms.length - 1)];
     return [
-      _heading(room),
+      _roomProgress(room),
       ..._items.where((e) => e['area'] == room).map((item) {
         final id = item['id'].toString();
-        return _card(
-          Column(
+        final condition = _conditions[id] ?? item['condition']?.toString();
+        return Container(
+          margin: const EdgeInsets.only(bottom: 10),
+          padding: const EdgeInsets.all(15),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(15),
+            border: Border(
+              left: BorderSide(
+                color: condition == 'issue'
+                    ? const Color(0xFFEF746C)
+                    : condition == 'good'
+                    ? _teal
+                    : const Color(0xFFD6E0E4),
+                width: 4,
+              ),
+            ),
+          ),
+          child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
@@ -1123,7 +1301,7 @@ class _NativeFieldAppState extends State<NativeFieldApp> {
                 onPressed: () => _addPhoto(id),
                 icon: const Icon(Icons.add_a_photo_outlined),
                 label: Text(
-                  'Add photo (${(item['photos'] as List?)?.length ?? 0})',
+                  'Add evidence (${(item['photos'] as List?)?.length ?? 0}/20)',
                 ),
               ),
               _photoStrip(
@@ -1472,13 +1650,16 @@ class _NativeFieldAppState extends State<NativeFieldApp> {
     final properties = _maps(_options['properties']);
     return [
       _notice(
-        Icons.verified_user_outlined,
-        'No admin request is needed. The inspection will be assigned to you and its room checklist will be created immediately.',
+        Icons.verified_user_rounded,
+        'Start without admin approval. Your room checklist is created instantly and assigned to you.',
       ),
       const SizedBox(height: 16),
       DropdownButtonFormField<String>(
         initialValue: _selectedProperty,
-        decoration: const InputDecoration(labelText: 'Building and unit'),
+        decoration: const InputDecoration(
+          labelText: 'Building and unit',
+          prefixIcon: Icon(Icons.apartment_rounded),
+        ),
         items: properties
             .map(
               (property) => DropdownMenuItem(
@@ -1495,7 +1676,10 @@ class _NativeFieldAppState extends State<NativeFieldApp> {
       const SizedBox(height: 14),
       DropdownButtonFormField<String>(
         initialValue: _selectedType,
-        decoration: const InputDecoration(labelText: 'Inspection type'),
+        decoration: const InputDecoration(
+          labelText: 'Inspection type',
+          prefixIcon: Icon(Icons.fact_check_rounded),
+        ),
         items: const [
           DropdownMenuItem(value: 'routine', child: Text('Routine')),
           DropdownMenuItem(value: 'check_in', child: Text('Check-in')),
@@ -1604,51 +1788,56 @@ class _NativeFieldAppState extends State<NativeFieldApp> {
       ),
   ];
 
-  Widget _bottom() => BottomNavigationBar(
-    currentIndex: switch (_page) {
-      'home' => 0,
-      'tasks' || 'inspections' => 1,
-      'notifications' || 'ops_request' => 2,
-      'profile' => 3,
-      _ => 0,
-    },
-    onTap: (index) {
-      if (index == 0) _go('home');
-      if (index == 1) _go(_admin ? 'inspections' : 'tasks');
-      if (index == 2) {
-        if (_admin) {
-          _openRequest();
-        } else {
-          _go('notifications');
+  Widget _bottom() => SafeArea(
+    top: false,
+    child: BottomNavigationBar(
+      currentIndex: switch (_page) {
+        'home' => 0,
+        'tasks' || 'inspections' => 1,
+        'notifications' || 'ops_request' => 2,
+        'profile' => 3,
+        _ => 0,
+      },
+      onTap: (index) {
+        if (index == 0) _go('home');
+        if (index == 1) _go(_admin ? 'inspections' : 'tasks');
+        if (index == 2) {
+          if (_admin) {
+            _openRequest();
+          } else {
+            _go('notifications');
+          }
         }
-      }
-      if (index == 3) _go('profile');
-    },
-    type: BottomNavigationBarType.fixed,
-    selectedItemColor: _teal,
-    unselectedItemColor: _muted,
-    items: [
-      const BottomNavigationBarItem(
-        icon: Icon(Icons.home_outlined),
-        label: 'Home',
-      ),
-      BottomNavigationBarItem(
-        icon: Icon(
-          _admin ? Icons.fact_check_outlined : Icons.assignment_outlined,
+        if (index == 3) _go('profile');
+      },
+      type: BottomNavigationBarType.fixed,
+      selectedItemColor: _teal,
+      unselectedItemColor: _muted,
+      elevation: 12,
+      selectedLabelStyle: const TextStyle(fontWeight: FontWeight.w800),
+      items: [
+        const BottomNavigationBarItem(
+          icon: Icon(Icons.home_outlined),
+          label: 'Home',
         ),
-        label: _admin ? 'Queue' : 'Tasks',
-      ),
-      BottomNavigationBarItem(
-        icon: Icon(
-          _admin ? Icons.add_circle_outline : Icons.notifications_outlined,
+        BottomNavigationBarItem(
+          icon: Icon(
+            _admin ? Icons.fact_check_outlined : Icons.assignment_outlined,
+          ),
+          label: _admin ? 'Queue' : 'Tasks',
         ),
-        label: _admin ? 'Request' : 'Alerts',
-      ),
-      const BottomNavigationBarItem(
-        icon: Icon(Icons.person_outline),
-        label: 'Profile',
-      ),
-    ],
+        BottomNavigationBarItem(
+          icon: Icon(
+            _admin ? Icons.add_circle_outline : Icons.notifications_outlined,
+          ),
+          label: _admin ? 'Request' : 'Alerts',
+        ),
+        const BottomNavigationBarItem(
+          icon: Icon(Icons.person_outline),
+          label: 'Profile',
+        ),
+      ],
+    ),
   );
 
   Widget _photoStrip(
@@ -2000,25 +2189,6 @@ class _NativeFieldAppState extends State<NativeFieldApp> {
           style: const TextStyle(color: _navy, fontWeight: FontWeight.w800),
         ),
       ],
-    ),
-  );
-
-  Widget _metric(String value, String label) => Expanded(
-    child: _card(
-      Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            value,
-            style: const TextStyle(
-              color: _teal,
-              fontSize: 27,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-          Text(label, style: const TextStyle(color: _muted, fontSize: 11)),
-        ],
-      ),
     ),
   );
 

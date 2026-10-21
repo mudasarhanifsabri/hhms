@@ -10,8 +10,8 @@ import 'package:webview_flutter_android/webview_flutter_android.dart';
 import 'native_field_app.dart';
 
 const _baseUrl = 'https://rms.pattern.ae';
-const _navy = Color(0xFF143248);
-const _teal = Color(0xFF12A99A);
+const _navy = Color(0xFF0A4167);
+const _teal = Color(0xFF00A58E);
 
 class LiveFieldApp extends StatelessWidget {
   const LiveFieldApp({super.key});
@@ -21,9 +21,40 @@ class LiveFieldApp extends StatelessWidget {
     title: 'HHMS Field',
     debugShowCheckedModeBanner: false,
     theme: ThemeData(
-      colorScheme: ColorScheme.fromSeed(seedColor: _teal),
-      scaffoldBackgroundColor: Colors.white,
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: _teal,
+        primary: _teal,
+        secondary: _navy,
+        surface: Colors.white,
+      ),
+      scaffoldBackgroundColor: const Color(0xFFF6F9FA),
       fontFamily: 'Roboto',
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: Colors.white,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: Color(0xFFDCE5E8)),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: Color(0xFFDCE5E8)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: _teal, width: 1.5),
+        ),
+      ),
+      segmentedButtonTheme: SegmentedButtonThemeData(
+        style: ButtonStyle(
+          shape: WidgetStatePropertyAll(
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(11)),
+          ),
+          side: const WidgetStatePropertyAll(
+            BorderSide(color: Color(0xFFDCE5E8)),
+          ),
+        ),
+      ),
     ),
     home: const LiveFieldScreen(),
   );
