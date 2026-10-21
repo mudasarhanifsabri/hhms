@@ -599,41 +599,42 @@ class _NativeFieldAppState extends State<NativeFieldApp> {
   Widget build(BuildContext context) {
     final title = _titles[_page] ?? 'HHMS Field';
     final rootPage = _rootPages.contains(_page);
+    final initials = (widget.user['name']?.toString() ?? 'Team')
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((part) => part.isNotEmpty)
+        .take(2)
+        .map((part) => part[0].toUpperCase())
+        .join();
     return Scaffold(
       backgroundColor: _paper,
       appBar: AppBar(
-        backgroundColor: Colors.white,
-        surfaceTintColor: Colors.white,
+        backgroundColor: _paper,
+        surfaceTintColor: _paper,
         foregroundColor: _navy,
         elevation: 0,
-        toolbarHeight: 68,
-        shape: const Border(
-          bottom: BorderSide(color: Color(0xFFE5ECEE), width: 1),
-        ),
-        leadingWidth: 62,
+        toolbarHeight: 78,
+        leadingWidth: 70,
         leading: rootPage
             ? Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 6, 12),
+                padding: const EdgeInsets.fromLTRB(16, 13, 6, 13),
                 child: Container(
-                  padding: const EdgeInsets.all(7),
+                  alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    color: Colors.white,
-                    border: Border.all(color: const Color(0xFFDCE8EA)),
-                    borderRadius: BorderRadius.circular(13),
+                    color: _navy,
+                    borderRadius: BorderRadius.circular(15),
                   ),
-                  child: Image.asset(
-                    'assets/brand-mark.png',
-                    fit: BoxFit.contain,
-                    errorBuilder: (_, _, _) => const Icon(
-                      Icons.apartment_rounded,
-                      color: _navy,
-                      size: 20,
+                  child: Text(
+                    initials.isEmpty ? 'HH' : initials,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w900,
                     ),
                   ),
                 ),
               )
             : IconButton(
-                icon: const Icon(Icons.arrow_back_ios_new_rounded),
+                icon: const Icon(Icons.arrow_back_rounded),
                 tooltip: 'Back',
                 onPressed: _back,
               ),
@@ -662,12 +663,62 @@ class _NativeFieldAppState extends State<NativeFieldApp> {
           ],
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh_rounded),
-            tooltip: 'Refresh',
-            onPressed: _refresh,
-          ),
-          const SizedBox(width: 6),
+          if (rootPage)
+            Stack(
+              alignment: Alignment.center,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.notifications_none_rounded),
+                  tooltip: 'Notifications',
+                  onPressed: () => _go('notifications'),
+                ),
+                if (!_admin &&
+                    _tasks
+                        .where((task) => task['status'] == 'assigned')
+                        .isNotEmpty)
+                  Positioned(
+                    right: 8,
+                    top: 16,
+                    child: Container(
+                      width: 8,
+                      height: 8,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFEF746C),
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                  ),
+              ],
+            )
+          else
+            PopupMenuButton<String>(
+              tooltip: 'Page actions',
+              icon: const Icon(Icons.more_vert_rounded),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              onSelected: (value) {
+                if (value == 'refresh') _refresh();
+                if (value == 'home') _go('home');
+              },
+              itemBuilder: (_) => const [
+                PopupMenuItem(
+                  value: 'refresh',
+                  child: ListTile(
+                    leading: Icon(Icons.refresh_rounded),
+                    title: Text('Refresh'),
+                  ),
+                ),
+                PopupMenuItem(
+                  value: 'home',
+                  child: ListTile(
+                    leading: Icon(Icons.home_outlined),
+                    title: Text('Go to home'),
+                  ),
+                ),
+              ],
+            ),
+          const SizedBox(width: 8),
         ],
       ),
       body: SafeArea(
@@ -699,7 +750,7 @@ class _NativeFieldAppState extends State<NativeFieldApp> {
               ),
             Expanded(
               child: ListView(
-                padding: const EdgeInsets.fromLTRB(16, 18, 16, 110),
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 104),
                 children: _body(),
               ),
             ),
@@ -841,16 +892,16 @@ class _NativeFieldAppState extends State<NativeFieldApp> {
           primary: true,
         ),
       _heading(_admin ? 'Operations' : 'My workspace'),
-      _tile(
+      _workspaceAction(
         _admin ? 'Inspection queue' : 'My inspections',
         _admin ? 'Reports and approvals' : 'Assigned checklists',
-        Icons.fact_check_outlined,
+        Icons.fact_check_rounded,
         () => _go('inspections'),
       ),
-      _tile(
+      _workspaceAction(
         _admin ? 'Request inspection' : 'All tasks',
         _admin ? 'Assign a new checklist' : 'Maintenance and more',
-        Icons.assignment_outlined,
+        Icons.assignment_rounded,
         _admin ? _openRequest : () => _go('tasks'),
       ),
       _heading('Recent activity'),
@@ -879,6 +930,59 @@ class _NativeFieldAppState extends State<NativeFieldApp> {
       ),
     );
   }
+
+  Widget _workspaceAction(
+    String title,
+    String subtitle,
+    IconData icon,
+    VoidCallback onTap,
+  ) => Padding(
+    padding: const EdgeInsets.only(bottom: 9),
+    child: Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(16),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: _mint,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(icon, color: _teal),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        color: _navy,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    Text(
+                      subtitle,
+                      style: const TextStyle(color: _muted, fontSize: 12),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right_rounded, color: _muted),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
 
   Widget _summaryStat(String value, String label) => Expanded(
     child: Column(
@@ -1050,16 +1154,7 @@ class _NativeFieldAppState extends State<NativeFieldApp> {
         ),
       ];
     }
-    return [
-      ...rows.map(
-        (task) => _tile(
-          task['number']?.toString() ?? '',
-          '${task['title'] ?? ''}\n${task['building'] ?? ''} · ${task['property'] ?? ''}\n${task['status_label'] ?? ''}',
-          Icons.assignment_outlined,
-          () => _openTask(task),
-        ),
-      ),
-    ];
+    return [...rows.map(_compactActivity)];
   }
 
   List<Widget> _opsList() => _inspections.isEmpty
@@ -1249,7 +1344,6 @@ class _NativeFieldAppState extends State<NativeFieldApp> {
         final condition = _conditions[id] ?? item['condition']?.toString();
         return Container(
           margin: const EdgeInsets.only(bottom: 10),
-          padding: const EdgeInsets.all(15),
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(15),
@@ -1264,17 +1358,37 @@ class _NativeFieldAppState extends State<NativeFieldApp> {
               ),
             ),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          child: ExpansionTile(
+            shape: const Border(),
+            collapsedShape: const Border(),
+            tilePadding: const EdgeInsets.symmetric(
+              horizontal: 14,
+              vertical: 3,
+            ),
+            childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+            leading: Icon(
+              condition == 'issue'
+                  ? Icons.warning_amber_rounded
+                  : condition == 'good'
+                  ? Icons.check_circle_rounded
+                  : Icons.radio_button_unchecked_rounded,
+              color: condition == 'issue'
+                  ? const Color(0xFFEF746C)
+                  : condition == 'good'
+                  ? _teal
+                  : _muted,
+            ),
+            title: Text(
+              item['name']?.toString() ?? '',
+              style: const TextStyle(color: _navy, fontWeight: FontWeight.w900),
+            ),
+            subtitle: Text(
+              condition == null
+                  ? 'Tap to inspect'
+                  : '${condition.toUpperCase()} · ${(item['photos'] as List?)?.length ?? 0} photos',
+              style: const TextStyle(color: _muted, fontSize: 11),
+            ),
             children: [
-              Text(
-                item['name']?.toString() ?? '',
-                style: const TextStyle(
-                  color: _navy,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const SizedBox(height: 12),
               SegmentedButton<String>(
                 segments: const [
                   ButtonSegment(value: 'good', label: Text('Good')),
@@ -1286,15 +1400,17 @@ class _NativeFieldAppState extends State<NativeFieldApp> {
                 onSelectionChanged: (values) =>
                     setState(() => _conditions[id] = values.first),
               ),
-              const SizedBox(height: 9),
-              TextFormField(
-                initialValue: _comments[id] ?? '',
-                maxLines: 2,
-                decoration: const InputDecoration(
-                  labelText: 'Remark',
-                  border: OutlineInputBorder(),
+              Padding(
+                padding: const EdgeInsets.only(top: 10),
+                child: TextFormField(
+                  initialValue: _comments[id] ?? '',
+                  maxLines: 2,
+                  decoration: const InputDecoration(
+                    labelText: 'Remark',
+                    prefixIcon: Icon(Icons.edit_note_rounded),
+                  ),
+                  onChanged: (value) => _comments[id] = value,
                 ),
-                onChanged: (value) => _comments[id] = value,
               ),
               const SizedBox(height: 9),
               TextButton.icon(
@@ -1788,55 +1904,80 @@ class _NativeFieldAppState extends State<NativeFieldApp> {
       ),
   ];
 
-  Widget _bottom() => SafeArea(
-    top: false,
-    child: BottomNavigationBar(
-      currentIndex: switch (_page) {
-        'home' => 0,
-        'tasks' || 'inspections' => 1,
-        'notifications' || 'ops_request' => 2,
-        'profile' => 3,
-        _ => 0,
-      },
-      onTap: (index) {
-        if (index == 0) _go('home');
-        if (index == 1) _go(_admin ? 'inspections' : 'tasks');
-        if (index == 2) {
-          if (_admin) {
-            _openRequest();
-          } else {
-            _go('notifications');
-          }
-        }
-        if (index == 3) _go('profile');
-      },
-      type: BottomNavigationBarType.fixed,
-      selectedItemColor: _teal,
-      unselectedItemColor: _muted,
-      elevation: 12,
-      selectedLabelStyle: const TextStyle(fontWeight: FontWeight.w800),
-      items: [
-        const BottomNavigationBarItem(
-          icon: Icon(Icons.home_outlined),
-          label: 'Home',
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(
-            _admin ? Icons.fact_check_outlined : Icons.assignment_outlined,
-          ),
-          label: _admin ? 'Queue' : 'Tasks',
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(
-            _admin ? Icons.add_circle_outline : Icons.notifications_outlined,
-          ),
-          label: _admin ? 'Request' : 'Alerts',
-        ),
-        const BottomNavigationBarItem(
-          icon: Icon(Icons.person_outline),
-          label: 'Profile',
+  Widget _bottom() => Container(
+    decoration: const BoxDecoration(
+      color: Colors.white,
+      boxShadow: [
+        BoxShadow(
+          color: Color(0x140A4167),
+          blurRadius: 22,
+          offset: Offset(0, -5),
         ),
       ],
+    ),
+    child: SafeArea(
+      top: false,
+      minimum: const EdgeInsets.only(top: 5),
+      child: BottomNavigationBar(
+        currentIndex: switch (_page) {
+          'home' => 0,
+          'tasks' || 'inspections' => 1,
+          'notifications' || 'ops_request' => 2,
+          'profile' => 3,
+          _ => 0,
+        },
+        onTap: (index) {
+          if (index == 0) _go('home');
+          if (index == 1) _go(_admin ? 'inspections' : 'tasks');
+          if (index == 2) {
+            if (_admin) {
+              _openRequest();
+            } else {
+              _go('notifications');
+            }
+          }
+          if (index == 3) _go('profile');
+        },
+        type: BottomNavigationBarType.fixed,
+        selectedItemColor: _teal,
+        unselectedItemColor: _muted,
+        backgroundColor: Colors.white,
+        elevation: 0,
+        iconSize: 25,
+        selectedFontSize: 11,
+        unselectedFontSize: 11,
+        selectedLabelStyle: const TextStyle(fontWeight: FontWeight.w900),
+        items: [
+          const BottomNavigationBarItem(
+            icon: Icon(Icons.home_outlined),
+            activeIcon: Icon(Icons.home_rounded),
+            label: 'Home',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(
+              _admin ? Icons.fact_check_outlined : Icons.assignment_outlined,
+            ),
+            activeIcon: Icon(
+              _admin ? Icons.fact_check_rounded : Icons.assignment_rounded,
+            ),
+            label: _admin ? 'Queue' : 'Tasks',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(
+              _admin ? Icons.add_circle_outline : Icons.notifications_outlined,
+            ),
+            activeIcon: Icon(
+              _admin ? Icons.add_circle_rounded : Icons.notifications_rounded,
+            ),
+            label: _admin ? 'Request' : 'Alerts',
+          ),
+          const BottomNavigationBarItem(
+            icon: Icon(Icons.person_outline_rounded),
+            activeIcon: Icon(Icons.person_rounded),
+            label: 'Profile',
+          ),
+        ],
+      ),
     ),
   );
 
