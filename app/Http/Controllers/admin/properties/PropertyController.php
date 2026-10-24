@@ -59,7 +59,7 @@ class PropertyController extends Controller
             fputcsv($output, ['Statement month', $periodLabel]);
             fputcsv($output, ['Generated at', now()->timezone('Asia/Dubai')->format('d M Y H:i').' GST']);
             fputcsv($output, []);
-            fputcsv($output, ['Unit', 'Building', 'Owner', 'Owner Email', 'Type', 'Community / Location', 'Unit Status', 'Opening Balance (AED)', 'Month Credits (AED)', 'Month Debits (AED)', 'Month Net (AED)', 'Closing Balance (AED)', 'Closing Position']);
+            fputcsv($output, ['Unit', 'Building', 'Owner', 'Owner Email', 'Type', 'Community / Location', 'Unit Status', 'Management Fee', 'Opening Balance (AED)', 'Month Credits (AED)', 'Month Debits (AED)', 'Month Net (AED)', 'Closing Balance (AED)', 'Closing Position']);
             foreach ($rows as $property) {
                 $balance = (float) $property->statement_balance;
                 $values = [
@@ -70,6 +70,7 @@ class PropertyController extends Controller
                     $property->unit_type_label,
                     $property->community ?: ($property->building?->address ?? ''),
                     $property->has_active_booking ? 'Occupied' : 'Vacant',
+                    $this->managementFeeLabel($property),
                     (float) $property->opening_balance,
                     (float) $property->period_credits,
                     (float) $property->period_debits,
@@ -298,6 +299,17 @@ class PropertyController extends Controller
         if ($balance < -0.009) return 'Due from Owner';
 
         return 'Settled';
+    }
+
+    private function managementFeeLabel(Property $property): string
+    {
+        if ((float) $property->management_fee_percent > 0) {
+            return number_format((float) $property->management_fee_percent, 2).'%';
+        }
+
+        return (float) $property->management_fee > 0
+            ? 'AED '.number_format((float) $property->management_fee, 2)
+            : '0.00%';
     }
 
     private function unitStats(): array
