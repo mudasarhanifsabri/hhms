@@ -29,6 +29,15 @@
                 </a>
             </li>
 
+            @if(auth()->user()?->hasAnyRole(['Super Administrator','Manager','Backend IT']) || auth()->user()?->can('dashboard.manage'))
+            <li class="nav-item">
+                <a class="nav-link" href="{{ route('admin.ceo.index') }}">
+                    <span class="nav-icon"><i class="ri-presentation-line"></i></span>
+                    <span class="nav-text"> CEO Portal </span>
+                </a>
+            </li>
+            @endif
+
             <li class="nav-item">
                 <a class="nav-link menu-arrow" href="#sidebarProperty" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="sidebarProperty">
                     <span class="nav-icon"><i class="ri-community-line"></i></span>

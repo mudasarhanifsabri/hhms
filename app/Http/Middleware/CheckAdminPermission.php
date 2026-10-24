@@ -9,7 +9,7 @@ use Symfony\Component\HttpFoundation\Response;
 class CheckAdminPermission
 {
     private const ROUTE_MODULES = [
-        'dashboard' => 'dashboard', 'property' => 'units', 'building' => 'units',
+        'dashboard' => 'dashboard', 'ceo' => 'dashboard', 'property' => 'units', 'building' => 'units',
         'landlord' => 'owners', 'tenant' => 'tenants', 'booking' => 'bookings', 'booking-invoice' => 'bookings',
         'booking-payment' => 'bookings', 'deposit' => 'bookings',
         'task' => 'tasks', 'inspection' => 'inspections', 'inventory' => 'inspections',
