@@ -80,6 +80,8 @@ class CeoPortalController extends Controller
     private function weekEnding(?string $date): CarbonImmutable
     {
         $day = $date ? CarbonImmutable::parse($date, 'Asia/Dubai') : CarbonImmutable::now('Asia/Dubai');
-        return $day->nextOrSame(CarbonImmutable::SATURDAY)->startOfDay();
+        $daysUntilSaturday = (CarbonImmutable::SATURDAY - $day->dayOfWeek + 7) % 7;
+
+        return $day->addDays($daysUntilSaturday)->startOfDay();
     }
 }
