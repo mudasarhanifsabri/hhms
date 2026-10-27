@@ -1,4 +1,4 @@
-<footer class="footer">
+<footer class="footer" style="position: static !important; inset: auto !important; width: 100%; margin-top: auto;">
     <div class="container-fluid">
         <div class="row">
             <div class="col-12 text-center">
