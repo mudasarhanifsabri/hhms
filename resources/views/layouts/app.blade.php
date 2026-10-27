@@ -57,11 +57,15 @@
             width: 100%;
         }
         body:not(.maintainer-pwa-shell) .page-content > .footer {
-            position: static;
+            /* Override the theme's absolutely positioned footer.  Keeping the
+               inset reset here prevents it from covering the final table row
+               even if another theme bundle is loaded after this layout. */
+            position: static !important;
+            inset: auto !important;
             flex: 0 0 var(--bs-footer-height);
             width: 100%;
             min-height: var(--bs-footer-height);
-            margin-top: 1.25rem;
+            margin-top: auto;
         }
     </style>
 
