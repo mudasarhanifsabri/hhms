@@ -334,7 +334,7 @@
                         <div class="small text-muted mt-2">Issues {{ $inspection->issue_items }} / {{ $inspection->total_items }}</div>
                         <div class="d-flex gap-2 mt-2">
                             <a href="{{ route('admin.inspection.show', $inspection->id) }}" class="btn btn-sm btn-light">Preview</a>
-                            <a href="{{ route('admin.inspection.pdf', $inspection->id) }}" class="btn btn-sm btn-outline-primary">PDF</a>
+                            <button type="button" class="btn btn-sm btn-outline-primary" data-inspection-pdf-generate data-generate-url="{{ route('admin.inspection.pdf.generate', $inspection) }}" data-status-url="{{ route('admin.inspection.pdf.status', $inspection) }}">PDF</button>
                         </div>
                     </div>
                 @empty
@@ -733,4 +733,7 @@ document.addEventListener('DOMContentLoaded', function () {
 </script>
 @endpush
 </div>
+@if($booking->inspections->isNotEmpty())
+    @include('admin.inspections.partials.pdf-progress')
+@endif
 @endsection

@@ -285,6 +285,8 @@ Route::get('/task-manager/{task}', [TaskController::class, 'show'])->name('task.
 Route::get('/inspections', [InspectionController::class, 'index'])->name('inspection.index');
 Route::get('/inspections/{inspection}', [InspectionController::class, 'show'])->name('inspection.show');
 Route::get('/inspections/{inspection}/pdf', [InspectionController::class, 'pdf'])->name('inspection.pdf');
+Route::post('/inspections/{inspection}/pdf/generate', [InspectionController::class, 'generatePdf'])->name('inspection.pdf.generate');
+Route::get('/inspections/{inspection}/pdf/status', [InspectionController::class, 'pdfStatus'])->name('inspection.pdf.status');
 Route::get('/unit-inventory', [\App\Http\Controllers\admin\inspections\InventoryController::class, 'index'])->name('inventory.index');
 Route::post('/unit-inventory', [\App\Http\Controllers\admin\inspections\InventoryController::class, 'store'])->name('inventory.store');
 Route::put('/unit-inventory/{item}', [\App\Http\Controllers\admin\inspections\InventoryController::class, 'update'])->name('inventory.update');

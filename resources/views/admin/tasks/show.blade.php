@@ -62,7 +62,7 @@
                     <h4 class="card-title mb-0">Inspection Report</h4>
                     <div class="d-flex gap-2">
                         <a href="{{ route('admin.inspection.show', $task->inspection->id) }}" class="btn btn-sm btn-primary">View Report</a>
-                        <a href="{{ route('admin.inspection.pdf', $task->inspection->id) }}" class="btn btn-sm btn-outline-light">PDF</a>
+                        <button type="button" class="btn btn-sm btn-outline-light" data-inspection-pdf-generate data-generate-url="{{ route('admin.inspection.pdf.generate', $task->inspection) }}" data-status-url="{{ route('admin.inspection.pdf.status', $task->inspection) }}">PDF</button>
                     </div>
                 </div>
                 <div class="card-body">
@@ -224,4 +224,7 @@
         </div>
     </div>
 </div>
+@if($task->inspection)
+    @include('admin.inspections.partials.pdf-progress')
+@endif
 @endsection

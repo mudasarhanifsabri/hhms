@@ -80,7 +80,7 @@
                         <div class="col-lg-6"><label class="form-label" for="guest_name">Guest Name</label><input type="text" id="guest_name" name="guest_name" value="{{ old('guest_name') }}" class="form-control" required>@error('guest_name')<span class="text-danger">{{ $message }}</span>@enderror</div>
                         <div class="col-lg-6"><label class="form-label" for="guest_email">Email</label><input type="email" id="guest_email" name="guest_email" value="{{ old('guest_email') }}" class="form-control" required>@error('guest_email')<span class="text-danger">{{ $message }}</span>@enderror</div>
                         <div class="col-lg-6"><label class="form-label" for="guest_phone">Phone</label><input type="text" id="guest_phone" name="guest_phone" value="{{ old('guest_phone') }}" class="form-control" required>@error('guest_phone')<span class="text-danger">{{ $message }}</span>@enderror</div>
-                        <div class="col-lg-6"><label class="form-label" for="guest_passport_id_no">Passport/ID No.</label><input type="text" id="guest_passport_id_no" name="guest_passport_id_no" value="{{ old('guest_passport_id_no') }}" class="form-control">@error('guest_passport_id_no')<span class="text-danger">{{ $message }}</span>@enderror</div>
+                        <div class="col-lg-6"><label class="form-label" for="guest_passport_id_no">Passport/ID No. <span class="text-danger">*</span></label><input type="text" id="guest_passport_id_no" name="guest_passport_id_no" value="{{ old('guest_passport_id_no') }}" class="form-control" required maxlength="100" aria-describedby="guest_passport_help"><small id="guest_passport_help" class="text-muted">Required to create the guest booking.</small>@error('guest_passport_id_no')<span class="text-danger d-block">{{ $message }}</span>@enderror</div>
                         <div class="col-lg-12"><label class="form-label" for="guest_document">Attachment</label><input type="file" id="guest_document" name="guest_document" class="form-control" accept=".pdf,.jpg,.jpeg,.png">@error('guest_document')<span class="text-danger">{{ $message }}</span>@enderror</div>
                     </div>
                 </div>
@@ -345,7 +345,11 @@
             event.preventDefault();
             flowError.textContent = 'Invoice periods could not be prepared. Please return to Guest & stay and confirm the check-in and checkout dates.';
             flowError.hidden = false;
+            return;
         }
+        const submit = document.getElementById('booking-submit');
+        submit.disabled = true;
+        submit.innerHTML = '<span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span> Creating booking…';
     });
     window.addEventListener('pageshow', () => {
         calculateBookingTotal();

@@ -4,8 +4,11 @@ namespace App\Http\Controllers\admin\inspections;
 
 use App\Http\Controllers\Controller;
 use App\Models\BookingInspection;
-use App\Support\PdfRenderer;
+use App\Jobs\GenerateInspectionReport;
+use App\Support\InspectionReport;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Storage;
 
 class InspectionController extends Controller
 {
@@ -41,14 +44,41 @@ class InspectionController extends Controller
 
     public function pdf(BookingInspection $inspection)
     {
-        $inspection->load(['booking.property.building', 'property.building', 'submittedBy', 'task', 'items']);
-        $comparison = $this->comparisonFor($inspection);
-        $photoGroups = $inspection->items->filter(fn($item) => count((array)$item->pictures))->map(function($item) {
-            return ['area'=>$item->area,'item'=>$item->item,'condition'=>$item->condition,'comment'=>$item->comment,
-                'photos'=>collect($item->pictures)->map(fn($path)=>\App\Support\InspectionPhotos::thumbnail($path))->all()];
-        });
+        $path = InspectionReport::path($inspection);
+        // Keep signed links and old bookmarked download URLs working. Admin screens
+        // start the background job first, so normal use does not execute this path.
+        if (! Storage::disk('local')->exists($path)) {
+            InspectionReport::generate($inspection);
+        }
 
-        return PdfRenderer::downloadView('admin.inspections.pdf.report', compact('inspection', 'comparison', 'photoGroups'), $inspection->inspection_number . '.pdf');
+        return Storage::disk('local')->download($path, $inspection->inspection_number.'.pdf', ['Content-Type' => 'application/pdf']);
+    }
+
+    public function generatePdf(BookingInspection $inspection)
+    {
+        Cache::put($this->reportCacheKey($inspection), [
+            'status' => 'queued', 'percent' => 1, 'message' => 'Report queued',
+        ], now()->addDay());
+        GenerateInspectionReport::dispatch($inspection->getKey());
+
+        return response()->json(['status' => 'queued']);
+    }
+
+    public function pdfStatus(BookingInspection $inspection)
+    {
+        $state = Cache::get($this->reportCacheKey($inspection), [
+            'status' => Storage::disk('local')->exists(InspectionReport::path($inspection)) ? 'ready' : 'idle',
+            'percent' => Storage::disk('local')->exists(InspectionReport::path($inspection)) ? 100 : 0,
+            'message' => Storage::disk('local')->exists(InspectionReport::path($inspection)) ? 'Report ready' : 'Ready to generate',
+        ]);
+        $state['download_url'] = $state['status'] === 'ready' ? route('admin.inspection.pdf', $inspection) : null;
+
+        return response()->json($state);
+    }
+
+    private function reportCacheKey(BookingInspection $inspection): string
+    {
+        return 'inspection-report:'.$inspection->getKey();
     }
 
     private function comparisonFor(BookingInspection $inspection): array

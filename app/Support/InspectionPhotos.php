@@ -6,6 +6,22 @@ use Illuminate\Support\Facades\Storage;
 
 class InspectionPhotos
 {
+    public static function cachedThumbnail(string $path): ?string
+    {
+        $cachePath = storage_path('app/private/inspection-thumbnails/'.hash('sha256', $path).'.jpg');
+        if (is_file($cachePath)) return str_replace('\\', '/', $cachePath);
+
+        $thumbnail = self::thumbnail($path);
+        if (! $thumbnail) return null;
+
+        $directory = dirname($cachePath);
+        if (! is_dir($directory)) mkdir($directory, 0775, true);
+        $bytes = base64_decode(substr($thumbnail, strpos($thumbnail, ',') + 1), true);
+        if ($bytes === false || file_put_contents($cachePath, $bytes, LOCK_EX) === false) return null;
+
+        return str_replace('\\', '/', $cachePath);
+    }
+
     public static function thumbnail(string $path): ?string
     {
         // Read trusted storage keys, never fetch arbitrary URLs from report data.

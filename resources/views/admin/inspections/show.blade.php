@@ -15,7 +15,7 @@
         <div class="card">
             <div class="card-header d-flex justify-content-between align-items-center">
                 <div><h4 class="card-title mb-1">{{ $inspection->inspection_number }}</h4><p class="text-muted mb-0">{{ $inspection->booking?->booking_reference ?? $inspection->task?->task_display_number ?? 'Unit inspection' }} - {{ $inspection->booking?->guest_name ?? $inspection->submittedBy?->name ?? 'Maintainer' }}</p></div>
-                <a href="{{ route('admin.inspection.pdf', $inspection->id) }}" class="btn btn-primary btn-sm">PDF Report</a>
+                <button type="button" class="btn btn-primary btn-sm" data-inspection-pdf-generate data-generate-url="{{ route('admin.inspection.pdf.generate', $inspection) }}" data-status-url="{{ route('admin.inspection.pdf.status', $inspection) }}">Generate PDF Report</button>
             </div>
             <div class="card-body">
                 <div class="row g-3">
@@ -90,4 +90,5 @@
         </div>
     </div>
 </div>
+@include('admin.inspections.partials.pdf-progress')
 @endsection
