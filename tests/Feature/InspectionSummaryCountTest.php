@@ -41,4 +41,29 @@ class InspectionSummaryCountTest extends TestCase
         $this->assertSame(0, $inspection->na_items);
         $this->assertSame(1, $inspection->fresh()->issue_items);
     }
+
+    public function test_admin_inspection_detail_renders_issue_first_workspace(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $owner = User::factory()->create(['role' => 'landlord']);
+        $property = Property::create(['name' => '812', 'landlord_id' => $owner->id]);
+        $inspection = BookingInspection::create([
+            'property_id' => $property->id,
+            'inspection_number' => 'INSP-NEXT-LEVEL-UI',
+            'type' => 'check_out',
+            'status' => 'submitted',
+            'submitted_at' => now(),
+        ]);
+        $inspection->items()->create([
+            'area' => 'Kitchen', 'item' => 'Sink/Tap', 'condition' => 'issue',
+            'comment' => 'Tap is loose', 'pictures' => [], 'sort_order' => 1,
+        ]);
+
+        $this->actingAs($admin)->get(route('admin.inspection.show', $inspection))
+            ->assertOk()
+            ->assertSee('Attention required')
+            ->assertSee('Room-by-room inspection')
+            ->assertSee('Tap is loose')
+            ->assertSee('Inspection health');
+    }
 }
