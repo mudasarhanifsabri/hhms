@@ -8,11 +8,13 @@ use App\Models\Expense;
 use App\Models\LandlordAccountEntry;
 use App\Models\Property;
 use App\Models\PropertyOwnerDocument;
+use App\Jobs\GenerateOwnerDocumentPdf;
 use App\Models\User;
 use App\Mail\ExpenseTaxInvoiceMail;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Queue;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
@@ -364,6 +366,7 @@ class AdminPagesTest extends TestCase
 
     public function test_admin_can_generate_and_owner_can_sign_property_documents(): void
     {
+        Queue::fake();
         Storage::fake('public');
 
         $admin = User::factory()->create(['role' => 'admin']);
@@ -391,8 +394,11 @@ class AdminPagesTest extends TestCase
 
         $this->actingAs($admin)
             ->post(route('admin.property.owner-documents.store', $property->id), [
+                'agreement_type' => 'new',
                 'furniture_amount' => 10000,
                 'startup_dtcm_fee' => 3000,
+                'company_signer_name' => 'Company Director',
+                'company_signer_email' => 'director@pattern.example',
             ])
             ->assertRedirect(route('admin.property.owner-documents.index', $property->id));
 
@@ -413,12 +419,28 @@ class AdminPagesTest extends TestCase
         $this->post(route('owner-documents.sign', $document->signing_token), [
             'signed_by_name' => $landlord->name,
             'signature_data' => $signature,
+            'accepted' => '1',
         ])->assertRedirect(route('owner-documents.show', $document->signing_token));
 
         $document->refresh();
 
-        $this->assertSame('signed', $document->status);
+        $this->assertSame('awaiting_company_signature', $document->status);
         $this->assertNotNull($document->signed_at);
+
+        $this->get(route('owner-documents.show', $document->company_token))->assertOk();
+        $this->post(route('owner-documents.sign', $document->company_token), [
+            'signed_by_name' => 'Company Director',
+            'signature_data' => $signature,
+            'accepted' => '1',
+        ])->assertRedirect(route('owner-documents.show', $document->company_token));
+
+        $document->refresh();
+        $this->assertSame('fully_signed', $document->status);
+        $this->assertNotNull($document->company_signed_at);
+        $this->assertNotNull($document->completed_at);
+        Queue::assertPushed(GenerateOwnerDocumentPdf::class, 3);
+        (new GenerateOwnerDocumentPdf($document->id))->handle();
+        $document->refresh();
         $this->assertNotNull($document->signed_document_path);
         Storage::disk('public')->assertExists($document->signed_document_path);
     }

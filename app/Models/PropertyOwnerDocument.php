@@ -15,11 +15,14 @@ class PropertyOwnerDocument extends BaseModel
     protected $fillable = [
         'property_id',
         'landlord_id',
+        'package_id',
+        'agreement_type',
         'type',
         'title',
         'reference_no',
         'status',
         'signing_token',
+        'company_token',
         'furniture_amount',
         'startup_dtcm_fee',
         'vat_amount',
@@ -27,10 +30,18 @@ class PropertyOwnerDocument extends BaseModel
         'unsigned_html',
         'signed_html',
         'signature_data',
+        'owner_signed_name',
+        'company_signature_data',
+        'company_signed_name',
+        'company_signer_email',
         'signed_document_path',
         'sent_at',
         'viewed_at',
         'signed_at',
+        'company_sent_at',
+        'company_viewed_at',
+        'company_signed_at',
+        'completed_at',
         'expires_at',
     ];
 
@@ -42,6 +53,10 @@ class PropertyOwnerDocument extends BaseModel
         'sent_at' => 'datetime',
         'viewed_at' => 'datetime',
         'signed_at' => 'datetime',
+        'company_sent_at' => 'datetime',
+        'company_viewed_at' => 'datetime',
+        'company_signed_at' => 'datetime',
+        'completed_at' => 'datetime',
         'expires_at' => 'date',
     ];
 
@@ -58,5 +73,10 @@ class PropertyOwnerDocument extends BaseModel
     public function getStatusLabelAttribute(): string
     {
         return ucfirst(str_replace('_', ' ', $this->status));
+    }
+
+    public function getAgreementTypeLabelAttribute(): string
+    {
+        return $this->agreement_type === 'renewal' ? 'Renewal Agreement' : 'New Agreement';
     }
 }

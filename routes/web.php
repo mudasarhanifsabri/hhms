@@ -40,7 +40,7 @@ Route::middleware(['auth'])->get('/dashboard', function () {
 })->name('dashboard');
 
 Route::get('/owner-documents/{token}', [OwnerDocumentSigningController::class, 'show'])->name('owner-documents.show');
-Route::post('/owner-documents/{token}/sign', [OwnerDocumentSigningController::class, 'sign'])->name('owner-documents.sign');
+Route::post('/owner-documents/{token}/sign', [OwnerDocumentSigningController::class, 'sign'])->middleware('throttle:10,1')->name('owner-documents.sign');
 Route::get('/owner-documents/{token}/pdf', [OwnerDocumentSigningController::class, 'pdf'])->name('owner-documents.pdf');
 Route::get('/unit-cancellations/{token}', [UnitManagementCancellationSigningController::class, 'show'])->name('unit-cancellations.show');
 Route::post('/unit-cancellations/{token}/sign', [UnitManagementCancellationSigningController::class, 'sign'])->middleware('throttle:10,1')->name('unit-cancellations.sign');

@@ -23,8 +23,11 @@ class PropertyOwnerDocumentController extends Controller
     public function store(Request $request, Property $property)
     {
         $validated = $request->validate([
+            'agreement_type' => 'required|in:new,renewal',
             'furniture_amount' => 'nullable|numeric|min:0',
             'startup_dtcm_fee' => 'nullable|numeric|min:0',
+            'company_signer_name' => 'required|string|max:255',
+            'company_signer_email' => 'required|email:rfc|max:255',
         ]);
 
         $property->load(['landlord', 'building', 'ownerShares.owner']);
@@ -32,17 +35,26 @@ class PropertyOwnerDocumentController extends Controller
         $startupDtcmFee = (float) ($validated['startup_dtcm_fee'] ?? 0);
         $vatAmount = round($furnitureAmount * 0.05, 2);
         $totalAmount = $furnitureAmount + $startupDtcmFee + $vatAmount;
+        $packageId = (string) Str::uuid();
+        $ownerToken = Str::random(64);
+        $companyToken = Str::random(64);
+        $created = collect();
 
         foreach (PropertyOwnerDocument::TYPES as $type => $title) {
             $referenceNo = $this->referenceNo($type);
             $document = new PropertyOwnerDocument([
                 'property_id' => $property->id,
                 'landlord_id' => $property->landlord_id,
+                'package_id' => $packageId,
+                'agreement_type' => $validated['agreement_type'],
                 'type' => $type,
                 'title' => $title,
                 'reference_no' => $referenceNo,
                 'status' => 'sent',
-                'signing_token' => Str::random(48),
+                'signing_token' => $ownerToken,
+                'company_token' => $companyToken,
+                'company_signed_name' => $validated['company_signer_name'],
+                'company_signer_email' => $validated['company_signer_email'],
                 'furniture_amount' => $furnitureAmount,
                 'startup_dtcm_fee' => $startupDtcmFee,
                 'vat_amount' => $vatAmount,
@@ -60,12 +72,13 @@ class PropertyOwnerDocumentController extends Controller
                 'signedByName' => null,
             ])->render();
             $document->save();
-
-            $this->sendSigningLink($document);
+            $created->push($document);
         }
 
+        $this->sendSigningLink($created->first());
+
         return redirect()->route('admin.property.owner-documents.index', $property->id)
-            ->with('success', 'Owner documents generated and marked as sent. Share the signing links with the owner.');
+            ->with('success', $created->first()->agreement_type_label.' package created. The owner signing link covers all three documents.');
     }
 
     private function referenceNo(string $type): string

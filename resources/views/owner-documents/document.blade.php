@@ -14,7 +14,8 @@
     };
 
     $logoSrc = $assetData(public_path('assets/images/pattern-contract-logo.png'));
-    $companySignatureSrc = $assetData(public_path('assets/images/mr-sultan-signature.png'));
+    $legacyCompanySignatureSrc = $assetData(public_path('assets/images/mr-sultan-signature.png'));
+    $companySignatureSrc = ($companySignatureData ?? null) ?: ($document->completed_at && !$document->company_token ? $legacyCompanySignatureSrc : null);
     $stampSrc = $assetData(public_path('assets/images/vacation-homes-rental-stamp.png'));
 
     $ownerShares = $property->relationLoaded('ownerShares') ? $property->ownerShares : $property->ownerShares()->with('owner')->get();
@@ -234,12 +235,12 @@
             <div class="sig-cell">
                 <div class="sig-heading"><span>The COMPANY</span><span class="ar">الشركة</span></div>
                 Pattern Vacation Homes Rental LLC<br>
-                Sultan Alhemeiri<br>
-                Chief Executive Officer
+                {{ ($companySignedByName ?? null) ?: $document->company_signed_name ?: 'Authorized Signatory' }}<br>
+                Authorized Representative
                 <div class="sigline">
-                    @if($companySignatureSrc)<img src="{{ $companySignatureSrc }}" class="sig-img" alt="Signature">@else Signature on file @endif
+                    @if($companySignatureSrc)<img src="{{ $companySignatureSrc }}" class="sig-img" alt="Company Signature">@else Awaiting company signature @endif
                 </div>
-                Date: {{ $document->signed_at?->format('d/m/Y') ?? $startDate }}
+                Date: {{ $document->company_signed_at?->format('d/m/Y H:i') ?? 'Pending signature' }}
             </div>
             <div class="sig-cell">
                 <div class="sig-heading"><span>The OWNER</span><span class="ar">المالك</span></div>

@@ -89,15 +89,16 @@
                 <div class="d-flex align-items-center gap-2"><span class="badge {{ $document->expiry_status === 'expired' ? 'bg-danger' : ($document->expiry_status === 'expiring' ? 'bg-warning' : 'bg-success') }}">{{ str($document->expiry_status)->headline() }}</span><a href="{{ \App\Support\MediaStorage::url($document->file_path) }}" target="_blank" class="btn btn-sm btn-dark">Open</a></div>
             </div>
         @endforeach
-        @forelse($documents as $document)
+            @forelse($documents->groupBy(fn($item) => $item->package_id ?: $item->id) as $package)
+                @php($document = $package->first())
             <div class="portal-list-item">
                 <div>
-                    <strong>{{ $document->title }}</strong>
-                    <p>{{ $document->property?->name }} - {{ $document->reference_no }}</p>
+                    <strong>{{ $document->agreement_type_label }}</strong>
+                    <p>{{ $document->property?->name }} · 3 documents · {{ $document->reference_no }}</p>
                 </div>
                 <div class="d-flex align-items-center gap-2">
-                    <span class="badge {{ $document->status === 'signed' ? 'bg-success' : 'bg-warning' }}">{{ $document->status_label }}</span>
-                    <a href="{{ route('owner-documents.show', $document->signing_token) }}" target="_blank" class="btn btn-sm btn-primary">Open</a>
+                    <span class="badge {{ $document->status === 'fully_signed' ? 'bg-success' : ($document->status === 'awaiting_company_signature' ? 'bg-info' : 'bg-warning') }}">{{ $document->status_label }}</span>
+                    <a href="{{ route('owner-documents.show', $document->signing_token) }}" target="_blank" class="btn btn-sm btn-primary">Open Package</a>
                 </div>
             </div>
         @empty

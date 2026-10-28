@@ -1,101 +1,26 @@
 @extends('layouts.app')
-
 @section('content')
-@php
-    $owner = $property->landlord;
-@endphp
-
+@php($owner = $property->landlord)
+@php($packages = $documents->groupBy(fn($document) => $document->package_id ?: $document->id))
 @include('admin.properties.partials.unit-tabs')
-
-<div class="row">
-    <div class="col-xl-4">
-        <div class="card">
-            <div class="card-header bg-light-subtle">
-                <h4 class="card-title mb-0">Generate Owner Documents</h4>
-            </div>
-            <div class="card-body">
-                @if(session('success'))
-                    <div class="alert alert-success">{{ session('success') }}</div>
-                @endif
-
-                <p class="mb-1"><strong>Unit:</strong> {{ $property->name }}</p>
-                <p class="mb-1"><strong>Owner:</strong> {{ $owner->name ?? 'N/A' }}</p>
-                <p class="mb-3"><strong>Expiry:</strong> One year from sending date</p>
-
-                <form action="{{ route('admin.property.owner-documents.store', $property->id) }}" method="POST">
-                    @csrf
-                    <div class="mb-3">
-                        <label for="furniture_amount" class="form-label">Furniture Amount</label>
-                        <input type="number" step="0.01" min="0" id="furniture_amount" name="furniture_amount" class="form-control" value="{{ old('furniture_amount', 0) }}">
-                        <small class="text-muted">VAT 5% is calculated from furniture only.</small>
-                    </div>
-                    <div class="mb-3">
-                        <label for="startup_dtcm_fee" class="form-label">Startup / DTCM Fee</label>
-                        <input type="number" step="0.01" min="0" id="startup_dtcm_fee" name="startup_dtcm_fee" class="form-control" value="{{ old('startup_dtcm_fee', 0) }}">
-                    </div>
-                    <button type="submit" class="btn btn-primary w-100">
-                        <i class="ri-send-plane-line me-1"></i>Generate & Send For Signature
-                    </button>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <div class="col-xl-8">
-        <div class="card">
-            <div class="card-header d-flex align-items-center justify-content-between">
-                <h4 class="card-title mb-0">Owner Signature Tracking</h4>
-                <a href="{{ route('admin.property.show', $property->id) }}" class="btn btn-light btn-sm">
-                    <i class="ri-arrow-left-line me-1"></i>Unit Details
-                </a>
-            </div>
-            <div class="card-body">
-                <div class="table-responsive">
-                    <table class="table table-hover align-middle mb-0">
-                        <thead class="bg-light-subtle">
-                            <tr>
-                                <th>Document</th>
-                                <th>Ref No</th>
-                                <th>Status</th>
-                                <th>Expiry</th>
-                                <th>Signed File</th>
-                                <th>Owner Link</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @forelse($documents as $document)
-                                <tr>
-                                    <td>{{ $document->title }}</td>
-                                    <td>{{ $document->reference_no }}</td>
-                                    <td>
-                                        <span class="badge {{ $document->status === 'signed' ? 'bg-success' : ($document->status === 'viewed' ? 'bg-info' : 'bg-warning') }}">
-                                            {{ $document->status_label }}
-                                        </span>
-                                    </td>
-                                    <td>{{ $document->expires_at?->format('d M Y') }}</td>
-                                    <td>
-                                        @if($document->signed_document_path)
-                                            <a href="{{ route('owner-documents.pdf', $document->signing_token) }}" target="_blank" class="btn btn-sm btn-dark">Open PDF</a>
-                                        @else
-                                            <a href="{{ route('owner-documents.pdf', $document->signing_token) }}" target="_blank" class="btn btn-sm btn-light">Preview</a>
-                                        @endif
-                                    </td>
-                                    <td>
-                                        <a href="{{ route('owner-documents.show', $document->signing_token) }}" target="_blank" class="btn btn-sm btn-soft-primary">
-                                            Sign Link
-                                        </a>
-                                    </td>
-                                </tr>
-                            @empty
-                                <tr>
-                                    <td colspan="6" class="text-center text-muted py-4">No owner documents generated yet.</td>
-                                </tr>
-                            @endforelse
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
+<style>
+.agreement-hero{border-radius:20px;padding:24px 26px;margin-bottom:18px;color:#fff;background:linear-gradient(125deg,#17243b,#2f4164 62%,#6650e6);display:flex;justify-content:space-between;gap:20px;align-items:center}.agreement-hero h3{color:#fff;font-weight:800;margin:0 0 6px}.agreement-hero p{color:#cbd3e1;margin:0}.agreement-layout{display:grid;grid-template-columns:380px minmax(0,1fr);gap:18px;align-items:start}.agreement-card{background:var(--bs-secondary-bg,#fff);border:1px solid #e7eaf1;border-radius:18px;box-shadow:0 7px 25px rgba(23,36,59,.05);overflow:hidden}.agreement-card-head{padding:18px 20px;border-bottom:1px solid #eaedf3}.agreement-card-head h4{font-size:15px;font-weight:800;margin:0;color:#17243b}.agreement-body{padding:20px}.agreement-type-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}.agreement-type-grid input{position:absolute;opacity:0}.agreement-type-grid label{padding:13px;border:1px solid #dfe3eb;border-radius:12px;cursor:pointer}.agreement-type-grid label strong,.agreement-type-grid label small{display:block}.agreement-type-grid label small{color:#7b8698;margin-top:3px}.agreement-type-grid input:checked+label{border-color:#6650e6;background:#f1efff;color:#4b37c7;box-shadow:0 0 0 2px rgba(102,80,230,.1)}.agreement-package{padding:17px;border:1px solid #e7eaf1;border-radius:15px;margin-bottom:12px}.agreement-package-top{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}.agreement-package h5{font-weight:800;color:#17243b;margin:0 0 4px}.agreement-flow{display:flex;align-items:center;margin:15px 0}.agreement-step{flex:1;text-align:center;position:relative;font-size:10px;color:#8993a3}.agreement-step:before{content:"";display:block;width:24px;height:24px;margin:0 auto 5px;border-radius:50%;background:#edf0f4;border:5px solid #fff;box-shadow:0 0 0 1px #dfe4eb;position:relative;z-index:1}.agreement-step:after{content:"";height:2px;background:#e3e7ed;position:absolute;top:11px;left:50%;width:100%}.agreement-step:last-child:after{display:none}.agreement-step.done:before{background:#20a66a;box-shadow:0 0 0 1px #20a66a}.agreement-step.done:after{background:#20a66a}.agreement-docs{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.agreement-doc{padding:10px;border-radius:10px;background:#f7f8fb;display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:11px}.agreement-actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:12px}@media(max-width:1100px){.agreement-layout{grid-template-columns:1fr}}@media(max-width:650px){.agreement-hero{display:block}.agreement-docs{grid-template-columns:1fr}.agreement-type-grid{grid-template-columns:1fr}}
+</style>
+<div class="agreement-hero"><div><h3>Agreement Signing Workspace</h3><p>Prepare, send and track complete owner agreement packages for Unit {{ $property->name }}.</p></div><div class="text-end"><strong>{{ $owner?->name ?? 'No owner assigned' }}</strong><br><small>{{ $property->building?->building_name ?? $property->building?->name }}</small></div></div>
+@if(session('success'))<div class="alert alert-success">{{ session('success') }}</div>@endif
+<div class="agreement-layout">
+<section class="agreement-card"><header class="agreement-card-head"><h4>Create agreement package</h4></header><div class="agreement-body">
+<div class="alert alert-light border small"><strong>One smooth signing flow</strong><br>The owner signs once for the NOC, Management Letter and Management Contract. The company countersigns after the owner.</div>
+<form action="{{ route('admin.property.owner-documents.store',$property) }}" method="POST">@csrf
+<label class="form-label fw-semibold">Agreement type</label><div class="agreement-type-grid mb-3"><input id="agreement-new" type="radio" name="agreement_type" value="new" @checked(old('agreement_type','new')==='new')><label for="agreement-new"><strong><i class="ri-file-add-line"></i> New Agreement</strong><small>First management appointment</small></label><input id="agreement-renewal" type="radio" name="agreement_type" value="renewal" @checked(old('agreement_type')==='renewal')><label for="agreement-renewal"><strong><i class="ri-refresh-line"></i> Renewal</strong><small>Renew the management term</small></label></div>
+<div class="row g-2"><div class="col-6"><label class="form-label">Furniture amount</label><input class="form-control" type="number" min="0" step=".01" name="furniture_amount" value="{{ old('furniture_amount',0) }}"></div><div class="col-6"><label class="form-label">Startup / DTCM</label><input class="form-control" type="number" min="0" step=".01" name="startup_dtcm_fee" value="{{ old('startup_dtcm_fee',0) }}"></div></div>
+<hr><label class="form-label">Company signatory</label><input class="form-control mb-2" name="company_signer_name" value="{{ old('company_signer_name',auth()->user()->name) }}" required><label class="form-label">Company signatory email</label><input type="email" class="form-control mb-3" name="company_signer_email" value="{{ old('company_signer_email',auth()->user()->email) }}" required>
+<button class="btn btn-primary w-100 py-2"><i class="ri-send-plane-fill me-1"></i>Create & send to owner</button></form></div></section>
+<section class="agreement-card"><header class="agreement-card-head d-flex justify-content-between"><div><h4>Agreement packages</h4><small class="text-muted">Creation and both-party signature tracking</small></div><span class="badge bg-light text-dark">{{ $packages->count() }} packages</span></header><div class="agreement-body">
+@forelse($packages as $package)<article class="agreement-package">@php($first=$package->first())<div class="agreement-package-top"><div><h5>{{ $first->agreement_type_label }} · Unit {{ $property->name }}</h5><small class="text-muted">Created {{ $first->created_at?->format('d M Y, h:i A') }} · Expires {{ $first->expires_at?->format('d M Y') }}</small></div><span class="badge {{ $first->status==='fully_signed'?'bg-success':($first->status==='awaiting_company_signature'?'bg-info':'bg-warning text-dark') }}">{{ $first->status_label }}</span></div>
+<div class="agreement-flow"><div class="agreement-step done">Created</div><div class="agreement-step {{ $first->viewed_at?'done':'' }}">Owner viewed</div><div class="agreement-step {{ $first->signed_at?'done':'' }}">Owner signed</div><div class="agreement-step {{ $first->company_signed_at?'done':'' }}">Company signed</div></div>
+<div class="agreement-docs">@foreach($package as $doc)<div class="agreement-doc"><span><i class="ri-file-text-line me-1"></i>{{ $doc->title }}</span><a target="_blank" href="{{ route('owner-documents.pdf',['token'=>$doc->signing_token,'document'=>$doc->id]) }}">PDF</a></div>@endforeach</div>
+<div class="agreement-actions"><a class="btn btn-sm btn-outline-primary" target="_blank" href="{{ route('owner-documents.show',$first->signing_token) }}"><i class="ri-user-line"></i> Owner link</a>@if($first->signed_at && $first->company_token)<a class="btn btn-sm btn-outline-dark" target="_blank" href="{{ route('owner-documents.show',$first->company_token) }}"><i class="ri-building-line"></i> Company link</a>@endif</div></article>
+@empty<div class="text-center py-5"><i class="ri-file-shield-2-line fs-1 text-muted"></i><h5 class="mt-2">No agreement packages yet</h5><p class="text-muted">Create a New Agreement or Renewal package to begin.</p></div>@endforelse
+</div></section></div>
 @endsection

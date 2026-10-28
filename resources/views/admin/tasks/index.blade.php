@@ -233,7 +233,7 @@
                             <option value="">No booking / property task</option>
                             @foreach($bookings as $booking)
                                 <option value="{{ $booking->id }}" @selected(old('booking_id') === $booking->id)>
-                                    {{ $booking->booking_reference }} - {{ $booking->property?->name ?? 'Unit' }}
+                                    {{ $booking->booking_reference }} — {{ $booking->property?->building?->building_name ?? 'Building not set' }} — Unit {{ $booking->property?->name ?? 'N/A' }}
                                 </option>
                             @endforeach
                         </select>
@@ -244,7 +244,7 @@
                             <option value="">Select unit</option>
                             @foreach($properties as $property)
                                 <option value="{{ $property->id }}" @selected(old('property_id') === $property->id)>
-                                    {{ $property->building?->name ? $property->building->name . ' - ' : '' }}{{ $property->name }}
+                                    {{ $property->building?->building_name ?? 'Building not set' }} — Unit {{ $property->name }}
                                 </option>
                             @endforeach
                         </select>
