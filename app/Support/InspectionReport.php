@@ -16,6 +16,7 @@ class InspectionReport
 
     public static function generate(BookingInspection $inspection, ?callable $progress = null): string
     {
+        $inspection->recalculateSummary();
         $inspection->load(['booking.property.building', 'property.building', 'submittedBy', 'task', 'items']);
         $progress?->__invoke(8, 'Loading inspection details');
 

@@ -677,13 +677,7 @@ class MaintainerController extends Controller
 
     private function recalculateInspection(BookingInspection $inspection): void
     {
-        $items = $inspection->items;
-        $inspection->update([
-            'total_items' => $items->count(),
-            'good_items' => $items->where('condition', 'good')->count(),
-            'issue_items' => $items->where('condition', 'issue')->count(),
-            'na_items' => $items->where('condition', 'na')->count(),
-        ]);
+        $inspection->recalculateSummary();
     }
 
     private function nextInspectionNumber(): string

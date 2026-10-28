@@ -33,6 +33,7 @@ class InspectionController extends Controller
 
     public function show(BookingInspection $inspection)
     {
+        $inspection->recalculateSummary();
         $inspection->load(['booking.property.building', 'property.building', 'submittedBy', 'task', 'items']);
         $comparison = $this->comparisonFor($inspection);
 

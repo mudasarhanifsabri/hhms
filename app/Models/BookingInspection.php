@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\DB;
 
 class BookingInspection extends BaseModel
 {
@@ -55,6 +56,28 @@ class BookingInspection extends BaseModel
     public function items(): HasMany
     {
         return $this->hasMany(BookingInspectionItem::class)->orderBy('sort_order');
+    }
+
+    public function recalculateSummary(): void
+    {
+        $counts = $this->items()
+            ->select('condition', DB::raw('COUNT(*) as aggregate'))
+            ->groupBy('condition')
+            ->pluck('aggregate', 'condition');
+
+        $summary = [
+            'total_items' => (int) $counts->sum(),
+            'good_items' => (int) ($counts['good'] ?? 0),
+            'issue_items' => (int) ($counts['issue'] ?? 0),
+            'na_items' => (int) ($counts['na'] ?? 0),
+        ];
+
+        if (collect($summary)->contains(fn ($value, $key) => (int) $this->getAttribute($key) !== $value)) {
+            $this->forceFill($summary)->save();
+        }
+
+        $this->setRawAttributes(array_merge($this->getAttributes(), $summary), true);
+        $this->unsetRelation('items');
     }
 
     public function getTypeLabelAttribute(): string
