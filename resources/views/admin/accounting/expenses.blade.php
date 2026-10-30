@@ -57,7 +57,7 @@
     </div>
     <div class="expense-filter">
         <form class="row g-2">
-            <div class="col-md-2"><label>Category</label><select name="category" class="form-select"><option value="">All Categories</option>@foreach($expenseCategories as $key => $label)<option value="{{ $key }}" @selected(request('category')===$key)>{{ $label }}</option>@endforeach</select></div>
+            <div class="col-md-2"><label>Category</label><select name="category" class="form-select"><option value="">All Categories</option>@include('admin.accounting.partials.expense-category-options', ['selectedCategory' => request('category')])</select></div>
             @if(isset($scopedProperty))<input type="hidden" name="property_id" value="{{ $scopedProperty->id }}">@else<div class="col-md-2"><label>Unit</label><select name="property_id" class="form-select"><option value="">All Units</option>@foreach($properties as $property)<option value="{{ $property->id }}" @selected(request('property_id')===$property->id)>{{ $property->name }} — {{ $property->building?->building_name ?? $property->building?->name ?? 'No Building' }}</option>@endforeach</select></div>@endif
             <div class="col-md-2"><label>Status</label>
                 <select name="approval_status" class="form-select">
@@ -141,7 +141,7 @@
         <div class="modal-header"><h5 class="modal-title">Record Expense</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
         <div class="modal-body row g-3">
             <div class="col-md-4"><label class="form-label">Date</label><input type="date" name="expense_date" value="{{ now()->toDateString() }}" class="form-control" required></div>
-            <div class="col-md-4"><label class="form-label">Category</label><select name="category" class="form-select" required>@foreach($expenseCategories as $key => $label)<option value="{{ $key }}">{{ $label }}</option>@endforeach</select></div>
+            <div class="col-md-4"><label class="form-label">Category</label><select name="category" class="form-select expense-category-smart" required>@include('admin.accounting.partials.expense-category-options', ['selectedCategory' => old('category', 'cleaning'), 'includeSmartDefaults' => true])</select><small class="text-muted">Selecting a category suggests payer, billing, recurrence and VAT defaults.</small></div>
             <div class="col-md-4"><label class="form-label">Vendor</label><select name="vendor_id" class="form-select"><option value="">Select vendor</option>@foreach($vendors as $vendor)<option value="{{ $vendor->id }}">{{ $vendor->name }}</option>@endforeach</select></div>
             <div class="col-md-4"><label class="form-label">Supplier Text</label><input name="supplier" class="form-control"></div>
             @if(isset($scopedProperty))<input type="hidden" name="property_id" value="{{ $scopedProperty->id }}"><div class="col-md-6"><label class="form-label">Unit</label><div class="form-control bg-light fw-semibold"><i class="ri-building-line me-1 text-primary"></i>{{ $scopedProperty->name }} — {{ $scopedProperty->building?->building_name ?? $scopedProperty->building?->name }}</div></div>@else<div class="col-md-6"><label class="form-label">Unit</label><select name="property_id" class="form-select"><option value="">General Company Expense</option>@foreach($properties as $property)<option value="{{ $property->id }}">{{ $property->name }} — {{ $property->building?->building_name ?? $property->building?->name ?? 'No Building' }}</option>@endforeach</select></div>@endif
@@ -212,7 +212,7 @@
             </div>
             <div class="modal-body row g-3">
                 <div class="col-md-4"><label class="form-label">Date</label><input type="date" name="expense_date" value="{{ $expense->expense_date?->toDateString() }}" class="form-control" required></div>
-                <div class="col-md-4"><label class="form-label">Category</label><select name="category" class="form-select" required>@foreach($expenseCategories as $key => $label)<option value="{{ $key }}" @selected($expense->category === $key)>{{ $label }}</option>@endforeach</select></div>
+                <div class="col-md-4"><label class="form-label">Category</label><select name="category" class="form-select expense-category-smart" required>@include('admin.accounting.partials.expense-category-options', ['selectedCategory' => $expense->category, 'includeSmartDefaults' => true])</select></div>
                 <div class="col-md-4"><label class="form-label">Vendor</label><select name="vendor_id" class="form-select"><option value="">Select vendor</option>@foreach($vendors as $vendor)<option value="{{ $vendor->id }}" @selected($expense->vendor_id === $vendor->id)>{{ $vendor->name }}</option>@endforeach</select></div>
                 <div class="col-md-4"><label class="form-label">Supplier Text</label><input name="supplier" value="{{ $expense->supplier }}" class="form-control"></div>
                 @if(isset($scopedProperty))<input type="hidden" name="property_id" value="{{ $scopedProperty->id }}"><div class="col-md-4"><label class="form-label">Unit</label><div class="form-control bg-light fw-semibold">{{ $scopedProperty->name }} — {{ $scopedProperty->building?->building_name ?? $scopedProperty->building?->name }}</div></div>@else<div class="col-md-4"><label class="form-label">Unit</label><select name="property_id" class="form-select"><option value="">General Company Expense</option>@foreach($properties as $property)<option value="{{ $property->id }}" @selected($expense->property_id === $property->id)>{{ $property->name }} — {{ $property->building?->building_name ?? $property->building?->name ?? 'No Building' }}</option>@endforeach</select></div>@endif
@@ -271,6 +271,26 @@ document.querySelectorAll('.expense-responsibility').forEach((select) => {
     };
     select.addEventListener('change', syncOwnerBilling);
     syncOwnerBilling();
+});
+document.querySelectorAll('.expense-category-smart').forEach((select) => {
+    const form = select.closest('form');
+    const applyCategoryDefaults = () => {
+        const option = select.selectedOptions[0];
+        if (!form || !option) return;
+        const responsibility = form.querySelector('.expense-responsibility');
+        const ownerBillable = form.querySelector('.owner-billable');
+        const recurring = form.querySelector('[name="recurring_enabled"]');
+        if (responsibility && option.dataset.responsibility) responsibility.value = option.dataset.responsibility;
+        if (ownerBillable) ownerBillable.checked = option.dataset.ownerBillable === '1';
+        if (recurring) recurring.checked = option.dataset.recurring === '1';
+        form.querySelectorAll('[name="cost_vat_mode"], [name="sale_vat_mode"]').forEach((radio) => {
+            radio.checked = radio.value === (option.dataset.vatMode || 'excluded');
+        });
+        responsibility?.dispatchEvent(new Event('change', { bubbles: true }));
+        form.querySelector('.expense-cost')?.dispatchEvent(new Event('input', { bubbles: true }));
+    };
+    select.addEventListener('change', applyCategoryDefaults);
+    if (select.closest('#expenseModal') && !{{ old('category') ? 'true' : 'false' }}) applyCategoryDefaults();
 });
 document.querySelectorAll('#expenseModal form, [id^="editExpense"] form').forEach((form) => {
     const mode = name => form.querySelector(`[name="${name}"]:checked`)?.value || form.querySelector(`[name="${name}"]`)?.value || 'excluded';

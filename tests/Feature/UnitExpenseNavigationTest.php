@@ -26,11 +26,14 @@ class UnitExpenseNavigationTest extends TestCase
 
         $this->actingAs($accountant)->get(route('admin.property.expenses', $unit))
             ->assertOk()->assertSee('Unit Expenses · 501')->assertSee('Add New Expense')
+            ->assertSee('<optgroup label="Utilities">', false)
+            ->assertSee('Airbnb Commission')
+            ->assertSee('data-recurring="1"', false)
             ->assertSee('EXP-UNIT-501')->assertSee('name="property_id" value="'.$unit->id.'"', false)
             ->assertSee(route('admin.property.account-statement', $unit), false)
             ->assertSee(route('admin.accounting.expenses.report.pdf').'?property_id='.$unit->id, false)
             ->assertSee(route('admin.accounting.expenses.report.csv').'?property_id='.$unit->id, false)
-            ->assertDontSee('General Company Expense');
+            ->assertDontSee('<option value="">General Company Expense</option>', false);
 
         $this->get(route('admin.property.account-statement', $unit))
             ->assertOk()
@@ -39,5 +42,9 @@ class UnitExpenseNavigationTest extends TestCase
             ->assertSee('Back to Unit')
             ->assertSee('name="property_id" value="'.$unit->id.'"', false)
             ->assertDontSee('href="'.route('admin.landlord.show', $owner).'"', false);
+
+        $this->assertSame([
+            'responsibility' => 'owner', 'owner_billable' => true, 'recurring' => true, 'vat_mode' => 'excluded',
+        ], Expense::categoryDefaults('internet'));
     }
 }

@@ -65,9 +65,7 @@
                 <label class="form-label">Default Category</label>
                 <select name="default_category" class="form-select">
                     <option value="">Use detected category</option>
-                    @foreach($expenseCategories as $key => $label)
-                        <option value="{{ $key }}">{{ $label }}</option>
-                    @endforeach
+                    @include('admin.accounting.partials.expense-category-options')
                 </select>
             </div>
             <div class="col-lg-3">
