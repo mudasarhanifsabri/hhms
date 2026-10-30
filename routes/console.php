@@ -10,3 +10,4 @@ Artisan::command('inspire', function () {
 
 Schedule::command('dtcm:send-expiry-reminders')->dailyAt('08:00')->withoutOverlapping();
 Schedule::command('bookings:send-checkout-reminders')->dailyAt('09:00')->withoutOverlapping();
+Schedule::command('expenses:generate-recurring')->dailyAt('00:10')->withoutOverlapping();

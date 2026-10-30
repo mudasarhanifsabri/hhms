@@ -115,6 +115,9 @@ class AccountingController extends Controller
             'category' => 'nullable|string|max:100',
             'accounting_account_id' => 'nullable|exists:accounting_accounts,id',
             'description' => 'nullable|string|max:1000',
+            'recurring_enabled' => 'nullable|boolean',
+            'recurrence_day' => 'nullable|integer|min:1|max:31',
+            'recurring_until' => 'nullable|date|after_or_equal:expense_date',
             'property_id' => 'nullable|exists:properties,id',
             'landlord_id' => 'nullable|exists:users,id',
             'booking_id' => 'nullable|exists:bookings,id',
@@ -568,7 +571,16 @@ class AccountingController extends Controller
             'quotation_path' => $quotation,
             'approval_status' => $data['approval_status'] ?? 'pending',
             'created_by' => auth()->id(),
+            'recurring_enabled' => $request->boolean('recurring_enabled'),
+            'recurrence_day' => $request->boolean('recurring_enabled') ? (int)($data['recurrence_day'] ?? \Illuminate\Support\Carbon::parse($data['expense_date'])->day) : null,
+            'recurring_until' => $request->boolean('recurring_enabled') ? ($data['recurring_until'] ?? null) : null,
         ]);
+
+        if ($expense->recurring_enabled) {
+            $next = $expense->expense_date->copy()->addMonthNoOverflow();
+            $next->day(min($expense->recurrence_day, $next->daysInMonth));
+            $expense->update(['recurring_parent_id' => $expense->id, 'next_recurrence_date' => $next]);
+        }
 
         if ($this->expenseShouldPost($expense)) {
             $entry = $this->postExpenseEntry($expense);
@@ -619,6 +631,9 @@ class AccountingController extends Controller
             'quotation' => 'nullable|file|mimes:pdf,jpg,jpeg,png,webp|max:10240',
             'approval_status' => 'required|in:draft,pending,reviewed,approved,paid,rejected',
             'description' => 'nullable|string|max:1000',
+            'recurring_enabled' => 'nullable|boolean',
+            'recurrence_day' => 'nullable|integer|min:1|max:31',
+            'recurring_until' => 'nullable|date|after_or_equal:expense_date',
         ]);
         if ($protectedEdit) {
             $data['approval_status'] = $expense->approval_status;
@@ -656,7 +671,18 @@ class AccountingController extends Controller
             'invoice_path' => $invoice ?? $expense->invoice_path,
             'quotation_path' => $quotation ?? $expense->quotation_path,
             'needs_review' => in_array($data['approval_status'], ['draft', 'pending'], true) ? $expense->needs_review : false,
+            'recurring_enabled' => $request->boolean('recurring_enabled'),
+            'recurrence_day' => $request->boolean('recurring_enabled') ? (int)($data['recurrence_day'] ?? \Illuminate\Support\Carbon::parse($data['expense_date'])->day) : null,
+            'recurring_until' => $request->boolean('recurring_enabled') ? ($data['recurring_until'] ?? null) : null,
         ]);
+
+        if ($expense->recurring_enabled && ! $expense->next_recurrence_date) {
+            $next = $expense->expense_date->copy()->addMonthNoOverflow();
+            $next->day(min($expense->recurrence_day, $next->daysInMonth));
+            $expense->update(['recurring_parent_id' => $expense->recurring_parent_id ?: $expense->id, 'next_recurrence_date' => $next]);
+        } elseif (! $expense->recurring_enabled) {
+            $expense->update(['next_recurrence_date' => null]);
+        }
 
         if ($expense->accounting_entry_id) {
             $expense->accountingEntry()->update([

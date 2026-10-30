@@ -61,6 +61,8 @@ class Expense extends BaseModel
         'description',
         'accounting_entry_id',
         'created_by',
+        'recurring_enabled', 'recurrence_day', 'next_recurrence_date', 'recurring_until',
+        'recurring_parent_id', 'recurring_for_month',
     ];
 
     protected $casts = [
@@ -83,6 +85,10 @@ class Expense extends BaseModel
         'owner_approval_requested_at' => 'datetime',
         'owner_approval_sent_at' => 'datetime',
         'owner_decided_at' => 'datetime',
+        'recurring_enabled' => 'boolean',
+        'next_recurrence_date' => 'date',
+        'recurring_until' => 'date',
+        'recurring_for_month' => 'date',
     ];
 
     public function property(): BelongsTo
