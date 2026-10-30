@@ -13,6 +13,11 @@
     $buildingLabel = isset($scopedProperty)
         ? ($scopedProperty->building?->building_name ?? $scopedProperty->building?->name ?? 'Building not assigned')
         : null;
+    $reportParameters = request()->query();
+    if (isset($scopedProperty)) {
+        $reportParameters['property_id'] = $scopedProperty->id;
+    }
+    $reportQuery = http_build_query($reportParameters);
 @endphp
 
 <style>
@@ -28,8 +33,8 @@
             <div class="expense-subtitle mt-1">{{ isset($scopedProperty) ? 'Track costs, owner charges, approvals and supporting documents for this unit.' : 'Review, approve and report company and unit expenses from one place.' }}</div>
         </div>
         <div class="hero-actions d-flex flex-wrap justify-content-end gap-2">
-            <a href="{{ url('/admin/accounting/expenses/report/pdf').(request()->getQueryString() ? '?'.request()->getQueryString() : '') }}" class="btn btn-light"><i class="ri-file-pdf-2-line me-1 text-danger"></i>PDF</a>
-            <a href="{{ url('/admin/accounting/expenses/report/csv').(request()->getQueryString() ? '?'.request()->getQueryString() : '') }}" class="btn btn-light"><i class="ri-file-excel-2-line me-1 text-success"></i>CSV</a>
+            <a href="{{ route('admin.accounting.expenses.report.pdf').($reportQuery ? '?'.$reportQuery : '') }}" class="btn btn-light"><i class="ri-file-pdf-2-line me-1 text-danger"></i>PDF</a>
+            <a href="{{ route('admin.accounting.expenses.report.csv').($reportQuery ? '?'.$reportQuery : '') }}" class="btn btn-light"><i class="ri-file-excel-2-line me-1 text-success"></i>CSV</a>
             @can('accounting.manage')<button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#expenseModal"><i class="ri-add-line me-1"></i>{{ isset($scopedProperty) ? 'Add New Expense' : 'Record Expense' }}</button>@endcan
         </div>
     </div>
