@@ -156,7 +156,9 @@ class AccountingController extends Controller
 
     public function expenses(Request $request)
     {
-        $expenses = $this->filteredExpenses($request)
+        $filtered = $this->filteredExpenses($request);
+        $summary = $this->expenseSummary($filtered);
+        $expenses = (clone $filtered)
             ->with(['audits' => fn ($query) => $query
                 ->select(['id', 'expense_id', 'user_id', 'action', 'reason', 'ip_address', 'created_at'])
                 ->with('user:id,name')])
@@ -164,15 +166,16 @@ class AccountingController extends Controller
             ->paginate(10)
             ->withQueryString();
 
-        return view('admin.accounting.expenses', $this->expenseSharedData() + compact('expenses'));
+        return view('admin.accounting.expenses', $this->expenseSharedData() + compact('expenses', 'summary'));
     }
 
     public function unitExpenses(Request $request, Property $property)
     {
         $property->load(['building', 'landlord', 'ownerShares.owner']);
         $request->merge(['property_id' => $property->id]);
-        $expenses = $this->filteredExpenses($request)
-            ->where('property_id', $property->id)
+        $filtered = $this->filteredExpenses($request)->where('property_id', $property->id);
+        $summary = $this->expenseSummary($filtered);
+        $expenses = (clone $filtered)
             ->with(['audits' => fn ($query) => $query
                 ->select(['id', 'expense_id', 'user_id', 'action', 'reason', 'ip_address', 'created_at'])
                 ->with('user:id,name')])
@@ -180,8 +183,21 @@ class AccountingController extends Controller
 
         return view('admin.accounting.expenses', $this->expenseSharedData() + [
             'expenses' => $expenses,
+            'summary' => $summary,
             'scopedProperty' => $property,
         ]);
+    }
+
+    private function expenseSummary($query): array
+    {
+        return [
+            'count' => (clone $query)->count(),
+            'cost' => (float) (clone $query)->sum('gross_amount'),
+            'sale' => (float) (clone $query)->sum('sale_gross_amount'),
+            'profit' => (float) (clone $query)->sum('profit_amount'),
+            'pending' => (clone $query)->whereIn('approval_status', ['draft', 'pending', 'reviewed'])->count(),
+            'recurring' => (clone $query)->where('recurring_enabled', true)->count(),
+        ];
     }
 
     public function ownerPayouts(Request $request)

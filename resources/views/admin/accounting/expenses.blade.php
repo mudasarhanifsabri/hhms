@@ -7,21 +7,54 @@
     @include('admin.accounting.partials.module-nav')
 @endif
 
-<div class="card">
-    <div class="card-header d-flex justify-content-between align-items-center">
-        <div><h4 class="card-title mb-0">{{ isset($scopedProperty) ? 'Unit Expenses · '.$scopedProperty->name : 'Expense Management' }}</h4>@isset($scopedProperty)<small class="text-muted">{{ $scopedProperty->building?->building_name ?? $scopedProperty->building?->name }} · Every expense recorded here is automatically linked to this unit.</small>@endisset</div>
-        <div class="d-flex gap-2">
-            <a href="{{ url('/admin/accounting/expenses/report/pdf').(request()->getQueryString() ? '?'.request()->getQueryString() : '') }}" class="btn btn-soft-danger"><i class="ri-file-pdf-2-line me-1"></i>PDF</a>
-            <a href="{{ url('/admin/accounting/expenses/report/csv').(request()->getQueryString() ? '?'.request()->getQueryString() : '') }}" class="btn btn-soft-success"><i class="ri-file-excel-2-line me-1"></i>CSV</a>
-            @unless(isset($scopedProperty))<a href="{{ url('/admin/accounting/expenses/import') }}" class="btn btn-soft-primary"><i class="ri-upload-cloud-2-line me-1"></i>Import Expenses</a>@endunless
+@php
+    $activeFilterCount = collect(['category', 'property_id', 'approval_status', 'date_from', 'date_to'])
+        ->filter(fn ($key) => request()->filled($key))->count();
+    $buildingLabel = isset($scopedProperty)
+        ? ($scopedProperty->building?->building_name ?? $scopedProperty->building?->name ?? 'Building not assigned')
+        : null;
+@endphp
+
+<style>
+.expense-workspace{--ex-ink:#172432;--ex-purple:#6654e8;--ex-muted:#718096}.expense-hero{position:relative;overflow:hidden;padding:24px 26px;border-radius:22px;background:linear-gradient(118deg,#192838 0%,#294462 58%,#6554e8 100%);color:#fff;box-shadow:0 15px 35px rgba(28,44,65,.16)}.expense-hero:after{content:"";position:absolute;right:-90px;top:-145px;width:310px;height:310px;border-radius:50%;background:rgba(255,255,255,.08)}.expense-hero>*{position:relative;z-index:1}.expense-kicker{color:#bdcbe0;font-size:11px;font-weight:750;letter-spacing:.12em;text-transform:uppercase}.expense-title{font-size:25px;font-weight:800;letter-spacing:-.02em}.expense-subtitle{color:#d3dceb}.expense-hero .btn{border:0;border-radius:11px;padding:10px 14px;font-weight:650}.expense-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.expense-stat{display:flex;align-items:center;gap:12px;padding:16px;background:#fff;border:1px solid #e7eaf1;border-radius:17px;box-shadow:0 8px 25px rgba(31,45,61,.05)}.expense-stat .stat-icon{width:42px;height:42px;display:grid;place-items:center;border-radius:13px;background:#eeeafd;color:var(--ex-purple);font-size:21px;flex:0 0 auto}.expense-stat small{display:block;color:#8490a2}.expense-stat strong{display:block;color:var(--ex-ink);font-size:17px}.expense-panel{border:0;border-radius:20px;box-shadow:0 10px 32px rgba(32,44,66,.07);overflow:hidden}.expense-toolbar{background:#fff;padding:18px 20px;border-bottom:1px solid #edf0f5}.expense-filter{padding:17px 20px;background:#f8f9fc;border-bottom:1px solid #edf0f5}.expense-filter label{display:block;margin-bottom:6px;color:#718096;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em}.expense-table thead th{padding:13px 14px;color:#718096;font-size:11px;text-transform:uppercase;letter-spacing:.05em;white-space:nowrap}.expense-table tbody td{padding:14px;border-color:#edf0f5}.expense-no{color:#293850;font-weight:750}.expense-money{font-weight:700;white-space:nowrap}.expense-actions,.expense-files{display:flex;align-items:center;gap:5px;flex-wrap:wrap}.expense-actions .btn,.expense-files .btn{width:32px;height:32px;padding:0;display:inline-grid;place-items:center;border-radius:9px}.expense-empty{padding:55px 20px!important}.expense-empty i{display:block;font-size:42px;color:#b8c0cf;margin-bottom:8px}@media(max-width:991px){.expense-summary{grid-template-columns:repeat(2,1fr)}.expense-hero .hero-actions{margin-top:16px;justify-content:flex-start!important}}@media(max-width:575px){.expense-summary{grid-template-columns:1fr}.expense-hero{padding:20px}.expense-title{font-size:21px}.expense-toolbar .btn{flex:1}.expense-table{min-width:980px}}
+</style>
+
+<div class="expense-workspace">
+<section class="expense-hero mb-3">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+        <div>
+            <div class="expense-kicker">{{ isset($scopedProperty) ? 'Unit Financial Workspace' : 'Accounting Workspace' }}</div>
+            <div class="expense-title mt-1">{{ isset($scopedProperty) ? $buildingLabel.' · Unit '.$scopedProperty->name : 'Expense Management' }}</div>
+            <div class="expense-subtitle mt-1">{{ isset($scopedProperty) ? 'Track costs, owner charges, approvals and supporting documents for this unit.' : 'Review, approve and report company and unit expenses from one place.' }}</div>
+        </div>
+        <div class="hero-actions d-flex flex-wrap justify-content-end gap-2">
+            <a href="{{ url('/admin/accounting/expenses/report/pdf').(request()->getQueryString() ? '?'.request()->getQueryString() : '') }}" class="btn btn-light"><i class="ri-file-pdf-2-line me-1 text-danger"></i>PDF</a>
+            <a href="{{ url('/admin/accounting/expenses/report/csv').(request()->getQueryString() ? '?'.request()->getQueryString() : '') }}" class="btn btn-light"><i class="ri-file-excel-2-line me-1 text-success"></i>CSV</a>
             @can('accounting.manage')<button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#expenseModal"><i class="ri-add-line me-1"></i>{{ isset($scopedProperty) ? 'Add New Expense' : 'Record Expense' }}</button>@endcan
         </div>
     </div>
-    <div class="card-body border-bottom">
+</section>
+
+<div class="expense-summary mb-3">
+    <div class="expense-stat"><span class="stat-icon"><i class="ri-wallet-3-line"></i></span><div><small>Total cost · {{ number_format($summary['count']) }} records</small><strong>AED {{ number_format($summary['cost'],2) }}</strong></div></div>
+    <div class="expense-stat"><span class="stat-icon"><i class="ri-price-tag-3-line"></i></span><div><small>Recovered / sale</small><strong>AED {{ number_format($summary['sale'],2) }}</strong></div></div>
+    <div class="expense-stat"><span class="stat-icon"><i class="ri-line-chart-line"></i></span><div><small>Gross profit</small><strong class="{{ $summary['profit'] >= 0 ? 'text-success' : 'text-danger' }}">AED {{ number_format($summary['profit'],2) }}</strong></div></div>
+    <div class="expense-stat"><span class="stat-icon"><i class="ri-time-line"></i></span><div><small>Needs action</small><strong>{{ number_format($summary['pending']) }} pending <span class="text-muted fw-normal">· {{ number_format($summary['recurring']) }} recurring</span></strong></div></div>
+</div>
+
+<div class="card expense-panel">
+    <div class="expense-toolbar d-flex flex-wrap justify-content-between align-items-center gap-2">
+        <div><h4 class="card-title mb-0">{{ isset($scopedProperty) ? 'Unit Expenses · '.$scopedProperty->name : 'Expense Management' }}</h4>@isset($scopedProperty)<small class="text-muted">{{ $scopedProperty->building?->building_name ?? $scopedProperty->building?->name }} · Every expense recorded here is automatically linked to this unit.</small>@endisset</div>
+        <div class="d-flex gap-2">
+            @unless(isset($scopedProperty))<a href="{{ url('/admin/accounting/expenses/import') }}" class="btn btn-soft-primary"><i class="ri-upload-cloud-2-line me-1"></i>Import Expenses</a>@endunless
+            @if($activeFilterCount)<a href="{{ isset($scopedProperty) ? route('admin.property.expenses',$scopedProperty) : url('/admin/accounting/expenses') }}" class="btn btn-light"><i class="ri-close-line me-1"></i>Clear {{ $activeFilterCount }} filter{{ $activeFilterCount === 1 ? '' : 's' }}</a>@endif
+        </div>
+    </div>
+    <div class="expense-filter">
         <form class="row g-2">
-            <div class="col-md-2"><select name="category" class="form-select"><option value="">All Categories</option>@foreach($expenseCategories as $key => $label)<option value="{{ $key }}" @selected(request('category')===$key)>{{ $label }}</option>@endforeach</select></div>
-            @if(isset($scopedProperty))<input type="hidden" name="property_id" value="{{ $scopedProperty->id }}">@else<div class="col-md-2"><select name="property_id" class="form-select"><option value="">All Units</option>@foreach($properties as $property)<option value="{{ $property->id }}" @selected(request('property_id')===$property->id)>{{ $property->name }} — {{ $property->building?->building_name ?? $property->building?->name ?? 'No Building' }}</option>@endforeach</select></div>@endif
-            <div class="col-md-2">
+            <div class="col-md-2"><label>Category</label><select name="category" class="form-select"><option value="">All Categories</option>@foreach($expenseCategories as $key => $label)<option value="{{ $key }}" @selected(request('category')===$key)>{{ $label }}</option>@endforeach</select></div>
+            @if(isset($scopedProperty))<input type="hidden" name="property_id" value="{{ $scopedProperty->id }}">@else<div class="col-md-2"><label>Unit</label><select name="property_id" class="form-select"><option value="">All Units</option>@foreach($properties as $property)<option value="{{ $property->id }}" @selected(request('property_id')===$property->id)>{{ $property->name }} — {{ $property->building?->building_name ?? $property->building?->name ?? 'No Building' }}</option>@endforeach</select></div>@endif
+            <div class="col-md-2"><label>Status</label>
                 <select name="approval_status" class="form-select">
                     <option value="">All Status</option>
                     @foreach(['draft' => 'Draft', 'pending' => 'Pending', 'reviewed' => 'Reviewed', 'approved' => 'Approved', 'paid' => 'Paid', 'rejected' => 'Rejected', 'reversed' => 'Reversed'] as $key => $label)
@@ -29,19 +62,19 @@
                     @endforeach
                 </select>
             </div>
-            <div class="col-md-2"><input type="date" name="date_from" value="{{ request('date_from') }}" class="form-control" title="From date"></div>
-            <div class="col-md-2"><input type="date" name="date_to" value="{{ request('date_to') }}" class="form-control" title="To date"></div>
-            <div class="col-md-2"><button class="btn btn-soft-primary w-100">Filter</button></div>
+            <div class="col-md-2"><label>From</label><input type="date" name="date_from" value="{{ request('date_from') }}" class="form-control" title="From date"></div>
+            <div class="col-md-2"><label>To</label><input type="date" name="date_to" value="{{ request('date_to') }}" class="form-control" title="To date"></div>
+            <div class="col-md-2 d-flex align-items-end"><button class="btn btn-primary w-100"><i class="ri-filter-3-line me-1"></i>Apply Filters</button></div>
         </form>
     </div>
     <div class="table-responsive">
-        <table class="table table-hover align-middle mb-0">
+        <table class="table table-hover align-middle mb-0 expense-table">
             <thead class="bg-light-subtle"><tr><th>Date</th><th>No.</th><th>Category</th><th>Unit</th><th>Vendor</th><th>Status</th><th>Cost</th><th>Sale</th><th>Profit</th><th>Files</th><th>Action</th></tr></thead>
             <tbody>
             @forelse($expenses as $expense)
                 <tr>
                     <td>{{ $expense->expense_date?->format('d M Y') }}</td>
-                    <td class="fw-semibold">{{ $expense->expense_no }}</td>
+                    <td class="expense-no">{{ $expense->expense_no }}</td>
                     <td>{{ $expenseCategories[$expense->category] ?? ucfirst($expense->category) }}</td>
                     <td>{{ $expense->property?->name ?? '-' }}@if($expense->property)<br><small class="text-muted">{{ $expense->property->building?->building_name ?? $expense->property->building?->name ?? 'No Building' }}</small>@endif</td>
                     <td>{{ $expense->vendor?->name ?? $expense->supplier ?? '-' }}</td>
@@ -54,18 +87,18 @@
                         @endif
                         @if($expense->recurring_enabled)<span class="badge bg-primary-subtle text-primary border ms-1" title="Next: {{ $expense->next_recurrence_date?->format('d M Y') }}"><i class="ri-repeat-line"></i> Monthly</span>@endif
                     </td>
-                    <td>AED {{ number_format((float) $expense->gross_amount, 2) }}</td>
-                    <td>{{ (float)$expense->sale_gross_amount > 0 ? 'AED '.number_format((float)$expense->sale_gross_amount,2) : '-' }}</td>
-                    <td class="{{ (float)$expense->profit_amount >= 0 ? 'text-success' : 'text-danger' }}">AED {{ number_format((float)$expense->profit_amount,2) }}</td>
-                    <td>
+                    <td class="expense-money">AED {{ number_format((float) $expense->gross_amount, 2) }}</td>
+                    <td class="expense-money">{{ (float)$expense->sale_gross_amount > 0 ? 'AED '.number_format((float)$expense->sale_gross_amount,2) : '-' }}</td>
+                    <td class="expense-money {{ (float)$expense->profit_amount >= 0 ? 'text-success' : 'text-danger' }}">AED {{ number_format((float)$expense->profit_amount,2) }}</td>
+                    <td><div class="expense-files">
                         @if($expense->audits->isNotEmpty())<button type="button" class="btn btn-sm btn-soft-info" data-bs-toggle="modal" data-bs-target="#expenseAudit{{ $expense->id }}" title="Audit History"><i class="ri-history-line"></i></button>@endif
                         @if($expense->receipt_path)<a href="{{ route('admin.accounting.expenses.document', [$expense, 'receipt']) }}" target="_blank" class="btn btn-sm btn-soft-primary" title="Receipt"><i class="ri-receipt-line"></i></a>@endif
                         @if($expense->invoice_path)<a href="{{ route('admin.accounting.expenses.document', [$expense, 'invoice']) }}" target="_blank" class="btn btn-sm btn-soft-info" title="Invoice"><i class="ri-file-list-3-line"></i></a>@endif
                         @if($expense->quotation_path)<a href="{{ route('admin.accounting.expenses.document', [$expense, 'quotation']) }}" target="_blank" class="btn btn-sm btn-soft-warning" title="Quotation"><i class="ri-file-paper-2-line"></i></a>@endif
                         @if((float)$expense->sale_gross_amount > 0)<a href="{{ route('admin.accounting.expenses.tax-invoice',$expense) }}" class="btn btn-sm btn-soft-success" title="Download Tax Invoice"><i class="ri-bill-line"></i></a><button type="button" class="btn btn-sm btn-soft-primary" data-bs-toggle="modal" data-bs-target="#emailTaxInvoice{{ $expense->id }}" title="Email Tax Invoice"><i class="ri-mail-send-line"></i></button>@endif
                         @if($expense->import_source_file)<a href="{{ route('admin.accounting.expenses.document', [$expense, 'import']) }}" target="_blank" class="btn btn-sm btn-soft-secondary" title="Import Source"><i class="ri-file-upload-line"></i></a>@endif
-                    </td>
-                    <td>
+                    </div></td>
+                    <td><div class="expense-actions">
                         @if($expense->owner_approval_status)<span class="badge mb-1 {{ $expense->owner_approval_status==='approved'?'bg-success':($expense->owner_approval_status==='rejected'?'bg-danger':'bg-info') }}">Owner: {{ str($expense->owner_approval_status)->replace('_',' ')->headline() }}</span><br>@endif
                         @if($expense->approval_status !== 'reversed' && (! in_array($expense->approval_status, ['approved', 'paid'], true) || auth()->user()?->role === 'admin'))
                         <button type="button" class="btn btn-sm btn-light" data-bs-toggle="modal" data-bs-target="#editExpense{{ $expense->id }}"><i class="ri-edit-line"></i></button>
@@ -86,15 +119,16 @@
                             <button class="btn btn-sm btn-soft-danger" title="Delete Expense"><i class="ri-delete-bin-line"></i></button>
                         </form>
                         @endif
-                    </td>
+                    </div></td>
                 </tr>
             @empty
-                <tr><td colspan="11" class="text-center text-muted py-4">No expenses recorded.</td></tr>
+                <tr><td colspan="11" class="text-center text-muted expense-empty"><i class="ri-receipt-line"></i><strong>No expenses found</strong><div class="small mt-1">Add the first expense or adjust your filters.</div></td></tr>
             @endforelse
             </tbody>
         </table>
     </div>
     <div class="card-footer">{{ $expenses->links('pagination::bootstrap-5') }}</div>
+</div>
 </div>
 
 <div class="modal fade" id="expenseModal" tabindex="-1" aria-hidden="true">
