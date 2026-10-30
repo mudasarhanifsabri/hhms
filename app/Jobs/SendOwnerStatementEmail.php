@@ -51,7 +51,10 @@ class SendOwnerStatementEmail implements ShouldQueue
         try {
             $landlord = User::where('role', 'landlord')->findOrFail($this->landlordId);
             $statementData = OwnerStatementPdf::data($landlord, $this->dateFrom, $this->dateTo, $this->propertyId);
-            $filename = 'owner-statement-'.Str::slug($landlord->name).'-'.$statementData['period']['to']->format('Y-m-d').'.pdf';
+            $statementProperty = $statementData['statementProperty'];
+            $filename = $statementProperty
+                ? 'owner-statement-unit-'.Str::slug($statementProperty->name).'-'.Str::slug($statementProperty->building?->building_name ?? $statementProperty->building?->name ?? 'no-building').'-'.$statementData['period']['to']->format('Y-m-d').'.pdf'
+                : 'owner-statement-'.Str::slug($landlord->name).'-'.$statementData['period']['to']->format('Y-m-d').'.pdf';
             $pdf = PdfRenderer::output(view('admin.landlords.pdf.account-statement', $statementData)->render(), ['format' => 'A4']);
             $pendingMail = Mail::to($this->recipient);
 

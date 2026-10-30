@@ -236,8 +236,12 @@ class LandlordController extends Controller
         $landlord = User::where('role', 'landlord')->findOrFail($id);
         $filters = $this->accountStatementFilters($request);
         $data = OwnerStatementPdf::data($landlord, $filters['date_from'], $filters['date_to'], $filters['property_id']);
+        $statementProperty = $data['statementProperty'];
+        $filename = $statementProperty
+            ? 'owner-statement-unit-'.Str::slug($statementProperty->name).'-'.Str::slug($statementProperty->building?->building_name ?? $statementProperty->building?->name ?? 'no-building').'.pdf'
+            : 'owner-statement-'.Str::slug($landlord->name).'.pdf';
 
-        return PdfRenderer::downloadView('admin.landlords.pdf.account-statement', $data, 'owner-statement-' . Str::slug($landlord->name) . '.pdf', ['format' => 'A4']);
+        return PdfRenderer::downloadView('admin.landlords.pdf.account-statement', $data, $filename, ['format' => 'A4']);
     }
 
     public function emailAccountStatement(Request $request, $id)

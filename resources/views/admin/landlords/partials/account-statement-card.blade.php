@@ -49,9 +49,9 @@
                 <label for="statement_property_id" class="form-label">Unit</label>
                 @if($unitContext)
                     <input type="hidden" name="property_id" value="{{ $unitContext->id }}">
-                    <div class="form-control bg-light fw-semibold"><i class="ri-building-line me-1 text-primary"></i>{{ $unitContext->name }} - {{ $unitContext->building?->building_name ?? 'No building' }}</div>
+                    <div class="form-control bg-light fw-semibold"><i class="ri-building-line me-1 text-primary"></i>Unit {{ $unitContext->name }} | {{ $unitContext->building?->building_name ?? 'No Building' }}</div>
                 @else
-                    <select id="statement_property_id" name="property_id" class="form-control"><option value="">All units</option>@foreach($relatedProperties as $property)<option value="{{ $property->id }}" @selected(($filters['property_id'] ?? '')===$property->id)>{{ $property->name }} - {{ $property->building?->building_name ?? 'No building' }}</option>@endforeach</select>
+                    <select id="statement_property_id" name="property_id" class="form-control"><option value="">All units</option>@foreach($relatedProperties as $property)<option value="{{ $property->id }}" @selected(($filters['property_id'] ?? '')===$property->id)>Unit {{ $property->name }} | {{ $property->building?->building_name ?? 'No Building' }}</option>@endforeach</select>
                 @endif
             </div>
             <div class="col-lg-2">
@@ -110,7 +110,7 @@
         </div>
         @endif
         @if(empty($filters['property_id']) && $unitTotals->count() > 1)
-            <div class="mb-3"><h5 class="mb-2">Unit-wise Summary</h5><div class="row g-2">@foreach($unitTotals as $unit)<div class="col-lg-4"><div class="border rounded p-2 h-100"><strong>{{ $unit['property']?->name ?? 'General Owner Account' }}</strong><div class="small text-muted">Credit AED {{ number_format($unit['credit'],2) }} · Debit AED {{ number_format($unit['debit'],2) }}</div><div class="fw-semibold {{ $unit['balance'] < 0 ? 'text-danger':'text-success' }}">Period net AED {{ number_format($unit['balance'],2) }}</div></div></div>@endforeach</div></div>
+            <div class="mb-3"><h5 class="mb-2">Unit-wise Summary</h5><div class="row g-2">@foreach($unitTotals as $unit)<div class="col-lg-4"><div class="border rounded p-2 h-100"><strong>@if($unit['property'])Unit {{ $unit['property']->name }} | {{ $unit['property']->building?->building_name ?? $unit['property']->building?->name ?? 'No Building' }}@else General Owner Account @endif</strong><div class="small text-muted">Credit AED {{ number_format($unit['credit'],2) }} · Debit AED {{ number_format($unit['debit'],2) }}</div><div class="fw-semibold {{ $unit['balance'] < 0 ? 'text-danger':'text-success' }}">Period net AED {{ number_format($unit['balance'],2) }}</div></div></div>@endforeach</div></div>
         @endif
 
         <div class="table-responsive">
@@ -149,7 +149,7 @@
                                     <p class="text-muted fs-12 mb-0">{{ $entry->description }}</p>
                                 @endif
                             </td>
-                            <td>{{ $entry->property?->name ?? 'General' }}</td>
+                            <td>@if($entry->property)<strong>Unit {{ $entry->property->name }}</strong><br><small class="text-muted">{{ $entry->property->building?->building_name ?? $entry->property->building?->name ?? 'No Building' }}</small>@else General @endif</td>
                             <td>
                                 {{ $entry->bookingInvoice?->invoice_number ?? $entry->reference ?? '-' }}
                                 @if($entry->bookingInvoice && $entry->reference && $entry->reference !== $entry->bookingInvoice->invoice_number)
@@ -234,7 +234,7 @@
                                     ->filter(fn ($owner) => filter_var($owner['email'], FILTER_VALIDATE_EMAIL))->values();
                             @endphp
                             <input type="hidden" name="property_id" value="{{ $unitContext->id }}">
-                            <select class="form-control" id="statement_property_id" disabled><option value="{{ $unitContext->id }}" data-owner-recipients="{{ $unitOwners->toJson() }}" selected>{{ $unitContext->name }} - {{ $unitContext->building?->building_name ?? 'No building' }}</option></select>
+                            <select class="form-control" id="statement_property_id" disabled><option value="{{ $unitContext->id }}" data-owner-recipients="{{ $unitOwners->toJson() }}" selected>Unit {{ $unitContext->name }} | {{ $unitContext->building?->building_name ?? 'No Building' }}</option></select>
                         @else
                         <select class="form-control" id="statement_property_id" name="property_id">
                             <option value="" data-owner-recipients="{{ collect([['name' => $landlord->name, 'email' => $landlord->email]])->toJson() }}">All units</option>
@@ -245,7 +245,7 @@
                                         ->map(fn ($owner) => ['name' => $owner->name, 'email' => trim((string) $owner->email)])
                                         ->filter(fn ($owner) => filter_var($owner['email'], FILTER_VALIDATE_EMAIL))->values();
                                 @endphp
-                                <option value="{{ $property->id }}" data-owner-recipients="{{ $unitOwners->toJson() }}" @selected(($filters['property_id'] ?? '')===$property->id)>{{ $property->name }} - {{ $property->building?->building_name ?? 'No building' }}</option>
+                                <option value="{{ $property->id }}" data-owner-recipients="{{ $unitOwners->toJson() }}" @selected(($filters['property_id'] ?? '')===$property->id)>Unit {{ $property->name }} | {{ $property->building?->building_name ?? 'No Building' }}</option>
                             @endforeach
                         </select>
                         @endif
@@ -424,12 +424,12 @@
                             <label for="property_id" class="form-label">Property</label>
                             @if($unitContext)
                             <input type="hidden" name="property_id" value="{{ $unitContext->id }}">
-                            <div class="form-control bg-light fw-semibold"><i class="ri-building-line me-1 text-primary"></i>{{ $unitContext->name }} - {{ $unitContext->building?->building_name ?? 'No building' }}</div>
+                            <div class="form-control bg-light fw-semibold"><i class="ri-building-line me-1 text-primary"></i>Unit {{ $unitContext->name }} | {{ $unitContext->building?->building_name ?? 'No Building' }}</div>
                             @else
                             <select class="form-control" id="property_id" name="property_id">
                                 <option value="">General owner account</option>
                                 @foreach ($relatedProperties as $property)
-                                    <option value="{{ $property->id }}" @selected((string) old('property_id') === (string) $property->id)>{{ $property->name }}</option>
+                                    <option value="{{ $property->id }}" @selected((string) old('property_id') === (string) $property->id)>Unit {{ $property->name }} | {{ $property->building?->building_name ?? 'No Building' }}</option>
                                 @endforeach
                             </select>
                             @endif

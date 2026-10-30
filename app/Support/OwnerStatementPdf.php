@@ -12,6 +12,7 @@ class OwnerStatementPdf
 {
     public static function data(User $owner, ?string $from = null, ?string $to = null, ?string $propertyId = null): array
     {
+        $statementProperty = $propertyId ? Property::with('building')->find($propertyId) : null;
         $base = LandlordAccountEntry::with(['property.building', 'bookingInvoice'])->where('landlord_id', $owner->id)->visibleOnOwnerStatement();
         $datedEntries = (clone $base)->get();
         $first = $datedEntries->min(fn ($entry) => $entry->statement_date);
@@ -82,6 +83,7 @@ class OwnerStatementPdf
 
         return [
             'landlord' => $owner,
+            'statementProperty' => $statementProperty,
             'period' => $period,
             'entries' => $entries,
             'reservations' => $reservations,
