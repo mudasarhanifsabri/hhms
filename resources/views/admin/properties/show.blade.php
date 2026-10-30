@@ -92,38 +92,31 @@
         ['Video', $property->video, 'solar:videocamera-record-broken', 'primary'],
         ['Floor Plan', $property->floor_plan, 'solar:ruler-cross-pen-broken', 'info'],
     ];
+    $profileChecks = collect([$property->rent,$property->management_fee_percent,$property->bedrooms,$property->bathrooms,$property->square_foot,$property->wifi_name,$property->electricity_account_no,$property->dtcm_permit_no,$property->description]);
+    $profileScore = (int) round($profileChecks->filter(fn($value) => filled($value))->count() / max(1, $profileChecks->count()) * 100);
+    $permitDays = $property->dtcm_permit_expiry ? now()->startOfDay()->diffInDays(\Illuminate\Support\Carbon::parse($property->dtcm_permit_expiry), false) : null;
+    $healthTone = $profileScore >= 80 ? 'success' : ($profileScore >= 50 ? 'warning' : 'danger');
 @endphp
 
-@include('admin.properties.partials.unit-tabs')
-<div class="mb-3"><a class="btn btn-outline-primary" href="{{ route('admin.property.guest-qr', $property) }}">Guest App QR / Registration Link</a></div>
-
-<div class="row">
-    <div class="col-12">
-        <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
-            <div>
-                <h4 class="mb-1">{{ $buildingName }} - {{ $unitName }}</h4>
-                <p class="text-muted mb-0 d-flex align-items-center gap-1">
-                    <iconify-icon icon="solar:map-point-wave-bold-duotone" class="fs-18 text-primary"></iconify-icon>
-                    {{ $locationText }}
-                </p>
-            </div>
-            <div class="d-flex flex-wrap gap-2">
-                <a href="{{ route('admin.property.index') }}" class="btn btn-light">
-                    <i class="ri-arrow-left-line me-1"></i>Units
-                </a>
-                <a href="{{ route('admin.property.edit', $property->id) }}" class="btn btn-primary">
-                    <i class="ri-edit-line me-1"></i>Edit Unit
-                </a>
-                <a href="{{ Route::has('admin.property.document-wallet.index') ? route('admin.property.document-wallet.index', $property->id) : route('admin.property.owner-documents.index', $property->id) }}" class="btn btn-dark">
-                    <i class="ri-folder-shield-2-line me-1"></i>Document Wallet
-                </a>
-                <a href="{{ route('admin.property.cancellations.create', $property) }}" class="btn btn-outline-danger">
-                    <i class="ri-file-close-line me-1"></i>Cancel Management Agreement
-                </a>
-            </div>
+<style>
+.unit-command{--uc-ink:#172432;--uc-violet:#6557e8;--uc-soft:#f4f5fb}.unit-command .uc-hero{position:relative;overflow:hidden;border-radius:24px;padding:28px;background:linear-gradient(120deg,#172432 0%,#253b58 58%,#5a4ccf 100%);color:#fff;box-shadow:0 18px 45px rgba(24,38,57,.18)}.unit-command .uc-hero:after{content:"";position:absolute;width:360px;height:360px;border-radius:50%;right:-140px;top:-220px;background:rgba(255,255,255,.09)}.uc-eyebrow{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#b9c8dc;font-weight:700}.uc-title{font-size:30px;font-weight:800;letter-spacing:-.03em;margin:5px 0}.uc-location{color:#c9d5e4}.uc-actions{position:relative;z-index:2}.uc-actions .btn{border:0;border-radius:12px;padding:10px 14px;font-weight:600}.uc-actions .btn-light{background:#fff}.uc-actions .btn-glass{background:rgba(255,255,255,.13);color:#fff;border:1px solid rgba(255,255,255,.18)}.uc-status{display:inline-flex;align-items:center;gap:7px;padding:7px 12px;border-radius:999px;background:rgba(49,196,141,.18);color:#83efc5;font-weight:700}.uc-status:before{content:"";width:8px;height:8px;border-radius:50%;background:#46db9f;box-shadow:0 0 0 5px rgba(70,219,159,.14)}.uc-metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:16px 0 22px}.uc-metric{background:#fff;border:1px solid #e8ebf2;border-radius:18px;padding:15px 17px;display:flex;align-items:center;gap:12px;box-shadow:0 8px 24px rgba(31,45,61,.05)}.uc-metric-icon{width:42px;height:42px;border-radius:13px;display:grid;place-items:center;font-size:21px;background:#eeeafd;color:#6557e8}.uc-metric small{display:block;color:#8a96a5}.uc-metric strong{display:block;color:#172432;font-size:16px}.unit-command>.card,.unit-command .row>.col-xl-4>.card,.unit-command .row>.col-xl-8>.card{border:0;border-radius:20px;box-shadow:0 10px 32px rgba(32,44,66,.07);overflow:hidden}.unit-command .card-header{border:0;background:#fff!important;padding:19px 20px}.unit-command .card-body{padding:20px}.unit-command .border.rounded{border-color:#e7eaf1!important;border-radius:15px!important}.unit-command .bg-light-subtle{background:#f7f8fc!important}.unit-command .nav-pills{gap:6px!important}.unit-command .nav-pills .nav-link{border-radius:11px;padding:9px 14px;font-weight:600}.unit-command .nav-pills .nav-link.active{background:#6557e8;box-shadow:0 7px 16px rgba(101,87,232,.22)}.uc-alert{border-left:4px solid #f2b84b;background:#fff9e9;border-radius:14px;padding:12px 15px;color:#6d5622}.uc-mini-action{display:inline-flex;align-items:center;gap:6px;background:#fff;border:1px solid #e6e9f0;color:#435166;border-radius:10px;padding:8px 11px;font-weight:600}.uc-mini-action:hover{border-color:#6557e8;color:#6557e8}@media(max-width:991px){.uc-metrics{grid-template-columns:repeat(2,1fr)}.uc-title{font-size:24px}}@media(max-width:575px){.unit-command .uc-hero{padding:20px;border-radius:18px}.uc-metrics{grid-template-columns:1fr}.uc-actions{margin-top:16px}.uc-actions .btn{width:100%}}
+</style>
+<div class="unit-command">
+    <section class="uc-hero mb-3">
+        <div class="d-flex flex-wrap justify-content-between align-items-start gap-4 position-relative" style="z-index:2">
+            <div><div class="uc-eyebrow">Unit Operations Center</div><h1 class="uc-title">{{ $buildingName }} <span class="fw-light">· {{ $unitName }}</span></h1><div class="uc-location"><i class="ri-map-pin-2-line me-1"></i>{{ $locationText }}</div><div class="mt-3 d-flex flex-wrap gap-2"><span class="uc-status">{{ $property->status_label }}</span><span class="badge rounded-pill bg-white bg-opacity-10 px-3 py-2">{{ $property->category ?: $property->unit_type_label }}</span><span class="badge rounded-pill bg-white bg-opacity-10 px-3 py-2">Floor {{ $formatValue($property->floor) }}</span></div></div>
+            <div class="uc-actions d-flex flex-wrap justify-content-end gap-2"><a href="{{ route('admin.property.index') }}" class="btn btn-glass"><i class="ri-arrow-left-line me-1"></i>All Units</a><a href="{{ route('admin.property.edit',$property) }}" class="btn btn-light"><i class="ri-edit-line me-1"></i>Edit Unit</a><a href="{{ Route::has('admin.property.document-wallet.index') ? route('admin.property.document-wallet.index',$property) : route('admin.property.owner-documents.index',$property) }}" class="btn btn-glass"><i class="ri-folder-shield-2-line me-1"></i>Documents</a></div>
         </div>
+    </section>
+    @include('admin.properties.partials.unit-tabs')
+    <div class="d-flex flex-wrap gap-2 mb-3"><a class="uc-mini-action" href="{{ route('admin.property.guest-qr',$property) }}"><i class="ri-qr-code-line"></i>Guest QR</a>@if(Route::has('admin.inventory.index'))<a class="uc-mini-action" href="{{ route('admin.inventory.index',['property_id'=>$property->id]) }}"><i class="ri-archive-line"></i>Inventory & Inspections</a>@endif<a class="uc-mini-action text-danger" href="{{ route('admin.property.cancellations.create',$property) }}"><i class="ri-file-close-line"></i>Cancel Agreement</a></div>
+    <div class="uc-metrics">
+        <div class="uc-metric"><span class="uc-metric-icon"><i class="ri-pulse-line"></i></span><div><small>Profile health</small><strong class="text-{{ $healthTone }}">{{ $profileScore }}% complete</strong></div></div>
+        <div class="uc-metric"><span class="uc-metric-icon"><i class="ri-money-dollar-circle-line"></i></span><div><small>Monthly rent</small><strong>{{ $monthlyRent }}</strong></div></div>
+        <div class="uc-metric"><span class="uc-metric-icon"><i class="ri-shield-check-line"></i></span><div><small>DTCM permit</small><strong>{{ $permitDays === null ? 'Not configured' : ($permitDays < 0 ? 'Expired' : $permitDays.' days left') }}</strong></div></div>
+        <div class="uc-metric"><span class="uc-metric-icon"><i class="ri-image-line"></i></span><div><small>Unit media</small><strong>{{ count($photos) }} photos · {{ collect($documents)->filter(fn($d)=>filled($d[1]))->count() }} files</strong></div></div>
     </div>
-</div>
+    @if($profileScore < 80 || $permitDays === null || $permitDays < 30)<div class="uc-alert mb-3"><i class="ri-alert-line me-2"></i><strong>Action recommended:</strong> {{ $profileScore < 80 ? 'Complete missing unit profile information.' : '' }} {{ $permitDays === null ? 'Add the DTCM permit and expiry.' : ($permitDays < 30 ? 'DTCM permit requires attention.' : '') }}</div>@endif
 
 @if($property->managementCancellations->isNotEmpty())
 <div class="card border-danger-subtle mb-3"><div class="card-header d-flex justify-content-between align-items-center"><h4 class="card-title mb-0">Management Agreement Cancellations</h4><span class="badge bg-danger-subtle text-danger">{{ $property->managementCancellations->count() }}</span></div><div class="table-responsive"><table class="table align-middle mb-0"><thead><tr><th>Reference</th><th>Owner</th><th>Effective Date</th><th>Status</th><th></th></tr></thead><tbody>@foreach($property->managementCancellations->sortByDesc('created_at') as $cancellation)<tr><td>{{ $cancellation->reference_no }}</td><td>{{ $cancellation->owner_name }}</td><td>{{ $cancellation->effective_date->format('d M Y') }}</td><td><span class="badge {{ $cancellation->cancelled_at ? 'bg-danger' : ($cancellation->completed_at ? 'bg-success' : 'bg-warning text-dark') }}">{{ $cancellation->status_label }}</span></td><td><a class="btn btn-sm btn-outline-primary" href="{{ route('admin.property.cancellations.show',[$property,$cancellation]) }}">Track &amp; Manage</a></td></tr>@endforeach</tbody></table></div></div>
@@ -378,6 +371,7 @@
             </div>
         </div>
     </div>
+</div>
 </div>
 
 @endsection
