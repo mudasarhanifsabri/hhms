@@ -1,22 +1,26 @@
 @extends('layouts.app')
 
 @section('content')
-@include('admin.accounting.partials.module-nav')
+@if(isset($scopedProperty))
+    @include('admin.properties.partials.unit-tabs', ['property' => $scopedProperty])
+@else
+    @include('admin.accounting.partials.module-nav')
+@endif
 
 <div class="card">
     <div class="card-header d-flex justify-content-between align-items-center">
-        <h4 class="card-title mb-0">Expense Management</h4>
+        <div><h4 class="card-title mb-0">{{ isset($scopedProperty) ? 'Unit Expenses · '.$scopedProperty->name : 'Expense Management' }}</h4>@isset($scopedProperty)<small class="text-muted">{{ $scopedProperty->building?->building_name ?? $scopedProperty->building?->name }} · Every expense recorded here is automatically linked to this unit.</small>@endisset</div>
         <div class="d-flex gap-2">
             <a href="{{ url('/admin/accounting/expenses/report/pdf').(request()->getQueryString() ? '?'.request()->getQueryString() : '') }}" class="btn btn-soft-danger"><i class="ri-file-pdf-2-line me-1"></i>PDF</a>
             <a href="{{ url('/admin/accounting/expenses/report/csv').(request()->getQueryString() ? '?'.request()->getQueryString() : '') }}" class="btn btn-soft-success"><i class="ri-file-excel-2-line me-1"></i>CSV</a>
-            <a href="{{ url('/admin/accounting/expenses/import') }}" class="btn btn-soft-primary"><i class="ri-upload-cloud-2-line me-1"></i>Import Expenses</a>
-            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#expenseModal"><i class="ri-add-line me-1"></i>Record Expense</button>
+            @unless(isset($scopedProperty))<a href="{{ url('/admin/accounting/expenses/import') }}" class="btn btn-soft-primary"><i class="ri-upload-cloud-2-line me-1"></i>Import Expenses</a>@endunless
+            @can('accounting.manage')<button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#expenseModal"><i class="ri-add-line me-1"></i>{{ isset($scopedProperty) ? 'Add New Expense' : 'Record Expense' }}</button>@endcan
         </div>
     </div>
     <div class="card-body border-bottom">
         <form class="row g-2">
             <div class="col-md-2"><select name="category" class="form-select"><option value="">All Categories</option>@foreach($expenseCategories as $key => $label)<option value="{{ $key }}" @selected(request('category')===$key)>{{ $label }}</option>@endforeach</select></div>
-            <div class="col-md-2"><select name="property_id" class="form-select"><option value="">All Units</option>@foreach($properties as $property)<option value="{{ $property->id }}" @selected(request('property_id')===$property->id)>{{ $property->name }} — {{ $property->building?->building_name ?? $property->building?->name ?? 'No Building' }}</option>@endforeach</select></div>
+            @if(isset($scopedProperty))<input type="hidden" name="property_id" value="{{ $scopedProperty->id }}">@else<div class="col-md-2"><select name="property_id" class="form-select"><option value="">All Units</option>@foreach($properties as $property)<option value="{{ $property->id }}" @selected(request('property_id')===$property->id)>{{ $property->name }} — {{ $property->building?->building_name ?? $property->building?->name ?? 'No Building' }}</option>@endforeach</select></div>@endif
             <div class="col-md-2">
                 <select name="approval_status" class="form-select">
                     <option value="">All Status</option>
@@ -101,7 +105,7 @@
             <div class="col-md-4"><label class="form-label">Category</label><select name="category" class="form-select" required>@foreach($expenseCategories as $key => $label)<option value="{{ $key }}">{{ $label }}</option>@endforeach</select></div>
             <div class="col-md-4"><label class="form-label">Vendor</label><select name="vendor_id" class="form-select"><option value="">Select vendor</option>@foreach($vendors as $vendor)<option value="{{ $vendor->id }}">{{ $vendor->name }}</option>@endforeach</select></div>
             <div class="col-md-4"><label class="form-label">Supplier Text</label><input name="supplier" class="form-control"></div>
-            <div class="col-md-6"><label class="form-label">Unit</label><select name="property_id" class="form-select"><option value="">General Company Expense</option>@foreach($properties as $property)<option value="{{ $property->id }}">{{ $property->name }} — {{ $property->building?->building_name ?? $property->building?->name ?? 'No Building' }}</option>@endforeach</select></div>
+            @if(isset($scopedProperty))<input type="hidden" name="property_id" value="{{ $scopedProperty->id }}"><div class="col-md-6"><label class="form-label">Unit</label><div class="form-control bg-light fw-semibold"><i class="ri-building-line me-1 text-primary"></i>{{ $scopedProperty->name }} — {{ $scopedProperty->building?->building_name ?? $scopedProperty->building?->name }}</div></div>@else<div class="col-md-6"><label class="form-label">Unit</label><select name="property_id" class="form-select"><option value="">General Company Expense</option>@foreach($properties as $property)<option value="{{ $property->id }}">{{ $property->name }} — {{ $property->building?->building_name ?? $property->building?->name ?? 'No Building' }}</option>@endforeach</select></div>@endif
             <div class="col-md-6"><label class="form-label">Booking</label><select name="booking_id" class="form-select"><option value="">No Booking</option>@foreach($bookings as $booking)<option value="{{ $booking->id }}">{{ $booking->booking_reference }} - {{ $booking->guest_name }}</option>@endforeach</select></div>
             <div class="col-md-4"><label class="form-label">Paid By</label><select name="responsibility" class="form-select expense-responsibility" required><option value="company">Company</option><option value="owner">Owner</option><option value="tenant_guest">Tenant / Guest</option></select></div>
             <div class="col-md-4"><label class="form-label">Paid From Account</label><select name="paid_from_account_id" class="form-select"><option value="">Select bank/cash</option>@foreach($bankAccounts as $bankAccount)<option value="{{ $bankAccount->id }}">{{ $bankAccount->name }}</option>@endforeach</select></div>
@@ -172,7 +176,7 @@
                 <div class="col-md-4"><label class="form-label">Category</label><select name="category" class="form-select" required>@foreach($expenseCategories as $key => $label)<option value="{{ $key }}" @selected($expense->category === $key)>{{ $label }}</option>@endforeach</select></div>
                 <div class="col-md-4"><label class="form-label">Vendor</label><select name="vendor_id" class="form-select"><option value="">Select vendor</option>@foreach($vendors as $vendor)<option value="{{ $vendor->id }}" @selected($expense->vendor_id === $vendor->id)>{{ $vendor->name }}</option>@endforeach</select></div>
                 <div class="col-md-4"><label class="form-label">Supplier Text</label><input name="supplier" value="{{ $expense->supplier }}" class="form-control"></div>
-                <div class="col-md-4"><label class="form-label">Unit</label><select name="property_id" class="form-select"><option value="">General Company Expense</option>@foreach($properties as $property)<option value="{{ $property->id }}" @selected($expense->property_id === $property->id)>{{ $property->name }} — {{ $property->building?->building_name ?? $property->building?->name ?? 'No Building' }}</option>@endforeach</select></div>
+                @if(isset($scopedProperty))<input type="hidden" name="property_id" value="{{ $scopedProperty->id }}"><div class="col-md-4"><label class="form-label">Unit</label><div class="form-control bg-light fw-semibold">{{ $scopedProperty->name }} — {{ $scopedProperty->building?->building_name ?? $scopedProperty->building?->name }}</div></div>@else<div class="col-md-4"><label class="form-label">Unit</label><select name="property_id" class="form-select"><option value="">General Company Expense</option>@foreach($properties as $property)<option value="{{ $property->id }}" @selected($expense->property_id === $property->id)>{{ $property->name }} — {{ $property->building?->building_name ?? $property->building?->name ?? 'No Building' }}</option>@endforeach</select></div>@endif
                 <div class="col-md-4"><label class="form-label">Booking</label><select name="booking_id" class="form-select"><option value="">No Booking</option>@foreach($bookings as $booking)<option value="{{ $booking->id }}" @selected($expense->booking_id === $booking->id)>{{ $booking->booking_reference }} - {{ $booking->guest_name }}</option>@endforeach</select></div>
                 <div class="col-md-4"><label class="form-label">Paid By</label><select name="responsibility" class="form-select expense-responsibility" required><option value="company" @selected($expense->responsibility === 'company')>Company</option><option value="owner" @selected($expense->responsibility === 'owner')>Owner</option><option value="tenant_guest" @selected($expense->responsibility === 'tenant_guest')>Tenant / Guest</option></select></div>
                 <div class="col-md-4"><label class="form-label">Paid From Account</label><select name="paid_from_account_id" class="form-select"><option value="">Select bank/cash</option>@foreach($bankAccounts as $bankAccount)<option value="{{ $bankAccount->id }}" @selected($expense->paid_from_account_id === $bankAccount->id)>{{ $bankAccount->name }}</option>@endforeach</select></div>

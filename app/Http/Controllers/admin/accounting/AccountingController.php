@@ -167,6 +167,23 @@ class AccountingController extends Controller
         return view('admin.accounting.expenses', $this->expenseSharedData() + compact('expenses'));
     }
 
+    public function unitExpenses(Request $request, Property $property)
+    {
+        $property->load(['building', 'landlord', 'ownerShares.owner']);
+        $request->merge(['property_id' => $property->id]);
+        $expenses = $this->filteredExpenses($request)
+            ->where('property_id', $property->id)
+            ->with(['audits' => fn ($query) => $query
+                ->select(['id', 'expense_id', 'user_id', 'action', 'reason', 'ip_address', 'created_at'])
+                ->with('user:id,name')])
+            ->latest('expense_date')->paginate(15)->withQueryString();
+
+        return view('admin.accounting.expenses', $this->expenseSharedData() + [
+            'expenses' => $expenses,
+            'scopedProperty' => $property,
+        ]);
+    }
+
     public function ownerPayouts(Request $request)
     {
         $perPage = in_array($request->input('per_page', '100'), ['25', '50', '100', '250'], true)

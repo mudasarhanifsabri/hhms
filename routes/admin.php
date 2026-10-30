@@ -58,6 +58,7 @@ Route::post('/access-control/users', [AccessControlController::class, 'storeUser
 Route::put('/access-control/users/{staff}', [AccessControlController::class, 'updateUser'])->name('access-control.users.update');
 Route::delete('/access-control/users/{staff}', [AccessControlController::class, 'destroyUser'])->name('access-control.users.destroy');
 Route::get('/properties/{property}/guest-qr', [\App\Http\Controllers\Tenants\GuestAccessController::class, 'poster'])->name('property.guest-qr');
+Route::get('/properties/{property}/expenses', [AccountingController::class, 'unitExpenses'])->name('property.expenses');
 Route::get('/settings', [SettingsController::class, 'edit'])->name('settings.edit');
 Route::put('/settings', [SettingsController::class, 'update'])->name('settings.update');
 Route::get('/software-update', [SoftwareUpdateController::class, 'index'])->name('software-update.index');
