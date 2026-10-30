@@ -15,6 +15,10 @@
     </li>
     @if(Route::has('admin.property.document-wallet.index'))<li class="nav-item"><a class="nav-link {{ request()->routeIs('admin.property.document-wallet.*') ? 'active' : '' }}" href="{{ route('admin.property.document-wallet.index',$property) }}"><i class="ri-folder-shield-2-line me-1"></i>Document Wallet</a></li>@endif
     <li class="nav-item"><a class="nav-link {{ request()->routeIs('admin.property.owner-documents.*') ? 'active' : '' }}" href="{{ route('admin.property.owner-documents.index',$property) }}"><i class="ri-file-sign-line me-1"></i>Agreement Signing</a></li>
-    @can('accounting.view')<li class="nav-item"><a class="nav-link {{ request()->routeIs('admin.property.expenses') ? 'active' : '' }}" href="{{ route('admin.property.expenses',$property) }}"><i class="ri-money-dollar-circle-line me-1"></i>Expenses</a></li>@endcan
+    @can('accounting.view')
+        @if(Route::has('admin.property.expenses'))
+            <li class="nav-item"><a class="nav-link {{ request()->routeIs('admin.property.expenses') ? 'active' : '' }}" href="{{ route('admin.property.expenses',$property) }}"><i class="ri-money-dollar-circle-line me-1"></i>Expenses</a></li>
+        @endif
+    @endcan
 </ul></div></div>
 @if(Route::has('admin.inventory.index') && !request()->routeIs('admin.property.show'))<a class="btn btn-outline-primary btn-sm mb-3" href="{{ route('admin.inventory.index', ['property_id' => $property->id]) }}"><i class="ri-archive-line me-1"></i>Unit Inventory & Inspections</a>@endif
