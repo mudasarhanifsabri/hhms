@@ -30,6 +30,7 @@ class CheckAdminPermission
         $routeName = (string) $request->route()?->getName();
         $segment = explode('.', str_replace('admin.', '', $routeName))[0] ?? '';
         $module = self::ROUTE_MODULES[$segment] ?? 'administration';
+        if ($routeName === 'admin.booking-invoice.correct' && $user->can('accounting.manage')) $module = 'accounting';
         if (in_array($routeName, ['admin.smartlocks.issue', 'admin.smartlocks.revoke'], true)) $module = 'bookings';
         $action = in_array($request->method(), ['GET', 'HEAD'], true) ? 'view' : 'manage';
         abort_unless($user->can($module.'.'.$action) || ($action === 'view' && $user->can($module.'.manage')), 403,

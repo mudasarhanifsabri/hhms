@@ -23,8 +23,8 @@ class BookingCorrectionController extends Controller
 {
     private function authorizeFinancialCorrection(): void
     {
-        abort_unless(request()->attributes->get('financial_approval_execution') || auth()->user()?->hasAnyRole(['Super Administrator', 'Backend IT']), 403,
-            'Only Super Administrator or Backend IT can correct or delete recorded financial entries.');
+        abort_unless(request()->attributes->get('financial_approval_execution') || auth()->user()?->hasAnyRole(['Super Administrator', 'Backend IT']) || auth()->user()?->can('accounting.manage'), 403,
+            'You need Accounting management permission to request a financial correction.');
     }
 
     private function fail(string $message): never

@@ -292,6 +292,28 @@ class BookingCorrectionsTest extends TestCase
         $this->actingAs($owner)->put(route('admin.booking-invoice.correct', $invoice), [])->assertForbidden();
     }
 
+    public function test_accounting_role_can_open_and_submit_booking_invoice_edit_for_approval(): void
+    {
+        [$booking, $invoice] = $this->setupInvoice();
+        $accountant = User::factory()->create(['role' => 'admin', 'password' => bcrypt('accountant-password')]);
+        $accountant->syncRoles(['Accounting']);
+
+        $this->actingAs($accountant)->get(route('admin.accounting.booking-invoices'))
+            ->assertOk()->assertSee('Edit Booking Invoice')->assertSee('Submit Edit for Approval');
+
+        $this->put(route('admin.booking-invoice.correct', $invoice), [
+            'rent_amount' => 1200, 'vat_rate' => 5, 'vat_included' => 0,
+            'fees' => $invoice->fees, 'reason' => 'Correct the agreed rent amount',
+            'current_password' => 'accountant-password',
+        ])->assertRedirect()->assertSessionHasNoErrors();
+
+        $this->assertEquals(1000, $invoice->fresh()->rent_amount);
+        $this->assertDatabaseHas('financial_approval_requests', [
+            'type' => 'invoice_edit', 'booking_id' => $booking->id,
+            'booking_invoice_id' => $invoice->id, 'status' => 'pending',
+        ]);
+    }
+
     public function test_only_backend_it_or_super_admin_can_delete_wrong_recorded_payment(): void
     {
         [$booking, $invoice, $bank] = $this->setupInvoice();
