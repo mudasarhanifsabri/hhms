@@ -586,7 +586,9 @@ class AccountingController extends Controller
             ...$data,
             'expense_no' => $this->nextNumber('EXP', Expense::class, 'expense_no'),
             'landlord_id' => $property?->landlord_id,
-            'owner_billable' => $request->boolean('owner_billable') || $data['responsibility'] === 'owner',
+            // The switch is authoritative. "Owner" responsibility may suggest this
+            // value in the UI, but a user can explicitly keep it off the statement.
+            'owner_billable' => $request->boolean('owner_billable'),
             'net_amount' => $amounts['net'],
             'vat_rate' => $amounts['rate'],
             'cost_vat_mode' => $costVatMode,
@@ -687,7 +689,7 @@ class AccountingController extends Controller
         $expense->update([
             ...$data,
             'landlord_id' => $property?->landlord_id,
-            'owner_billable' => $request->boolean('owner_billable') || $data['responsibility'] === 'owner',
+            'owner_billable' => $request->boolean('owner_billable'),
             'net_amount' => $amounts['net'],
             'vat_rate' => $amounts['rate'],
             'cost_vat_mode' => $costVatMode,

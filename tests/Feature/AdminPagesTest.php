@@ -42,6 +42,7 @@ class AdminPagesTest extends TestCase
             'category' => 'maintenance',
             'property_id' => $property->id,
             'responsibility' => 'owner',
+            'owner_billable' => '1',
             'net_amount' => 100,
             'cost_vat_mode' => 'excluded',
             'approval_status' => 'approved',
@@ -57,6 +58,23 @@ class AdminPagesTest extends TestCase
             'direction' => 'debit',
             'amount' => 105,
         ]);
+
+        $this->put(route('admin.accounting.expenses.update', $expense), [
+            'expense_date' => now()->toDateString(),
+            'category' => 'maintenance',
+            'property_id' => $property->id,
+            'responsibility' => 'owner',
+            'owner_billable' => '0',
+            'net_amount' => 100,
+            'cost_vat_mode' => 'excluded',
+            'approval_status' => 'approved',
+            'description' => 'Owner maintenance charge',
+            'current_password' => 'password',
+            'change_reason' => 'Keep this company-paid and remove it from the owner statement.',
+        ])->assertSessionHasNoErrors();
+
+        $this->assertFalse($expense->fresh()->owner_billable);
+        $this->assertDatabaseMissing('landlord_account_entries', ['reference' => $expense->expense_no]);
     }
 
     public function test_expense_sale_calculates_profit_posts_income_and_generates_tax_invoice(): void
