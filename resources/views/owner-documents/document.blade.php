@@ -32,8 +32,8 @@ body{margin:0;color:#192632;font:9.5px/1.45 dejavusans,Arial,sans-serif}.p{paddi
 </style></head><body>
 @php
 $esc=fn($v)=>htmlspecialchars((string)$v,ENT_QUOTES,'UTF-8');
-$header=function($page)use($logo,$document,$issued,$expires,$esc){ echo '<div class="head"><div>'.($logo?'<img class="logo" src="'.$esc($logo).'">':'').'</div><div class="meta"><b>Ref No.:</b> '.$esc($document->reference_no).'<br><b>Issue Date:</b> '.$esc($issued).($page===1?'<br><b>Valid Till:</b> '.$esc($expires):'').'</div></div>'; };
-$footer=function($n)use($esc){ echo '<div class="foot">Office 413, P.O. Box 1327, Al Attar Business Centre, Al-Barsha, Dubai, UAE | pattern.ae | customerservice@pattern.ae <span style="float:right">'.$esc($n).'</span></div>'; };
+$header=function($page)use($logo,$document,$issued,$expires,$esc){ if($page!==1)return; echo '<div class="head"><div>'.($logo?'<img class="logo" src="'.$esc($logo).'">':'').'</div><div class="meta"><b>Ref No.:</b> '.$esc($document->reference_no).'<br><b>Issue Date:</b> '.$esc($issued).'<br><b>Valid Till:</b> '.$esc($expires).'</div></div>'; };
+$footer=function($n)use($esc,$document){ if($document->type==='management_contract'&&$n!==9)return; echo '<div class="foot">Office 413, P.O. Box 1327, Al Attar Business Centre, Al-Barsha, Dubai, UAE | pattern.ae | customerservice@pattern.ae</div>'; };
 $signatures=function()use($ownerName,$signatureData,$document,$companySig,$companySignedByName,$stamp,$esc){ $ownerImage=$signatureData?'<img class="sigimg" src="'.$esc($signatureData).'">':'Awaiting owner signature'; $companyImage=$companySig?'<img class="sigimg" src="'.$esc($companySig).'">':'Awaiting company signature'; $stampImage=$stamp?'<img class="stamp" src="'.$esc($stamp).'">':''; echo '<div class="sig"><div><b>OWNER / المالك</b><br>'.$esc($ownerName).'<div class="sigbox">'.$ownerImage.'</div>Date: '.$esc($document->signed_at?->format('d/m/Y H:i')?:'Pending').'</div><div><b>COMPANY / الشركة</b><br>'.$esc($companySignedByName??$document->company_signed_name??'Authorized Signatory').'<div class="sigbox">'.$companyImage.'</div>'.$stampImage.'</div></div>'; };
 @endphp
 @if($document->type!=='management_contract')
