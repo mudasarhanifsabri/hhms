@@ -42,7 +42,10 @@
     <!-- App css (Require in all Page) -->
     <link href="{{ $versionedAsset('assets/css/app.min.css') }}" rel="stylesheet" type="text/css" />
     <link href="{{ $versionedAsset('assets/css/maintainer-pwa.css') }}" rel="stylesheet" type="text/css" />
-    @if($isAdminPwa)<link href="{{ $versionedAsset('assets/css/admin-pwa.css') }}" rel="stylesheet" type="text/css" />@endif
+    @if($isAdminPwa)
+        <link href="{{ $versionedAsset('assets/css/admin-pwa.css') }}" rel="stylesheet" type="text/css" />
+        <link href="{{ $versionedAsset('assets/css/premium-ui.css') }}" rel="stylesheet" type="text/css" />
+    @endif
 
     <style>
         /* Keep the desktop footer in document flow so long tables and pagination
@@ -123,8 +126,12 @@
                                 <h4 class="mb-0 fw-semibold">
                                     @php
                                         $segments = request()->segments();
+                                        $pageSegment = end($segments) ?: 'dashboard';
+                                        if (preg_match('/^[0-9a-f-]{32,36}$/i', $pageSegment) && count($segments) > 1) {
+                                            $pageSegment = $segments[count($segments) - 2];
+                                        }
                                     @endphp
-                                    {{ ucfirst(end($segments) ?? 'Dashboard') }}
+                                    {{ str($pageSegment)->replace(['-', '_'], ' ')->headline() }}
                                 </h4>
                                 <ol class="breadcrumb mb-0">
                                     <li class="breadcrumb-item">
@@ -152,23 +159,24 @@
                     <!-- ========== Page Title End ========== -->
 
                     @if (session('success'))
-                    <div class="alert alert-success">
-                        {{ session('success') }}
+                    <div class="alert alert-success alert-dismissible fade show" role="status">
+                        <i class="ri-checkbox-circle-line me-1"></i>{{ session('success') }}<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                     </div>
                 @elseif(session('error'))
-                    <div class="alert alert-danger">
-                        {{ session('error') }}
+                    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                        <i class="ri-error-warning-line me-1"></i>{{ session('error') }}<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                     </div>
                 @elseif(session('warning'))
-                    <div class="alert alert-warning">
-                        <i class="ri-shield-check-line me-1"></i>{{ session('warning') }}
+                    <div class="alert alert-warning alert-dismissible fade show" role="alert">
+                        <i class="ri-shield-check-line me-1"></i>{{ session('warning') }}<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                     </div>
                 @endif
 
 
 
                 @if (isset($errors) && $errors->any())
-    <div class="alert alert-danger">
+    <div class="alert alert-danger" role="alert">
+        <div class="fw-semibold mb-1"><i class="ri-error-warning-line me-1"></i>Please review the highlighted information.</div>
         <ul>
             @foreach ($errors->all() as $error)
                 <li>{{ $error }}</li>
@@ -225,7 +233,10 @@
        })();
      </script>
      @endif
-     @if($isAdminPwa)<script src="{{ $versionedAsset('assets/js/admin-pwa.js') }}"></script>@endif
+     @if($isAdminPwa)
+         <script src="{{ $versionedAsset('assets/js/admin-pwa.js') }}"></script>
+         <script src="{{ $versionedAsset('assets/js/premium-ui.js') }}"></script>
+     @endif
 
      @stack('scripts')
      @yield('script')
