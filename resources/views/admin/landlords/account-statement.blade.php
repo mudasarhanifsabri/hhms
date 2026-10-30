@@ -9,7 +9,7 @@
             <div class="card-body d-flex flex-wrap align-items-center justify-content-between gap-3">
                 <div>
                     <div class="text-uppercase text-primary fw-bold small mb-1">Unit Financial Workspace</div>
-                    <h3 class="fw-semibold mb-1">Unit {{ $unitContext->name }} <span class="text-muted fw-normal">|</span> {{ $unitContext->building?->building_name ?? $unitContext->building?->name ?? 'No Building' }}</h3>
+                    <h3 class="fw-semibold mb-1">{{ $unitContext->building?->building_name ?? $unitContext->building?->name ?? 'No Building' }} · Unit {{ $unitContext->name }}</h3>
                     <span class="text-muted">Account statement for {{ $landlord->name }}</span>
                 </div>
                 <a href="{{ route('admin.property.show', $unitContext) }}" class="btn btn-light"><i class="ri-arrow-left-line me-1"></i>Back to Unit</a>

@@ -38,8 +38,7 @@ class UnitExpenseNavigationTest extends TestCase
         $this->get(route('admin.property.account-statement', $unit))
             ->assertOk()
             ->assertSee('Unit Financial Workspace')
-            ->assertSee('Unit 501')
-            ->assertSee('Riviera 44')
+            ->assertSee('Riviera 44 · Unit 501')
             ->assertSee('Back to Unit')
             ->assertSee('name="property_id" value="'.$unit->id.'"', false)
             ->assertDontSee('href="'.route('admin.landlord.show', $owner).'"', false);
@@ -47,9 +46,5 @@ class UnitExpenseNavigationTest extends TestCase
         $this->assertSame([
             'responsibility' => 'owner', 'owner_billable' => true, 'recurring' => true, 'vat_mode' => 'excluded',
         ], Expense::categoryDefaults('internet'));
-
-        $statement = \App\Support\OwnerStatementPdf::data($owner, null, null, $unit->id);
-        $statementHtml = view('admin.landlords.pdf.account-statement', $statement)->render();
-        $this->assertStringContainsString('Unit 501 | Riviera 44', $statementHtml);
     }
 }

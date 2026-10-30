@@ -238,7 +238,7 @@ class LandlordController extends Controller
         $data = OwnerStatementPdf::data($landlord, $filters['date_from'], $filters['date_to'], $filters['property_id']);
         $statementProperty = $data['statementProperty'];
         $filename = $statementProperty
-            ? 'owner-statement-unit-'.Str::slug($statementProperty->name).'-'.Str::slug($statementProperty->building?->building_name ?? $statementProperty->building?->name ?? 'no-building').'.pdf'
+            ? preg_replace('/[<>:"\\\\\/|?*]+/', '-', trim($statementProperty->name.' - '.($statementProperty->building?->building_name ?? $statementProperty->building?->name ?? 'No Building').' - Owner Statement')).'.pdf'
             : 'owner-statement-'.Str::slug($landlord->name).'.pdf';
 
         return PdfRenderer::downloadView('admin.landlords.pdf.account-statement', $data, $filename, ['format' => 'A4']);
