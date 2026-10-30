@@ -8,7 +8,7 @@
     <li class="nav-item"><a class="nav-link {{ request()->routeIs('admin.property.show') ? 'active' : '' }}" href="{{ route('admin.property.show',$property) }}"><i class="ri-home-4-line me-1"></i>Unit Details</a></li>
     <li class="nav-item">
         @if($unitStatementOwnerId)
-            <a class="nav-link" href="{{ route('admin.landlord.account-statement', ['id' => $unitStatementOwnerId, 'property_id' => $property->id]) }}"><i class="ri-file-list-3-line me-1"></i>Unit Account Statement</a>
+            <a class="nav-link {{ request()->routeIs('admin.property.account-statement') ? 'active' : '' }}" href="{{ route('admin.property.account-statement', $property) }}"><i class="ri-file-list-3-line me-1"></i>Unit Account Statement</a>
         @else
             <span class="nav-link disabled" title="Assign an owner to open the unit statement"><i class="ri-file-list-3-line me-1"></i>Unit Account Statement</span>
         @endif

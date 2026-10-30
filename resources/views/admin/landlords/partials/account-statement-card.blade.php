@@ -20,14 +20,14 @@
                 <div class="d-flex flex-wrap gap-2">
                     @foreach($statementMonths as $statementMonth)
                         <a class="btn btn-sm {{ ($filters['month'] ?? '') === $statementMonth['value'] ? 'btn-primary' : 'btn-outline-primary' }}"
-                           href="{{ route('admin.landlord.account-statement', array_filter(['id' => $landlord->id, 'month' => $statementMonth['value'], 'property_id' => $filters['property_id'] ?? null, 'per_page' => $perPage])) }}">
+                           href="{{ $statementPageRoute }}?{{ http_build_query(array_filter(['month' => $statementMonth['value'], 'property_id' => $filters['property_id'] ?? null, 'per_page' => $perPage])) }}">
                             {{ $statementMonth['label'] }}
                         </a>
                     @endforeach
                 </div>
             </div>
         @endif
-        <form method="GET" action="{{ route('admin.landlord.account-statement', $landlord->id) }}" class="row g-2 mt-3 align-items-end">
+        <form method="GET" action="{{ $statementPageRoute }}" class="row g-2 mt-3 align-items-end">
             <div class="col-lg-2">
                 <label for="statement_year" class="form-label">Year</label>
                 <select id="statement_year" name="year" class="form-control">
@@ -47,7 +47,12 @@
             </div>
             <div class="col-lg-3">
                 <label for="statement_property_id" class="form-label">Unit</label>
-                <select id="statement_property_id" name="property_id" class="form-control"><option value="">All units</option>@foreach($relatedProperties as $property)<option value="{{ $property->id }}" @selected(($filters['property_id'] ?? '')===$property->id)>{{ $property->name }} - {{ $property->building?->building_name ?? 'No building' }}</option>@endforeach</select>
+                @if($unitContext)
+                    <input type="hidden" name="property_id" value="{{ $unitContext->id }}">
+                    <div class="form-control bg-light fw-semibold"><i class="ri-building-line me-1 text-primary"></i>{{ $unitContext->name }} - {{ $unitContext->building?->building_name ?? 'No building' }}</div>
+                @else
+                    <select id="statement_property_id" name="property_id" class="form-control"><option value="">All units</option>@foreach($relatedProperties as $property)<option value="{{ $property->id }}" @selected(($filters['property_id'] ?? '')===$property->id)>{{ $property->name }} - {{ $property->building?->building_name ?? 'No building' }}</option>@endforeach</select>
+                @endif
             </div>
             <div class="col-lg-2">
                 <label for="per_page" class="form-label">Per Page</label>
@@ -59,7 +64,7 @@
             </div>
             <div class="col-lg-2 d-flex gap-2">
                 <button type="submit" class="btn btn-outline-primary">Apply</button>
-                <a href="{{ route('admin.landlord.account-statement', $landlord->id) }}" class="btn btn-light">Reset</a>
+                <a href="{{ $statementPageRoute }}" class="btn btn-light">Reset</a>
             </div>
         </form>
     </div>
@@ -220,7 +225,18 @@
                         <input type="hidden" name="date_from" value="{{ $filters['date_from'] ?? '' }}">
                         <input type="hidden" name="date_to" value="{{ $filters['date_to'] ?? '' }}">
                         <div class="col-lg-8"><label class="form-label">Statement Period</label><div class="form-control bg-light">{{ \Carbon\Carbon::parse($filters['date_from'])->format('d M Y') }} – {{ \Carbon\Carbon::parse($filters['date_to'])->format('d M Y') }}</div></div>
-                        <div class="col-lg-4"><label class="form-label">Unit</label><select class="form-control" id="statement_property_id" name="property_id">
+                        <div class="col-lg-4"><label class="form-label">Unit</label>
+                        @if($unitContext)
+                            @php
+                                $unitOwners = $unitContext->ownerShares->pluck('owner')->filter()
+                                    ->prepend($unitContext->landlord)->prepend($landlord)->filter()->unique('id')->values()
+                                    ->map(fn ($owner) => ['name' => $owner->name, 'email' => trim((string) $owner->email)])
+                                    ->filter(fn ($owner) => filter_var($owner['email'], FILTER_VALIDATE_EMAIL))->values();
+                            @endphp
+                            <input type="hidden" name="property_id" value="{{ $unitContext->id }}">
+                            <select class="form-control" id="statement_property_id" disabled><option value="{{ $unitContext->id }}" data-owner-recipients="{{ $unitOwners->toJson() }}" selected>{{ $unitContext->name }} - {{ $unitContext->building?->building_name ?? 'No building' }}</option></select>
+                        @else
+                        <select class="form-control" id="statement_property_id" name="property_id">
                             <option value="" data-owner-recipients="{{ collect([['name' => $landlord->name, 'email' => $landlord->email]])->toJson() }}">All units</option>
                             @foreach($relatedProperties as $property)
                                 @php
@@ -231,7 +247,9 @@
                                 @endphp
                                 <option value="{{ $property->id }}" data-owner-recipients="{{ $unitOwners->toJson() }}" @selected(($filters['property_id'] ?? '')===$property->id)>{{ $property->name }} - {{ $property->building?->building_name ?? 'No building' }}</option>
                             @endforeach
-                        </select></div>
+                        </select>
+                        @endif
+                        </div>
                         <div class="col-12"><label class="form-label">Personal message <span class="text-muted fw-normal">(optional)</span></label><textarea class="form-control" name="message" rows="3" maxlength="2000" placeholder="Leave blank to send the standard statement email."></textarea></div>
                     </div>
                 </div>
@@ -404,12 +422,17 @@
                         </div>
                         <div class="col-lg-6">
                             <label for="property_id" class="form-label">Property</label>
+                            @if($unitContext)
+                            <input type="hidden" name="property_id" value="{{ $unitContext->id }}">
+                            <div class="form-control bg-light fw-semibold"><i class="ri-building-line me-1 text-primary"></i>{{ $unitContext->name }} - {{ $unitContext->building?->building_name ?? 'No building' }}</div>
+                            @else
                             <select class="form-control" id="property_id" name="property_id">
                                 <option value="">General owner account</option>
                                 @foreach ($relatedProperties as $property)
                                     <option value="{{ $property->id }}" @selected((string) old('property_id') === (string) $property->id)>{{ $property->name }}</option>
                                 @endforeach
                             </select>
+                            @endif
                         </div>
                         <div class="col-lg-6">
                             <label for="reference" class="form-label">Reference</label>

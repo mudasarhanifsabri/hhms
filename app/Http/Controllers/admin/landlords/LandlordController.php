@@ -123,7 +123,18 @@ class LandlordController extends Controller
         ));
     }
 
-    public function accountStatement(Request $request, $id)
+    public function unitAccountStatement(Request $request, Property $property)
+    {
+        $property->loadMissing(['landlord', 'building', 'ownerShares.owner']);
+        $ownerId = $property->landlord_id
+            ?: $property->ownerShares->sortByDesc('is_primary')->first()?->owner_id;
+        abort_unless($ownerId, 404, 'Assign an owner to this unit before opening its statement.');
+        $request->merge(['property_id' => $property->id]);
+
+        return $this->accountStatement($request, $ownerId, $property);
+    }
+
+    public function accountStatement(Request $request, $id, ?Property $unitContext = null)
     {
         $landlord = User::where('role', 'landlord')->findOrFail($id);
         $relatedProperties = $this->ownerUnitsQuery($landlord->id)->latest()->get();
@@ -182,7 +193,12 @@ class LandlordController extends Controller
         $accountEntryRoute = route('admin.landlord.account-entry.store', $landlord->id);
         $detailsRoute = route('admin.landlord.show', $landlord->id);
         $ownedPropertiesRoute = route('admin.landlord.owned-properties', $landlord->id);
-        $backRoute = route('admin.landlord.index');
+        $backRoute = $unitContext
+            ? route('admin.property.show', $unitContext)
+            : route('admin.landlord.index');
+        $statementPageRoute = $unitContext
+            ? route('admin.property.account-statement', $unitContext)
+            : route('admin.landlord.account-statement', $landlord->id);
         $statementPdfRoute = route('admin.landlord.account-statement.pdf', array_filter([
             'id' => $landlord->id,
             'date_from' => $filters['date_from'],
@@ -206,6 +222,8 @@ class LandlordController extends Controller
             'backRoute',
             'statementPdfRoute',
             'statementEmailRoute',
+            'statementPageRoute',
+            'unitContext',
             'filters',
             'perPage',
             'statementMonths',

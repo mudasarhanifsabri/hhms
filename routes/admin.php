@@ -215,6 +215,7 @@ Route::get('/properties/report/pdf', [PropertyController::class, 'exportPdf'])->
 Route::get('/properties/{property}/owner-documents', [PropertyOwnerDocumentController::class, 'index'])->name('property.owner-documents.index');
 Route::post('/properties/{property}/owner-documents', [PropertyOwnerDocumentController::class, 'store'])->name('property.owner-documents.store');
 Route::get('/properties/{property}/document-wallet', [UnitDocumentController::class, 'index'])->name('property.document-wallet.index');
+Route::get('/properties/{property}/account-statement', [LandlordController::class, 'unitAccountStatement'])->name('property.account-statement');
 Route::get('/properties/{property}/cancellations/create', [UnitManagementCancellationController::class, 'create'])->name('property.cancellations.create');
 Route::post('/properties/{property}/cancellations', [UnitManagementCancellationController::class, 'store'])->name('property.cancellations.store');
 Route::get('/properties/{property}/cancellations/{cancellation}', [UnitManagementCancellationController::class, 'show'])->name('property.cancellations.show');
